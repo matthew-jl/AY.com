@@ -2,7 +2,7 @@
 // versions:
 // 	protoc-gen-go v1.36.6
 // 	protoc        v6.30.2
-// source: protos/user/user.proto
+// source: user/user.proto
 
 package user
 
@@ -31,7 +31,7 @@ type HealthResponse struct {
 
 func (x *HealthResponse) Reset() {
 	*x = HealthResponse{}
-	mi := &file_protos_user_user_proto_msgTypes[0]
+	mi := &file_user_user_proto_msgTypes[0]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -43,7 +43,7 @@ func (x *HealthResponse) String() string {
 func (*HealthResponse) ProtoMessage() {}
 
 func (x *HealthResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_protos_user_user_proto_msgTypes[0]
+	mi := &file_user_user_proto_msgTypes[0]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -56,7 +56,7 @@ func (x *HealthResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use HealthResponse.ProtoReflect.Descriptor instead.
 func (*HealthResponse) Descriptor() ([]byte, []int) {
-	return file_protos_user_user_proto_rawDescGZIP(), []int{0}
+	return file_user_user_proto_rawDescGZIP(), []int{0}
 }
 
 func (x *HealthResponse) GetStatus() string {
@@ -66,34 +66,34 @@ func (x *HealthResponse) GetStatus() string {
 	return ""
 }
 
-var File_protos_user_user_proto protoreflect.FileDescriptor
+var File_user_user_proto protoreflect.FileDescriptor
 
-const file_protos_user_user_proto_rawDesc = "" +
+const file_user_user_proto_rawDesc = "" +
 	"\n" +
-	"\x16protos/user/user.proto\x12\x04user\x1a\x1bgoogle/protobuf/empty.proto\"(\n" +
+	"\x0fuser/user.proto\x12\x04user\x1a\x1bgoogle/protobuf/empty.proto\"(\n" +
 	"\x0eHealthResponse\x12\x16\n" +
 	"\x06status\x18\x01 \x01(\tR\x06status2J\n" +
 	"\vUserService\x12;\n" +
 	"\vHealthCheck\x12\x16.google.protobuf.Empty\x1a\x14.user.HealthResponseB9Z7github.com/Acad600-TPA/WEB-MJ-242/backend/genproto/userb\x06proto3"
 
 var (
-	file_protos_user_user_proto_rawDescOnce sync.Once
-	file_protos_user_user_proto_rawDescData []byte
+	file_user_user_proto_rawDescOnce sync.Once
+	file_user_user_proto_rawDescData []byte
 )
 
-func file_protos_user_user_proto_rawDescGZIP() []byte {
-	file_protos_user_user_proto_rawDescOnce.Do(func() {
-		file_protos_user_user_proto_rawDescData = protoimpl.X.CompressGZIP(unsafe.Slice(unsafe.StringData(file_protos_user_user_proto_rawDesc), len(file_protos_user_user_proto_rawDesc)))
+func file_user_user_proto_rawDescGZIP() []byte {
+	file_user_user_proto_rawDescOnce.Do(func() {
+		file_user_user_proto_rawDescData = protoimpl.X.CompressGZIP(unsafe.Slice(unsafe.StringData(file_user_user_proto_rawDesc), len(file_user_user_proto_rawDesc)))
 	})
-	return file_protos_user_user_proto_rawDescData
+	return file_user_user_proto_rawDescData
 }
 
-var file_protos_user_user_proto_msgTypes = make([]protoimpl.MessageInfo, 1)
-var file_protos_user_user_proto_goTypes = []any{
+var file_user_user_proto_msgTypes = make([]protoimpl.MessageInfo, 1)
+var file_user_user_proto_goTypes = []any{
 	(*HealthResponse)(nil), // 0: user.HealthResponse
 	(*emptypb.Empty)(nil),  // 1: google.protobuf.Empty
 }
-var file_protos_user_user_proto_depIdxs = []int32{
+var file_user_user_proto_depIdxs = []int32{
 	1, // 0: user.UserService.HealthCheck:input_type -> google.protobuf.Empty
 	0, // 1: user.UserService.HealthCheck:output_type -> user.HealthResponse
 	1, // [1:2] is the sub-list for method output_type
@@ -103,26 +103,26 @@ var file_protos_user_user_proto_depIdxs = []int32{
 	0, // [0:0] is the sub-list for field type_name
 }
 
-func init() { file_protos_user_user_proto_init() }
-func file_protos_user_user_proto_init() {
-	if File_protos_user_user_proto != nil {
+func init() { file_user_user_proto_init() }
+func file_user_user_proto_init() {
+	if File_user_user_proto != nil {
 		return
 	}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
-			RawDescriptor: unsafe.Slice(unsafe.StringData(file_protos_user_user_proto_rawDesc), len(file_protos_user_user_proto_rawDesc)),
+			RawDescriptor: unsafe.Slice(unsafe.StringData(file_user_user_proto_rawDesc), len(file_user_user_proto_rawDesc)),
 			NumEnums:      0,
 			NumMessages:   1,
 			NumExtensions: 0,
 			NumServices:   1,
 		},
-		GoTypes:           file_protos_user_user_proto_goTypes,
-		DependencyIndexes: file_protos_user_user_proto_depIdxs,
-		MessageInfos:      file_protos_user_user_proto_msgTypes,
+		GoTypes:           file_user_user_proto_goTypes,
+		DependencyIndexes: file_user_user_proto_depIdxs,
+		MessageInfos:      file_user_user_proto_msgTypes,
 	}.Build()
-	File_protos_user_user_proto = out.File
-	file_protos_user_user_proto_goTypes = nil
-	file_protos_user_user_proto_depIdxs = nil
+	File_user_user_proto = out.File
+	file_user_user_proto_goTypes = nil
+	file_user_user_proto_depIdxs = nil
 }
