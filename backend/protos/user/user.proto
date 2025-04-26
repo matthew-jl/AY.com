@@ -1,0 +1,15 @@
+syntax = "proto3";
+
+package user;
+
+option go_package = "github.com/Acad600-TPA/WEB-MJ-242/backend/genproto/user";
+
+import "google/protobuf/empty.proto";
+
+service UserService {
+  rpc HealthCheck(google.protobuf.Empty) returns (HealthResponse);
+}
+
+message HealthResponse {
+  string status = 1;
+}
