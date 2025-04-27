@@ -1,0 +1,27 @@
+version: "3.8"
+
+services:
+  postgres:
+    image: postgres:15
+    environment:
+      POSTGRES_USER: user
+      POSTGRES_PASSWORD: password
+      POSTGRES_DB: userdb
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+  user-service:
+    build:
+      context: .
+      dockerfile: backend/user-service/Dockerfile
+    ports:
+      - "50051:50051"
+    environment:
+      - DATABASE_URL=postgres://user:password@postgres:5432/userdb?sslmode=disable
+    depends_on:
+      - postgres
+
+volumes:
+  postgres_data:
