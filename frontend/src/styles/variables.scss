@@ -1,0 +1,35 @@
+// Theme variables (light/dark)
+:root {
+  --background: #ffffff;
+  --text-color: #0f1419;
+  --sidebar-bg: #ffffff;
+  --sidebar-text: #0f1419;
+  --border-color: #eff3f4;
+  --sidebar-hover-bg: #f7f9f9;
+  --sidebar-active-text: #0f1419;
+  --primary-color: #1d9bf0;
+  --primary-color-hover: #1a8cd8;
+  --primary-button-text: #ffffff;
+  --scrollbar-thumb-color: #c1c9d1;
+  --scrollbar-track-color: transparent;
+
+  // Dark theme overrides
+  &[data-theme="dark"] {
+    --background: #000000;
+    --text-color: #ffffff;
+    --sidebar-bg: #000000;
+    --sidebar-text: #e7e9ea;
+    --border-color: #2f3336;
+    --sidebar-hover-bg: #181818;
+    --sidebar-active-text: #e7e9ea;
+    --primary-color: #1d9bf0;
+    --primary-color-hover: #1a8cd8;
+    --primary-button-text: #ffffff;
+    --scrollbar-thumb-color: #3e4444;
+    --scrollbar-track-color: transparent;
+  }
+}
+
+// Sidebar widths (based on image reference)
+$left-sidebar-width: 250px;
+$right-sidebar-width: 350px;
