@@ -2,7 +2,7 @@ syntax = "proto3";
 
 package user;
 
-option go_package = "github.com/Acad600-TPA/WEB-MJ-242/backend/genproto/user";
+option go_package = "github.com/Acad600-TPA/WEB-MJ-242/backend/user-service/genproto";
 
 import "google/protobuf/empty.proto";
 

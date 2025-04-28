@@ -1,15 +1,12 @@
 FROM golang:1.23 AS builder
-WORKDIR /app
-COPY backend/user-service/go.mod backend/user-service/go.sum ./
-# Perlu karena ada di replace directive di go.mod, biar go mod download tidak error
-COPY backend/genproto /genproto
+WORKDIR /app/user-service
+COPY user-service/go.mod user-service/go.sum ./
 RUN go mod download
-# Destination: ./ relative to WORKDIR (/app).
-COPY backend/user-service/ ./
-RUN CGO_ENABLED=0 GOOS=linux go build -o user-service .
+COPY user-service/ .
+RUN CGO_ENABLED=0 GOOS=linux go build -o user-service ./cmd
 
 FROM alpine:latest
 WORKDIR /root/
-COPY --from=builder /app/user-service .
+COPY --from=builder /app/user-service/user-service .
 EXPOSE 50051
 CMD ["./user-service"]

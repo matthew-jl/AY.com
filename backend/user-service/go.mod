@@ -3,11 +3,10 @@ module github.com/Acad600-TPA/WEB-MJ-242/backend/user-service
 go 1.23.3
 
 require (
-	github.com/Acad600-TPA/WEB-MJ-242/backend/genproto v0.0.0-00010101000000-000000000000
 	google.golang.org/grpc v1.72.0
 	google.golang.org/protobuf v1.36.6
 	gorm.io/driver/postgres v1.5.11
-	gorm.io/gorm v1.25.10
+	gorm.io/gorm v1.26.0
 )
 
 require (
@@ -24,5 +23,3 @@ require (
 	golang.org/x/text v0.22.0 // indirect
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20250218202821-56aae31c358a // indirect
 )
-
-replace github.com/Acad600-TPA/WEB-MJ-242/backend/genproto => ../genproto
