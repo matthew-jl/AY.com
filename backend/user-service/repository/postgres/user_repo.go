@@ -9,9 +9,19 @@ import (
 )
 
 type User struct {
-	gorm.Model
-	Username string `gorm:"type:varchar(100);unique;not null"`
-	Email    string `gorm:"type:varchar(100);unique;not null"`
+    gorm.Model
+    Name                  string `gorm:"type:varchar(100);not null"`
+    Username              string `gorm:"type:varchar(100);unique;not null"`
+    Email                 string `gorm:"type:varchar(100);unique;not null"`
+    Password              string `gorm:"type:varchar(255);not null"`
+    Gender                string `gorm:"type:varchar(10)"`
+    ProfilePicture        string `gorm:"type:varchar(255)"`
+    Banner                string `gorm:"type:varchar(255)"`
+    DateOfBirth           string `gorm:"type:date"`
+    SecurityQuestion      string `gorm:"type:varchar(255);not null"`
+    SecurityAnswer        string `gorm:"type:varchar(255);not null"`
+    EmailVerificationCode string `gorm:"type:varchar(100)"`
+    AccountStatus         string `gorm:"type:varchar(20);default:'pending'"`
 }
 
 type UserRepository struct {

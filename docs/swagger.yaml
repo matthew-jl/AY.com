@@ -1,0 +1,27 @@
+openapi: 3.0.0
+info:
+  title: API Gateway
+  version: 1.0.0
+paths:
+  /api/v1/users/health:
+    get:
+      summary: Check user-service health
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
