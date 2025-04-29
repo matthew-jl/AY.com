@@ -5,6 +5,7 @@
   import Register from "./routes/Register.svelte";
   import Home from "./routes/Home.svelte";
   import LeftSidebar from "./components/LeftSidebar.svelte";
+  import RightSidebar from "./components/RightSidebar.svelte";
 
   export let url = "";
 </script>
@@ -22,6 +23,7 @@
           <a href="/">Go to Landing</a>
         </Route>
       </main>
+      <RightSidebar />
   </div>
 </Router>
 

@@ -1,27 +1,45 @@
 <script lang="ts">
+  import { onMount } from 'svelte';
   import { link } from 'svelte-routing';
   import { useLocation } from 'svelte-routing';
 
-  const location = useLocation();
+  
+  let theme: 'light' | 'dark' = 'light';
 
-  // Placeholder links based on image
+  $: logoPath = theme === 'light' ? '/logo_light.png' : '/logo_dark.png';
+  
+  onMount(() => {
+    const savedTheme = localStorage.getItem('theme') as 'light' | 'dark';
+    if (savedTheme) {
+      theme = savedTheme;
+      document.documentElement.setAttribute('data-theme', theme);
+    }
+  });
+  
+  function toggleTheme() {
+    theme = theme === 'light' ? 'dark' : 'light';
+    document.documentElement.setAttribute('data-theme', theme);
+    localStorage.setItem('theme', theme);
+  }
+  
+  const location = useLocation();
   const menuItems = [
     { label: 'Home', path: '/home', icon: '🏠' },
     { label: 'Explore', path: '/explore', icon: '🔍' },
     { label: 'Notifications', path: '/notifications', icon: '🔔' },
     { label: 'Messages', path: '/messages', icon: '✉️' },
-    { label: 'Grok', path: '/grok', icon: '🤖' },
     { label: 'Bookmarks', path: '/bookmarks', icon: '🔖' },
     { label: 'Communities', path: '/communities', icon: '👥' },
     { label: 'Premium', path: '/premium', icon: '⭐' },
-    { label: 'Verified Orgs', path: '/verified-orgs', icon: '✅' },
     { label: 'Profile', path: '/profile', icon: '👤' },
-    { label: 'More', path: '/more', icon: '⋯' },
+    { label: 'Settings', path: '/settings', icon: '⚙' },
   ];
 </script>
 
 <aside class="left-sidebar">
-  <div class="logo">AY</div>
+  <div class="logo">
+      <img src={logoPath} alt="Logo" />
+  </div>
   <nav>
     {#each menuItems as item}
       <a class="menu-item"
@@ -35,6 +53,9 @@
     {/each}
   </nav>
   <button class="post-button">Post</button>
+  <button class="theme-toggle" on:click={toggleTheme}>
+    {theme === 'light' ? '🌙' : '☀️'}
+  </button>
 </aside>
 
 <style lang="scss">
@@ -53,14 +74,18 @@
     border-right: 1px solid var(--border-color);
     display: flex;
     flex-direction: column;
+    scrollbar-width: none;
   }
 
   .logo {
-    font-size: 28px;
-    font-weight: bold;
-    margin-bottom: 25px;
-    text-align: center;
+    margin-bottom: 5px;
     padding: 0 10px;
+
+    img {
+       width: 40px;
+       height: auto;
+       display: block;
+    }
   }
 
   nav {
@@ -83,6 +108,7 @@
     &.active {
       font-weight: bold;
       color: var(--sidebar-active-text);
+      background-color: var(--sidebar-hover-bg);
     }
   }
 
@@ -112,14 +138,26 @@
     }
   }
 
-  .left-sidebar::-webkit-scrollbar {
-    width: 6px;
+  .theme-toggle {
+    background: #444;
+    color: white;
+    border: none;
+    padding: 8px 16px;
+    border-radius: 20px;
+    margin: 10px 0;
+    width: 90%;
+    align-self: center;
+    cursor: pointer;
   }
-  .left-sidebar::-webkit-scrollbar-thumb {
-    background-color: var(--scrollbar-thumb-color);
-    border-radius: 3px;
-  }
-  .left-sidebar::-webkit-scrollbar-track {
-    background: var(--scrollbar-track-color);
-  }
+
+  // .left-sidebar::-webkit-scrollbar {
+  //   width: 6px;
+  // }
+  // .left-sidebar::-webkit-scrollbar-thumb {
+  //   background-color: var(--scrollbar-thumb-color);
+  //   border-radius: 3px;
+  // }
+  // .left-sidebar::-webkit-scrollbar-track {
+  //   background: var(--scrollbar-track-color);
+  // }
 </style>

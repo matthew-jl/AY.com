@@ -4,7 +4,7 @@
 body {
   background: var(--background);
   color: var(--text-color);
-  display: flex;
+  // display: flex;
   min-height: 100vh;
 }
 
@@ -15,5 +15,5 @@ a {
 
 a:hover {
   // text-decoration: underline;
-  color: var(--primary-color-hover);
+  color: var(--primary-color);
 }
