@@ -56,3 +56,7 @@ func (c *UserClient) GetSecurityQuestion(ctx context.Context, req *userpb.GetSec
 func (c *UserClient) ResetPassword(ctx context.Context, req *userpb.ResetPasswordRequest) (*emptypb.Empty, error) {
 	return c.client.ResetPassword(ctx, req)
 }
+
+func (c *UserClient) GetUserProfile(ctx context.Context, req *userpb.GetUserProfileRequest) (*userpb.User, error) {
+	return c.client.GetUserProfile(ctx, req)
+}

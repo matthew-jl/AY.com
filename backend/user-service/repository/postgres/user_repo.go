@@ -126,3 +126,15 @@ func (r *UserRepository) UpdatePassword(ctx context.Context, userID uint, newPas
     log.Printf("Password updated successfully for user ID: %d", userID)
     return nil
 }
+
+func (r *UserRepository) GetUserByID(ctx context.Context, userID uint) (*User, error) {
+	var user User
+	result := r.db.WithContext(ctx).Where("id = ?", userID).First(&user)
+	if result.Error != nil {
+		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
+			return nil, errors.New("user not found by ID")
+		}
+		return nil, fmt.Errorf("failed to get user by ID %d: %w", userID, result.Error)
+	}
+	return &user, nil
+}

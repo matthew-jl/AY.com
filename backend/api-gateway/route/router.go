@@ -63,7 +63,7 @@ func SetupRouter(authHandler *gwHTTPHandler.AuthHandler, wsHub *websocket.Hub, j
 	users.Use(middleware.AuthMiddleware(jwtSecret))
 	{
 		users.GET("/health", authHandler.HealthCheck)
-		// users.GET("/profile", authHandler.GetProfile) // Add later
+		users.GET("/profile", authHandler.GetProfile)
 		// users.PUT("/profile", authHandler.UpdateProfile) // Add later
 	}
 

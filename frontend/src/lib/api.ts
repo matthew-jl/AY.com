@@ -12,6 +12,20 @@ export interface AuthResponse {
   refresh_token: string;
 }
 
+export interface UserProfileResponse {
+  id: number;
+  name: string;
+  username: string;
+  email: string;
+  gender: string;
+  profile_picture: string | null;
+  banner: string | null;
+  date_of_birth: string;
+  account_status: string;
+  account_privacy: string;
+  created_at: string; // Expect ISO string from backend JSON
+}
+
 export class ApiError extends Error {
   status: number;
   details?: any;
@@ -206,5 +220,11 @@ export const api = {
     apiFetch<void>("/auth/forgot-password/reset", {
       method: "POST",
       body: JSON.stringify(data),
+    }),
+
+  getUserProfile: (): Promise<UserProfileResponse> =>
+    apiFetch<UserProfileResponse>("/users/profile", {
+      // Uses auth token implicitly
+      method: "GET",
     }),
 };

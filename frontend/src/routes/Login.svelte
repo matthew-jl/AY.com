@@ -1,10 +1,11 @@
 <script lang="ts">
-  import { api, ApiError, saveTokens } from '../lib/api';
+  import { api, ApiError, clearTokens, saveTokens } from '../lib/api';
   import { setAuthState } from '../stores/authStore';
   import { navigate } from 'svelte-routing';
   import type { LoginRequestData } from '../lib/api';
   import { link } from 'svelte-routing';
   import { onDestroy, onMount } from 'svelte';
+  import { clearUser, setUser } from '../stores/userStore';
 
   let email = '';
   let password = '';
@@ -124,23 +125,35 @@
     const credentials: LoginRequestData = { email, password, recaptchaToken: recaptchaToken as string };
 
     try {
-      const response = await api.login(credentials);
-      saveTokens(response.access_token, response.refresh_token);
+      // 1. Login and get tokens
+      const loginResponse = await api.login(credentials);
+      saveTokens(loginResponse.access_token, loginResponse.refresh_token);
+
+      // 2. Fetch user profile using the new token
+      try {
+          const userProfile = await api.getUserProfile();
+          setUser(userProfile); // Update user store
+      } catch (profileError) {
+          console.error("Login successful, but failed to fetch profile:", profileError);
+          setUser(null); // Ensure user store is cleared if profile fetch fails
+      }
+
+      // 3. Update global auth state
       setAuthState(true);
+
+      // 4. Navigate to home
       navigate('/home', { replace: true });
+
     } catch (err) {
       console.error("Login Error:", err);
-      if (recaptchaWidgetId !== null && window.grecaptcha) {
-          try { window.grecaptcha.reset(recaptchaWidgetId); } catch(e) {}
-      }
+      // Reset reCAPTCHA if used
       recaptchaToken = null;
-      if (err instanceof ApiError) {
-        error = `Login failed: ${err.message}`;
-      } else if (err instanceof Error) {
-        error = `An error occurred: ${err.message}`;
-      } else {
-        error = 'An unexpected error occurred during login.';
-      }
+      clearTokens();
+      clearUser();
+      setAuthState(false);
+      if (err instanceof ApiError) { error = `Login failed: ${err.message}`; }
+      else if (err instanceof Error) { error = `An error occurred: ${err.message}`; }
+      else { error = 'An unexpected error occurred during login.'; }
     } finally {
       loading = false;
     }

@@ -15,6 +15,7 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/emptypb"
+	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
 var (
@@ -335,4 +336,38 @@ func (h *UserHandler) ResetPassword(ctx context.Context, req *userpb.ResetPasswo
 
 	log.Printf("Password reset successfully for user %d (%s)", user.ID, user.Email)
 	return &emptypb.Empty{}, nil
+}
+
+func (h *UserHandler) GetUserProfile(ctx context.Context, req *userpb.GetUserProfileRequest) (*userpb.User, error) {
+	log.Printf("Received GetUserProfile request for User ID: %d", req.UserId)
+
+	if req.UserId == 0 {
+		return nil, status.Errorf(codes.InvalidArgument, "User ID is required")
+	}
+
+	// Fetch user from repository by ID
+	user, err := h.repo.GetUserByID(ctx, uint(req.UserId))
+	if err != nil {
+		log.Printf("GetUserProfile failed for User ID %d: %v", req.UserId, err)
+		if err.Error() == "user not found by ID" {
+			return nil, status.Errorf(codes.NotFound, "User profile not found")
+		}
+		return nil, status.Errorf(codes.Internal, "Failed to retrieve user profile")
+	}
+
+	// Map repository User struct to proto User message
+	// Exclude sensitive fields like PasswordHash, SecurityAnswerHash, VerificationCode
+	return &userpb.User{
+		Id:             uint32(user.ID),
+		Name:           user.Name,
+		Username:       user.Username,
+		Email:          user.Email,
+		Gender:         user.Gender,
+		ProfilePicture: user.ProfilePicture,
+		Banner:         user.Banner,
+		DateOfBirth:    user.DateOfBirth,
+		AccountStatus:  user.AccountStatus,
+		AccountPrivacy: user.AccountPrivacy,
+		CreatedAt:      timestamppb.New(user.CreatedAt), // Convert time.Time to Timestamp proto
+	}, nil
 }

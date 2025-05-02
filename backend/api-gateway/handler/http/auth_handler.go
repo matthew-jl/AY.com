@@ -1,6 +1,7 @@
 package http
 
 import (
+	"log"
 	"net/http"
 
 	"github.com/Acad600-TPA/WEB-MJ-242/backend/api-gateway/client"
@@ -227,6 +228,47 @@ func (h *AuthHandler) ResetPassword(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"message": "Password reset successfully. You can now log in."})
 }
 
+func (h *AuthHandler) GetProfile(c *gin.Context) {
+	// Retrieve userID set by the AuthMiddleware
+	userIDAny, exists := c.Get("userID")
+	if !exists {
+		log.Println("ERROR: userID not found in context after AuthMiddleware")
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Authentication context missing"})
+		return
+	}
+
+	// Type assert userID (it was set as uint in middleware)
+	userID, ok := userIDAny.(uint)
+	if !ok || userID == 0 {
+		log.Printf("ERROR: Invalid userID type or value in context: %v (%T)", userIDAny, userIDAny)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Invalid authentication context"})
+		return
+	}
+
+	// Prepare gRPC request
+	grpcReq := &userpb.GetUserProfileRequest{
+		UserId: uint32(userID),
+	}
+
+	// Call User Service
+	resp, err := h.userClient.GetUserProfile(c.Request.Context(), grpcReq)
+	if err != nil {
+		st, ok := status.FromError(err)
+		if ok {
+			httpCode := grpcStatusCodeToHTTP(st.Code())
+			errorMsg := st.Message()
+			if st.Code() == codes.NotFound {
+				errorMsg = "User profile not found."
+			}
+			c.JSON(httpCode, gin.H{"error": errorMsg})
+		} else {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to retrieve profile: " + err.Error()})
+		}
+		return
+	}
+
+	c.JSON(http.StatusOK, resp)
+}
 
 // Helper function to map gRPC status codes to HTTP status codes
 func grpcStatusCodeToHTTP(code codes.Code) int {

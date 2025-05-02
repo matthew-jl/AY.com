@@ -4,9 +4,11 @@
   import { useLocation } from 'svelte-routing';
   import { clearTokens } from '../lib/api';
   import { setAuthState } from '../stores/authStore';
+  import { clearUser, user } from '../stores/userStore';
 
   
   let theme: 'light' | 'dark' = 'light';
+  let showLogout = false;
 
   $: logoPath = theme === 'light' ? '/logo_light.png' : '/logo_dark.png';
   
@@ -22,6 +24,10 @@
     theme = theme === 'light' ? 'dark' : 'light';
     document.documentElement.setAttribute('data-theme', theme);
     localStorage.setItem('theme', theme);
+  }
+
+  function toggleLogout() {
+    showLogout = !showLogout;
   }
   
   const location = useLocation();
@@ -39,6 +45,7 @@
 
   function handleLogout() {
     console.log("Logging out...");
+    clearUser();
     clearTokens();
     setAuthState(false);
     navigate('/login', { replace: true });
@@ -65,9 +72,26 @@
   <button class="theme-toggle" on:click={toggleTheme}>
     {theme === 'light' ? '🌙' : '☀️'}
   </button>
-  <button class="logout-button" on:click={handleLogout}>
-        Logout
-  </button>
+  {#if $user}
+    <div class="user-info-container" role="button" tabindex="0" aria-label="Account options" on:click={toggleLogout} on:keydown={(e) => e.key === 'Enter' && toggleLogout()}>
+        <div class="user-avatar-placeholder">
+            <!-- Placeholder - Replace with actual img later -->
+            {$user.name.charAt(0).toUpperCase()}
+        </div>
+        <div class="user-details">
+            <span class="user-name">{$user.name}</span>
+            <span class="user-handle">@{$user.username}</span>
+        </div>
+        <div class="user-logout-icon">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><g><path d="M3 12c0-1.1.9-2 2-2s2 .9 2 2-.9 2-2 2-2-.9-2-2zm9 2c1.1 0 2-.9 2-2s-.9-2-2-2-2 .9-2 2 .9 2 2 2zm7 0c1.1 0 2-.9 2-2s-.9-2-2-2-2 .9-2 2 .9 2 2 2z"></path></g></svg>
+        </div>
+    </div>
+    {#if showLogout}
+      <button class="logout-button" on:click={handleLogout}>
+          Logout
+      </button>
+    {/if}
+   {/if}
 </aside>
 
 <style lang="scss">
@@ -182,4 +206,79 @@
            color: var(--text-color);
        }
   }
+
+  .user-info-container {
+      display: flex;
+      align-items: center;
+      padding: 8px 12px;
+      margin: 5px 0;
+      border-radius: 9999px;
+      cursor: pointer;
+      transition: background-color 0.2s ease-in-out;
+      width: 100%;
+      box-sizing: border-box;
+      background: transparent;
+      border: none;
+      color: var(--sidebar-text);
+      text-align: left;
+
+      &:hover {
+          background-color: var(--sidebar-hover-bg);
+      }
+       &:focus-visible {
+            outline: 2px solid var(--primary-color);
+            outline-offset: 2px;
+       }
+  }
+
+  .user-avatar-placeholder {
+      width: 40px;
+      height: 40px;
+      border-radius: 50%;
+      background-color: var(--secondary-text-color);
+      color: var(--background);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: bold;
+      font-size: 1.1rem;
+      margin-right: 10px;
+      flex-shrink: 0;
+  }
+
+  .user-details {
+      flex-grow: 1;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      line-height: 1.3;
+  }
+
+  .user-name {
+      font-weight: bold;
+      font-size: 15px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+  }
+
+  .user-handle {
+      font-size: 14px;
+      color: var(--secondary-text-color);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+  }
+
+  .user-logout-icon {
+      margin-left: auto;
+      padding-left: 10px;
+      flex-shrink: 0;
+       svg {
+           width: 20px;
+           height: 20px;
+           fill: currentColor;
+       }
+  }
+
 </style>

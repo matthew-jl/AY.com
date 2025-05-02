@@ -5,6 +5,7 @@ package user;
 option go_package = "github.com/Acad600-TPA/WEB-MJ-242/backend/user-service/genproto";
 
 import "google/protobuf/empty.proto";
+import "google/protobuf/timestamp.proto";
 
 service UserService {
   rpc HealthCheck(google.protobuf.Empty) returns (HealthResponse);
@@ -13,6 +14,7 @@ service UserService {
   rpc VerifyEmail(VerifyEmailRequest) returns (google.protobuf.Empty);
   rpc GetSecurityQuestion(GetSecurityQuestionRequest) returns (GetSecurityQuestionResponse);
   rpc ResetPassword(ResetPasswordRequest) returns (google.protobuf.Empty);
+  rpc GetUserProfile(GetUserProfileRequest) returns (User);
 }
 
 message HealthResponse {
@@ -57,4 +59,22 @@ message ResetPasswordRequest {
   string email = 1;
   string security_answer = 2; // User's provided answer
   string new_password = 3;
+}
+
+message User {
+  uint32 id = 1;
+  string name = 2;
+  string username = 3;
+  string email = 4;
+  string gender = 5;
+  string profile_picture = 6; // URL or identifier
+  string banner = 7;          // URL or identifier
+  string date_of_birth = 8;   // YYYY-MM-DD string
+  string account_status = 9;
+  string account_privacy = 10;
+  google.protobuf.Timestamp created_at = 11;
+}
+
+message GetUserProfileRequest {
+  uint32 user_id = 1;
 }
