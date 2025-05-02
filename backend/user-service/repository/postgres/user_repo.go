@@ -114,3 +114,15 @@ func (r *UserRepository) ActivateUserAccount(ctx context.Context, userID uint) e
 	log.Printf("Activated account for user ID: %d", userID)
 	return nil
 }
+
+func (r *UserRepository) UpdatePassword(ctx context.Context, userID uint, newPasswordHash string) error {
+    result := r.db.WithContext(ctx).Model(&User{}).Where("id = ?", userID).Update("password_hash", newPasswordHash)
+    if result.Error != nil {
+        return fmt.Errorf("failed to update password for user %d: %w", userID, result.Error)
+    }
+    if result.RowsAffected == 0 {
+        return errors.New("user not found for password update")
+    }
+    log.Printf("Password updated successfully for user ID: %d", userID)
+    return nil
+}

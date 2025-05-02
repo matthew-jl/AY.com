@@ -322,6 +322,154 @@ func (x *VerifyEmailRequest) GetCode() string {
 	return ""
 }
 
+type GetSecurityQuestionRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Email         string                 `protobuf:"bytes,1,opt,name=email,proto3" json:"email,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *GetSecurityQuestionRequest) Reset() {
+	*x = GetSecurityQuestionRequest{}
+	mi := &file_proto_user_proto_msgTypes[5]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GetSecurityQuestionRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GetSecurityQuestionRequest) ProtoMessage() {}
+
+func (x *GetSecurityQuestionRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_user_proto_msgTypes[5]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GetSecurityQuestionRequest.ProtoReflect.Descriptor instead.
+func (*GetSecurityQuestionRequest) Descriptor() ([]byte, []int) {
+	return file_proto_user_proto_rawDescGZIP(), []int{5}
+}
+
+func (x *GetSecurityQuestionRequest) GetEmail() string {
+	if x != nil {
+		return x.Email
+	}
+	return ""
+}
+
+type GetSecurityQuestionResponse struct {
+	state            protoimpl.MessageState `protogen:"open.v1"`
+	SecurityQuestion string                 `protobuf:"bytes,1,opt,name=security_question,json=securityQuestion,proto3" json:"security_question,omitempty"`
+	unknownFields    protoimpl.UnknownFields
+	sizeCache        protoimpl.SizeCache
+}
+
+func (x *GetSecurityQuestionResponse) Reset() {
+	*x = GetSecurityQuestionResponse{}
+	mi := &file_proto_user_proto_msgTypes[6]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GetSecurityQuestionResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GetSecurityQuestionResponse) ProtoMessage() {}
+
+func (x *GetSecurityQuestionResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_user_proto_msgTypes[6]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GetSecurityQuestionResponse.ProtoReflect.Descriptor instead.
+func (*GetSecurityQuestionResponse) Descriptor() ([]byte, []int) {
+	return file_proto_user_proto_rawDescGZIP(), []int{6}
+}
+
+func (x *GetSecurityQuestionResponse) GetSecurityQuestion() string {
+	if x != nil {
+		return x.SecurityQuestion
+	}
+	return ""
+}
+
+type ResetPasswordRequest struct {
+	state          protoimpl.MessageState `protogen:"open.v1"`
+	Email          string                 `protobuf:"bytes,1,opt,name=email,proto3" json:"email,omitempty"`
+	SecurityAnswer string                 `protobuf:"bytes,2,opt,name=security_answer,json=securityAnswer,proto3" json:"security_answer,omitempty"` // User's provided answer
+	NewPassword    string                 `protobuf:"bytes,3,opt,name=new_password,json=newPassword,proto3" json:"new_password,omitempty"`
+	unknownFields  protoimpl.UnknownFields
+	sizeCache      protoimpl.SizeCache
+}
+
+func (x *ResetPasswordRequest) Reset() {
+	*x = ResetPasswordRequest{}
+	mi := &file_proto_user_proto_msgTypes[7]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ResetPasswordRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ResetPasswordRequest) ProtoMessage() {}
+
+func (x *ResetPasswordRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_user_proto_msgTypes[7]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ResetPasswordRequest.ProtoReflect.Descriptor instead.
+func (*ResetPasswordRequest) Descriptor() ([]byte, []int) {
+	return file_proto_user_proto_rawDescGZIP(), []int{7}
+}
+
+func (x *ResetPasswordRequest) GetEmail() string {
+	if x != nil {
+		return x.Email
+	}
+	return ""
+}
+
+func (x *ResetPasswordRequest) GetSecurityAnswer() string {
+	if x != nil {
+		return x.SecurityAnswer
+	}
+	return ""
+}
+
+func (x *ResetPasswordRequest) GetNewPassword() string {
+	if x != nil {
+		return x.NewPassword
+	}
+	return ""
+}
+
 var File_proto_user_proto protoreflect.FileDescriptor
 
 const file_proto_user_proto_rawDesc = "" +
@@ -346,12 +494,22 @@ const file_proto_user_proto_rawDesc = "" +
 	"\rrefresh_token\x18\x02 \x01(\tR\frefreshToken\">\n" +
 	"\x12VerifyEmailRequest\x12\x14\n" +
 	"\x05email\x18\x01 \x01(\tR\x05email\x12\x12\n" +
-	"\x04code\x18\x02 \x01(\tR\x04code2\xf7\x01\n" +
+	"\x04code\x18\x02 \x01(\tR\x04code\"2\n" +
+	"\x1aGetSecurityQuestionRequest\x12\x14\n" +
+	"\x05email\x18\x01 \x01(\tR\x05email\"J\n" +
+	"\x1bGetSecurityQuestionResponse\x12+\n" +
+	"\x11security_question\x18\x01 \x01(\tR\x10securityQuestion\"x\n" +
+	"\x14ResetPasswordRequest\x12\x14\n" +
+	"\x05email\x18\x01 \x01(\tR\x05email\x12'\n" +
+	"\x0fsecurity_answer\x18\x02 \x01(\tR\x0esecurityAnswer\x12!\n" +
+	"\fnew_password\x18\x03 \x01(\tR\vnewPassword2\x98\x03\n" +
 	"\vUserService\x12;\n" +
 	"\vHealthCheck\x12\x16.google.protobuf.Empty\x1a\x14.user.HealthResponse\x129\n" +
 	"\bRegister\x12\x15.user.RegisterRequest\x1a\x16.google.protobuf.Empty\x12/\n" +
 	"\x05Login\x12\x12.user.LoginRequest\x1a\x12.user.AuthResponse\x12?\n" +
-	"\vVerifyEmail\x12\x18.user.VerifyEmailRequest\x1a\x16.google.protobuf.EmptyBAZ?github.com/Acad600-TPA/WEB-MJ-242/backend/user-service/genprotob\x06proto3"
+	"\vVerifyEmail\x12\x18.user.VerifyEmailRequest\x1a\x16.google.protobuf.Empty\x12Z\n" +
+	"\x13GetSecurityQuestion\x12 .user.GetSecurityQuestionRequest\x1a!.user.GetSecurityQuestionResponse\x12C\n" +
+	"\rResetPassword\x12\x1a.user.ResetPasswordRequest\x1a\x16.google.protobuf.EmptyBAZ?github.com/Acad600-TPA/WEB-MJ-242/backend/user-service/genprotob\x06proto3"
 
 var (
 	file_proto_user_proto_rawDescOnce sync.Once
@@ -365,26 +523,33 @@ func file_proto_user_proto_rawDescGZIP() []byte {
 	return file_proto_user_proto_rawDescData
 }
 
-var file_proto_user_proto_msgTypes = make([]protoimpl.MessageInfo, 5)
+var file_proto_user_proto_msgTypes = make([]protoimpl.MessageInfo, 8)
 var file_proto_user_proto_goTypes = []any{
-	(*HealthResponse)(nil),     // 0: user.HealthResponse
-	(*RegisterRequest)(nil),    // 1: user.RegisterRequest
-	(*LoginRequest)(nil),       // 2: user.LoginRequest
-	(*AuthResponse)(nil),       // 3: user.AuthResponse
-	(*VerifyEmailRequest)(nil), // 4: user.VerifyEmailRequest
-	(*emptypb.Empty)(nil),      // 5: google.protobuf.Empty
+	(*HealthResponse)(nil),              // 0: user.HealthResponse
+	(*RegisterRequest)(nil),             // 1: user.RegisterRequest
+	(*LoginRequest)(nil),                // 2: user.LoginRequest
+	(*AuthResponse)(nil),                // 3: user.AuthResponse
+	(*VerifyEmailRequest)(nil),          // 4: user.VerifyEmailRequest
+	(*GetSecurityQuestionRequest)(nil),  // 5: user.GetSecurityQuestionRequest
+	(*GetSecurityQuestionResponse)(nil), // 6: user.GetSecurityQuestionResponse
+	(*ResetPasswordRequest)(nil),        // 7: user.ResetPasswordRequest
+	(*emptypb.Empty)(nil),               // 8: google.protobuf.Empty
 }
 var file_proto_user_proto_depIdxs = []int32{
-	5, // 0: user.UserService.HealthCheck:input_type -> google.protobuf.Empty
+	8, // 0: user.UserService.HealthCheck:input_type -> google.protobuf.Empty
 	1, // 1: user.UserService.Register:input_type -> user.RegisterRequest
 	2, // 2: user.UserService.Login:input_type -> user.LoginRequest
 	4, // 3: user.UserService.VerifyEmail:input_type -> user.VerifyEmailRequest
-	0, // 4: user.UserService.HealthCheck:output_type -> user.HealthResponse
-	5, // 5: user.UserService.Register:output_type -> google.protobuf.Empty
-	3, // 6: user.UserService.Login:output_type -> user.AuthResponse
-	5, // 7: user.UserService.VerifyEmail:output_type -> google.protobuf.Empty
-	4, // [4:8] is the sub-list for method output_type
-	0, // [0:4] is the sub-list for method input_type
+	5, // 4: user.UserService.GetSecurityQuestion:input_type -> user.GetSecurityQuestionRequest
+	7, // 5: user.UserService.ResetPassword:input_type -> user.ResetPasswordRequest
+	0, // 6: user.UserService.HealthCheck:output_type -> user.HealthResponse
+	8, // 7: user.UserService.Register:output_type -> google.protobuf.Empty
+	3, // 8: user.UserService.Login:output_type -> user.AuthResponse
+	8, // 9: user.UserService.VerifyEmail:output_type -> google.protobuf.Empty
+	6, // 10: user.UserService.GetSecurityQuestion:output_type -> user.GetSecurityQuestionResponse
+	8, // 11: user.UserService.ResetPassword:output_type -> google.protobuf.Empty
+	6, // [6:12] is the sub-list for method output_type
+	0, // [0:6] is the sub-list for method input_type
 	0, // [0:0] is the sub-list for extension type_name
 	0, // [0:0] is the sub-list for extension extendee
 	0, // [0:0] is the sub-list for field type_name
@@ -401,7 +566,7 @@ func file_proto_user_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_proto_user_proto_rawDesc), len(file_proto_user_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   5,
+			NumMessages:   8,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

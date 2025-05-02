@@ -54,6 +54,8 @@ func SetupRouter(authHandler *gwHTTPHandler.AuthHandler, wsHub *websocket.Hub, j
 		auth.POST("/register", authHandler.Register)
 		auth.POST("/login", authHandler.Login)
 		auth.POST("/verify", authHandler.VerifyEmail)
+		auth.POST("/forgot-password/question", authHandler.GetSecurityQuestion)
+		auth.POST("/forgot-password/reset", authHandler.ResetPassword) 
 	}
 
 	// --- User routes (Requires JWT auth) ---

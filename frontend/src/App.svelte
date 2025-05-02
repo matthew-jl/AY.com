@@ -11,6 +11,7 @@
   import NoAccess from "./routes/NoAccess.svelte";
   import { currentPathname } from "./stores/locationStore";
   import LocationUpdater from "./components/LocationUpdater.svelte";
+  import ForgotPassword from "./routes/ForgotPassword.svelte";
 
   export let url = "";
 
@@ -61,7 +62,7 @@
       return;
     }
 
-    const isGuestRoute = ['/login', '/register', '/'].includes(path);
+    const isGuestRoute = ['/login', '/register', '/forgot-password', '/'].includes(path);
     const isProtectedRoute = !isGuestRoute;
 
     console.log(`NAV CHECK (Store): Path=${path}, IsAuth=${authStatus}, IsGuestRoute=${isGuestRoute}, IsProtectedRoute=${isProtectedRoute}`);
@@ -83,9 +84,10 @@
 
     <main class="main-content-area">
       <!-- Guest Routes -->
-       <Route path="/"> {#if isAuth} <Home /> {:else} <Landing /> {/if} </Route>
-       <Route path="/login"> {#if isAuth} <Home /> {:else} <Login /> {/if} </Route>
-       <Route path="/register"> {#if isAuth} <Home /> {:else} <Register /> {/if} </Route>
+      <Route path="/"> {#if isAuth} <Home /> {:else} <Landing /> {/if} </Route>
+      <Route path="/login"> {#if isAuth} <Home /> {:else} <Login /> {/if} </Route>
+      <Route path="/register"> {#if isAuth} <Home /> {:else} <Register /> {/if} </Route>
+      <Route path="/forgot-password"> {#if isAuth} <Home /> {:else} <ForgotPassword /> {/if} </Route>
 
       <!-- Protected Routes -->
       <Route path="/home">

@@ -61,7 +61,6 @@ async function apiFetch<T>(
   options: RequestInit = {}
 ): Promise<T> {
   const token = getAccessToken();
-  console.log("Token:", token);
   const defaultHeaders = new Headers({
     "Content-Type": "application/json",
     Accept: "application/json",
@@ -141,16 +140,32 @@ export interface RegisterRequestData {
   date_of_birth: string; // YYYY-MM-DD
   security_question: string;
   security_answer: string;
+  recaptchaToken: string;
 }
 
 export interface LoginRequestData {
   email: string;
   password: string;
+  recaptchaToken: string;
 }
 
 export interface VerifyEmailRequestData {
   email: string;
   code: string;
+}
+
+export interface GetSecurityQuestionRequestData {
+  email: string;
+}
+
+export interface GetSecurityQuestionResponseData {
+  security_question: string;
+}
+
+export interface ResetPasswordRequestData {
+  email: string;
+  security_answer: string;
+  new_password: string;
 }
 
 // --- API Methods ---
@@ -174,5 +189,22 @@ export const api = {
     apiFetch<void>("/auth/verify", {
       method: "POST",
       body: JSON.stringify(verificationData),
+    }),
+
+  getSecurityQuestion: (
+    data: GetSecurityQuestionRequestData
+  ): Promise<GetSecurityQuestionResponseData> =>
+    apiFetch<GetSecurityQuestionResponseData>(
+      "/auth/forgot-password/question",
+      {
+        method: "POST",
+        body: JSON.stringify(data),
+      }
+    ),
+
+  resetPassword: (data: ResetPasswordRequestData): Promise<void> =>
+    apiFetch<void>("/auth/forgot-password/reset", {
+      method: "POST",
+      body: JSON.stringify(data),
     }),
 };

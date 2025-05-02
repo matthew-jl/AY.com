@@ -251,3 +251,88 @@ func (h *UserHandler) Login(ctx context.Context, req *userpb.LoginRequest) (*use
 		RefreshToken: refreshToken,
 	}, nil
 }
+
+func (h *UserHandler) GetSecurityQuestion(ctx context.Context, req *userpb.GetSecurityQuestionRequest) (*userpb.GetSecurityQuestionResponse, error) {
+	log.Printf("Received GetSecurityQuestion request for email: %s", req.Email)
+
+	if req.Email == "" {
+		return nil, status.Errorf(codes.InvalidArgument, "Email is required")
+	}
+
+	user, err := h.repo.GetUserByEmail(ctx, req.Email)
+	if err != nil {
+		log.Printf("GetSecurityQuestion failed for %s: %v", req.Email, err)
+		// Return NotFound even if email exists
+		return nil, status.Errorf(codes.NotFound, "Email not found or account inactive")
+	}
+
+	// Ensure user account is active/verified before allowing password reset
+	if user.AccountStatus != "active" {
+		log.Printf("GetSecurityQuestion attempt for non-active user %d (%s), status: %s", user.ID, user.Email, user.AccountStatus)
+		return nil, status.Errorf(codes.PermissionDenied, "Account status prevents password reset")
+	}
+
+	log.Printf("Returning security question for user %d", user.ID)
+	return &userpb.GetSecurityQuestionResponse{
+		SecurityQuestion: user.SecurityQuestion,
+	}, nil
+}
+
+func (h *UserHandler) ResetPassword(ctx context.Context, req *userpb.ResetPasswordRequest) (*emptypb.Empty, error) {
+	log.Printf("Received ResetPassword request for email: %s", req.Email)
+
+	if req.Email == "" || req.SecurityAnswer == "" || req.NewPassword == "" {
+		return nil, status.Errorf(codes.InvalidArgument, "Email, security answer, and new password are required")
+	}
+
+	// 1. Get user by email
+	user, err := h.repo.GetUserByEmail(ctx, req.Email)
+	if err != nil {
+		log.Printf("ResetPassword failed for %s: %v", req.Email, err)
+		return nil, status.Errorf(codes.NotFound, "Email not found or invalid credentials")
+	}
+
+    // 2. Check account status again
+    if user.AccountStatus != "active" {
+         log.Printf("ResetPassword attempt for non-active user %d (%s), status: %s", user.ID, user.Email, user.AccountStatus)
+        return nil, status.Errorf(codes.PermissionDenied, "Account status prevents password reset")
+    }
+
+	// 3. Verify Security Answer
+	err = bcrypt.CompareHashAndPassword([]byte(user.SecurityAnswerHash), []byte(req.SecurityAnswer))
+	if err != nil {
+		log.Printf("Invalid security answer attempt for user %d (%s)", user.ID, user.Email)
+		return nil, status.Errorf(codes.Unauthenticated, "Invalid security answer")
+	}
+	log.Printf("Security answer verified for user %d", user.ID)
+
+	// 4. Validate New Password (Complexity + ensure it's different)
+	if err := validatePasswordComplexity(req.NewPassword); err != nil {
+		return nil, status.Errorf(codes.InvalidArgument, "New password validation failed: %v", err)
+	}
+	err = bcrypt.CompareHashAndPassword([]byte(user.PasswordHash), []byte(req.NewPassword))
+	if err == nil {
+		log.Printf("ResetPassword attempt failed for user %d: New password cannot be the same as the old one.", user.ID)
+		return nil, status.Errorf(codes.InvalidArgument, "New password cannot be the same as the old password")
+	} else if !errors.Is(err, bcrypt.ErrMismatchedHashAndPassword) {
+        log.Printf("ERROR comparing old/new password hash for user %d: %v", user.ID, err)
+        return nil, status.Errorf(codes.Internal, "Failed to validate new password")
+    }
+
+	// 5. Hash the *new* password
+	newPasswordHash, err := bcrypt.GenerateFromPassword([]byte(req.NewPassword), bcrypt.DefaultCost)
+	if err != nil {
+		log.Printf("ERROR hashing new password for user %d: %v", user.ID, err)
+		return nil, status.Errorf(codes.Internal, "Failed to secure new password")
+	}
+
+	// 6. Update password in repository
+	err = h.repo.UpdatePassword(ctx, user.ID, string(newPasswordHash))
+	if err != nil {
+		log.Printf("Failed to update password in DB for user %d: %v", user.ID, err)
+		return nil, status.Errorf(codes.Internal, "Failed to update password")
+	}
+
+	log.Printf("Password reset successfully for user %d (%s)", user.ID, user.Email)
+	return &emptypb.Empty{}, nil
+}

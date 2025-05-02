@@ -48,3 +48,11 @@ func (c *UserClient) Login(ctx context.Context, req *userpb.LoginRequest) (*user
 func (c *UserClient) VerifyEmail(ctx context.Context, req *userpb.VerifyEmailRequest) (*emptypb.Empty, error) {
 	return c.client.VerifyEmail(ctx, req)
 }
+
+func (c *UserClient) GetSecurityQuestion(ctx context.Context, req *userpb.GetSecurityQuestionRequest) (*userpb.GetSecurityQuestionResponse, error) {
+	return c.client.GetSecurityQuestion(ctx, req)
+}
+
+func (c *UserClient) ResetPassword(ctx context.Context, req *userpb.ResetPasswordRequest) (*emptypb.Empty, error) {
+	return c.client.ResetPassword(ctx, req)
+}

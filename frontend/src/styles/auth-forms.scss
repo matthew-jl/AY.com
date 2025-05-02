@@ -120,3 +120,15 @@ form {
     }
   }
 }
+
+.recaptcha-container {
+  display: flex;
+  justify-content: center;
+  margin-top: 0.5rem;
+  margin-bottom: 0.5rem;
+  min-height: 78px;
+  #recaptcha-container-register,
+  #recaptcha-container-login {
+    margin: 0 auto;
+  }
+}

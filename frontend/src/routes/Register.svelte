@@ -3,6 +3,7 @@
   import { navigate } from 'svelte-routing';
   import type { RegisterRequestData, VerifyEmailRequestData } from '../lib/api';
   import { link } from 'svelte-routing';
+  import { onMount } from 'svelte';
 
   let currentStep: 1 | 2 = 1;
 
@@ -15,6 +16,7 @@
   let dateOfBirth = ''; // Expect YYYY-MM-DD
   let securityQuestion = 'pet';
   let securityAnswer = '';
+  let recaptchaToken: string | null = null;
 
   let verificationCode = '';
 
@@ -22,7 +24,7 @@
   let errorStep1: string | null = null;
   let errorStep2: string | null = null;
   let passwordError: string | null = null;
-  let successMessage: string | null = null; // after verification
+  let successMessage: string | null = null;
 
   const securityQuestions = [
     { value: 'pet', label: "What was the name of your first pet?" },
@@ -31,6 +33,97 @@
     { value: 'school', label: "What was the name of your first school?" },
     { value: 'nickname', label: "What was your childhood nickname?" },
   ];
+
+  let recaptchaWidgetId: number | null = null;
+  let isRecaptchaScriptLoaded = false;
+  const recaptchaSiteKey = import.meta.env.VITE_RECAPTCHA_SITE_KEY;
+
+  // --- reCAPTCHA Callbacks ---
+  function onRecaptchaSuccess(token: string) {
+    console.log("reCAPTCHA solved:", token ? token.substring(0,10)+"..." : "null");
+    recaptchaToken = token;
+    if(currentStep === 1) errorStep1 = null; // Clear error on success
+  }
+
+  function onRecaptchaExpired() {
+    console.log("reCAPTCHA expired");
+    recaptchaToken = null;
+  }
+
+  function onRecaptchaError() {
+     console.error("reCAPTCHA error callback triggered");
+     errorStep1 = "reCAPTCHA challenge failed. Please try again.";
+     recaptchaToken = null;
+  }
+
+  // --- Lifecycle & Script Loading ---
+  onMount(() => {
+    if (!recaptchaSiteKey) {
+        console.error("VITE_RECAPTCHA_SITE_KEY is not set!");
+        errorStep1 = "reCAPTCHA configuration error.";
+        return;
+    }
+
+    const renderWidget = () => {
+      const container = document.getElementById('recaptcha-container-register');
+      if (container && window.grecaptcha && window.grecaptcha.render) {
+         try {
+            console.log("Rendering reCAPTCHA widget...");
+            recaptchaWidgetId = window.grecaptcha.render(container, {
+              sitekey: recaptchaSiteKey,
+              callback: onRecaptchaSuccess,
+              'expired-callback': onRecaptchaExpired,
+              'error-callback': onRecaptchaError,
+            });
+            console.log("reCAPTCHA widget rendered, ID:", recaptchaWidgetId);
+         } catch (renderError) {
+             console.error("Error rendering reCAPTCHA:", renderError);
+             onRecaptchaError();
+         }
+      } else {
+          console.warn("renderWidget called but container or grecaptcha not ready yet.");
+      }
+    }
+
+    // Define the global callback function if it doesn't exist
+    if (!window.onloadRecaptchaCallback) {
+        console.log("Defining onloadRecaptchaCallback");
+        window.onloadRecaptchaCallback = () => {
+            console.log("reCAPTCHA script loaded via callback.");
+            isRecaptchaScriptLoaded = true;
+            renderWidget();
+        };
+    } else {
+        // If callback exists, script might already be loaded from another page/component
+        if (window.grecaptcha) {
+            console.log("reCAPTCHA script potentially already loaded.");
+            isRecaptchaScriptLoaded = true;
+            setTimeout(renderWidget, 0);
+        }
+    }
+
+    // Load the script only if it hasn't been loaded yet
+    if (!document.getElementById('recaptcha-script')) {
+        console.log("Loading reCAPTCHA script...");
+        const script = document.createElement('script');
+        script.id = 'recaptcha-script';
+        script.src = 'https://www.google.com/recaptcha/api.js?onload=onloadRecaptchaCallback&render=explicit';
+        script.async = true;
+        script.defer = true;
+        script.onerror = onRecaptchaError;
+        document.body.appendChild(script);
+    } else {
+        // If script tag exists, ensure the callbacks are ready and attempt render
+         if (window.grecaptcha) {
+             isRecaptchaScriptLoaded = true;
+             setTimeout(renderWidget, 0); // Attempt render after possible DOM update
+         } else {
+             console.log("reCAPTCHA script tag exists but grecaptcha object not ready, waiting for onload callback.");
+         }
+    }
+
+  });
+
 
   function validatePasswords() {
     if (password && confirmPassword && password !== confirmPassword) {
@@ -58,6 +151,9 @@
       errorStep1 = "Please enter a valid email address.";
       return false;
     }
+    if (!recaptchaToken) {
+      errorStep1 = "Please complete the reCAPTCHA verification."; return false;
+    }
     return true;
   }
 
@@ -73,13 +169,21 @@
       date_of_birth: dateOfBirth,
       security_question: securityQuestion,
       security_answer: securityAnswer,
+      recaptchaToken: recaptchaToken as string,
     };
 
     try {
       await api.register(userData);
       currentStep = 2;
+      if (recaptchaWidgetId !== null && window.grecaptcha) {
+          window.grecaptcha.reset(recaptchaWidgetId);
+      }
       errorStep1 = null;
     } catch (err) {
+      if (recaptchaWidgetId !== null && window.grecaptcha) {
+             window.grecaptcha.reset(recaptchaWidgetId);
+        }
+        recaptchaToken = null;
       console.error("Registration Step 1 Error:", err);
       if (err instanceof ApiError) {
         errorStep1 = `Registration failed: ${err.message}`;
@@ -214,6 +318,18 @@
           <input type="text" id="securityAnswer" bind:value={securityAnswer} required />
       </div>
 
+
+      <!-- reCAPTCHA -->
+       <div class="form-group recaptcha-container">
+          {#if recaptchaSiteKey}
+            <div id="recaptcha-container-register">
+                <!-- Widget renders here -->
+            </div>
+          {:else}
+            <p class="error-text">reCAPTCHA Site Key not configured.</p>
+          {/if}
+      </div>
+
       <!-- Step 1 Error Display -->
       {#if errorStep1}
         <p class="error-text api-error">{errorStep1}</p>
@@ -269,6 +385,9 @@
   {/if}
 
   <p class="link-text">
+    <a href="/" use:link>Go back to Landing page</a>
+  </p>
+  <p class="link-text">
     Already have an account? <a href="/login" use:link>Log in</a>
   </p>
   {#if currentStep === 1 && email && isEmailValid(email)}
@@ -320,4 +439,5 @@
            flex: 1;
        }
   }
+
 </style>

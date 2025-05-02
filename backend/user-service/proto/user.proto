@@ -11,6 +11,8 @@ service UserService {
   rpc Register(RegisterRequest) returns (google.protobuf.Empty);
   rpc Login(LoginRequest) returns (AuthResponse);
   rpc VerifyEmail(VerifyEmailRequest) returns (google.protobuf.Empty);
+  rpc GetSecurityQuestion(GetSecurityQuestionRequest) returns (GetSecurityQuestionResponse);
+  rpc ResetPassword(ResetPasswordRequest) returns (google.protobuf.Empty);
 }
 
 message HealthResponse {
@@ -41,4 +43,18 @@ message AuthResponse {
 message VerifyEmailRequest {
   string email = 1;
   string code = 2;
+}
+
+message GetSecurityQuestionRequest {
+  string email = 1;
+}
+
+message GetSecurityQuestionResponse {
+  string security_question = 1;
+}
+
+message ResetPasswordRequest {
+  string email = 1;
+  string security_answer = 2; // User's provided answer
+  string new_password = 3;
 }
