@@ -82,7 +82,7 @@
 
   .right-sidebar {
     width: $right-sidebar-width;
-    padding-left: 30px;
+    padding-left: 15px;
     padding-right: 15px; 
     position: relative; 
     height: 100vh; 

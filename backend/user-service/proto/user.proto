@@ -8,8 +8,37 @@ import "google/protobuf/empty.proto";
 
 service UserService {
   rpc HealthCheck(google.protobuf.Empty) returns (HealthResponse);
+  rpc Register(RegisterRequest) returns (google.protobuf.Empty);
+  rpc Login(LoginRequest) returns (AuthResponse);
+  rpc VerifyEmail(VerifyEmailRequest) returns (google.protobuf.Empty);
 }
 
 message HealthResponse {
   string status = 1;
+}
+
+message RegisterRequest {
+  string name = 1;
+  string username = 2;
+  string email = 3;
+  string password = 4;
+  string gender = 5;
+  string date_of_birth = 6; // YYYY-MM-DD string
+  string security_question = 7;
+  string security_answer = 8;
+}
+
+message LoginRequest {
+  string email = 1;
+  string password = 2;
+}
+
+message AuthResponse {
+  string access_token = 1;
+  string refresh_token = 2;
+}
+
+message VerifyEmailRequest {
+  string email = 1;
+  string code = 2;
 }

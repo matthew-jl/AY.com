@@ -21,6 +21,16 @@
   --follow-button-text: #ffffff;
   --follow-button-hover-bg: #272c30;
   --follow-button-border: var(--follow-button-bg);
+  --success-color: #34a853;
+  --success-bg: #e6f4ea;
+  --error-color: #d93025;
+  --error-bg: #fce8e6;
+  --input-bg: #ffffff;
+  --logout-button-bg: transparent;
+  --logout-button-text: var(--secondary-text-color);
+  --logout-button-border: var(--secondary-text-color);
+  --logout-button-hover-bg: var(--sidebar-hover-bg);
+  --logout-button-hover-border: var(--secondary-text-color);
 
   // Dark theme overrides
   &[data-theme="dark"] {
@@ -36,8 +46,8 @@
     --primary-button-text: #ffffff;
     --scrollbar-thumb-color: #3e4444;
     --scrollbar-track-color: transparent;
-    --section-bg: #16181c;
-    --section-hover-bg: #1d1f23;
+    --section-bg: var(--sidebar-bg);
+    --section-hover-bg: var(--sidebar-hover-bg);
     --secondary-text-color: #6e767d;
     --search-bg: #202327;
     --search-border-focus: var(--primary-color);
@@ -45,6 +55,14 @@
     --follow-button-text: #0f1419;
     --follow-button-hover-bg: #d7dbde;
     --follow-button-border: var(--follow-button-bg);
+    --error-color: #f28b82;
+    --error-bg: #692620;
+    --input-bg: #202327;
+    --logout-button-bg: transparent;
+    --logout-button-text: var(--secondary-text-color);
+    --logout-button-border: var(--border-color);
+    --logout-button-hover-bg: var(--sidebar-hover-bg);
+    --logout-button-hover-border: var(--secondary-text-color);
   }
 }
 

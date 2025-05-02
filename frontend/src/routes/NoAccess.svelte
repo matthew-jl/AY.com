@@ -2,63 +2,47 @@
   import { link } from 'svelte-routing';
 </script>
 
-<div class="landing-container">
-  <img src="/logo_light.png" alt="AY Logo" class="logo" />
-
-  <h1>Happening now</h1>
-  <h2>Join today.</h2>
-
+<div class="no-access-container">
+  <h2>Access Denied</h2>
+  <p>You need to be logged in to view this page.</p>
   <div class="button-group">
-    <a href="/register" use:link class="btn btn-primary">Create account</a>
-    <p>Already have an account?</p>
-    <a href="/login" use:link class="btn btn-secondary">Sign in</a>
+    <a href="/login" use:link class="btn btn-primary">Log In</a>
+    <a href="/" use:link class="btn btn-secondary">Go to Landing Page</a>
   </div>
 </div>
 
 <style lang="scss">
-  .landing-container {
+  .no-access-container {
     display: flex;
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    min-height: 100vh;
+    min-height: 80vh;
     text-align: center;
     padding: 2rem;
-    background-color: var(--sidebar-bg);
-  }
-
-  .logo {
-    width: 80px;
-    margin-bottom: 2rem;
-  }
-
-  h1 {
-    font-size: 3rem;
-    font-weight: bold;
-    margin-bottom: 0.5rem;
+    background-color: var(--background);
+    color: var(--text-color);
   }
 
   h2 {
-    font-size: 1.8rem;
-    margin-bottom: 2.5rem;
+    color: var(--error-color);
+    margin-bottom: 1rem;
+  }
+
+  p {
+    margin-bottom: 2rem;
+    font-size: 1.1rem;
+    color: var(--secondary-text-color);
   }
 
   .button-group {
     display: flex;
-    flex-direction: column;
     gap: 1rem;
-    width: 100%;
-    max-width: 300px;
-
-    p {
-      margin: 0.5rem 0 0.2rem;
-      font-weight: bold;
-    }
   }
 
-  .btn {
+   .btn {
     display: block;
-    padding: 0.8rem 1rem;
+    padding: 0.8rem 1.5rem;
     border-radius: 9999px;
     text-decoration: none;
     font-weight: bold;
@@ -79,7 +63,7 @@
   .btn-secondary {
     background-color: transparent;
     color: var(--primary-color);
-    border-color: var(--primary-color);
+    border-color: var(--border-color);
      &:hover {
         background-color: var(--sidebar-hover-bg);
      }

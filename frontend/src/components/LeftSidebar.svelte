@@ -1,7 +1,9 @@
 <script lang="ts">
   import { onMount } from 'svelte';
-  import { link } from 'svelte-routing';
+  import { link, navigate } from 'svelte-routing';
   import { useLocation } from 'svelte-routing';
+  import { clearTokens } from '../lib/api';
+  import { setAuthState } from '../stores/authStore';
 
   
   let theme: 'light' | 'dark' = 'light';
@@ -34,6 +36,13 @@
     { label: 'Profile', path: '/profile', icon: '👤' },
     { label: 'Settings', path: '/settings', icon: '⚙' },
   ];
+
+  function handleLogout() {
+    console.log("Logging out...");
+    clearTokens();
+    setAuthState(false);
+    navigate('/login', { replace: true });
+  }
 </script>
 
 <aside class="left-sidebar">
@@ -55,6 +64,9 @@
   <button class="post-button">Post</button>
   <button class="theme-toggle" on:click={toggleTheme}>
     {theme === 'light' ? '🌙' : '☀️'}
+  </button>
+  <button class="logout-button" on:click={handleLogout}>
+        Logout
   </button>
 </aside>
 
@@ -100,13 +112,14 @@
     cursor: pointer;
     border-radius: 25px;
     transition: background-color 0.2s ease-in-out;
+    font-weight: 600;
 
     &:hover {
       background-color: var(--sidebar-hover-bg);
     }
 
     &.active {
-      font-weight: bold;
+      font-weight: 700;
       color: var(--sidebar-active-text);
       background-color: var(--sidebar-hover-bg);
     }
@@ -150,14 +163,23 @@
     cursor: pointer;
   }
 
-  // .left-sidebar::-webkit-scrollbar {
-  //   width: 6px;
-  // }
-  // .left-sidebar::-webkit-scrollbar-thumb {
-  //   background-color: var(--scrollbar-thumb-color);
-  //   border-radius: 3px;
-  // }
-  // .left-sidebar::-webkit-scrollbar-track {
-  //   background: var(--scrollbar-track-color);
-  // }
+  .logout-button {
+      background: var(--logout-button-bg);
+      color: var(--logout-button-text);
+      border: 1px solid var(--logout-button-border);
+      padding: 10px 20px;
+      border-radius: 9999px;
+      width: 90%;
+      align-self: center;
+      cursor: pointer;
+      font-size: 15px;
+      font-weight: 600;
+      transition: background-color 0.2s ease-in-out, border-color 0.2s ease-in-out, color 0.2s ease-in-out;
+
+       &:hover {
+           background-color: var(--logout-button-hover-bg);
+           border-color: var(--logout-button-hover-border);
+           color: var(--text-color);
+       }
+  }
 </style>

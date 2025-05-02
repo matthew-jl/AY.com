@@ -8,11 +8,17 @@ import (
 	userpb "github.com/Acad600-TPA/WEB-MJ-242/backend/user-service/genproto/proto"
 	userhandler "github.com/Acad600-TPA/WEB-MJ-242/backend/user-service/handler/grpc"
 	"github.com/Acad600-TPA/WEB-MJ-242/backend/user-service/repository/postgres"
+	"github.com/joho/godotenv"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/reflection"
 )
 
 func main() {
+	err := godotenv.Load()
+	if err != nil {
+		log.Println("No .env file found, reading environment variables directly")
+	}
+
 	// Initialize repository
 	repo, err := postgres.NewUserRepository()
 	if err != nil {
