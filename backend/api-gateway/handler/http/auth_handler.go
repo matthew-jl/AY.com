@@ -5,7 +5,7 @@ import (
 	"net/http"
 
 	"github.com/Acad600-TPA/WEB-MJ-242/backend/api-gateway/client"
-	gwUtils "github.com/Acad600-TPA/WEB-MJ-242/backend/api-gateway/utils"
+	// gwUtils "github.com/Acad600-TPA/WEB-MJ-242/backend/api-gateway/utils"
 	userpb "github.com/Acad600-TPA/WEB-MJ-242/backend/user-service/genproto/proto"
 	"github.com/gin-gonic/gin"
 	"google.golang.org/grpc/codes"
@@ -71,13 +71,13 @@ func (h *AuthHandler) Register(c *gin.Context) {
 		return
 	}
 
-    success, err := gwUtils.VerifyRecaptcha(payload.RecaptchaToken, c.ClientIP())
-    if err != nil || !success {
-        errMsg := "reCAPTCHA verification failed"
-        if err != nil { errMsg = err.Error() }
-        c.JSON(http.StatusForbidden, gin.H{"error": errMsg})
-        return
-    }
+    // success, err := gwUtils.VerifyRecaptcha(payload.RecaptchaToken, c.ClientIP())
+    // if err != nil || !success {
+    //     errMsg := "reCAPTCHA verification failed"
+    //     if err != nil { errMsg = err.Error() }
+    //     c.JSON(http.StatusForbidden, gin.H{"error": errMsg})
+    //     return
+    // }
 
 	// Prepare gRPC request (without reCAPTCHA token)
 	grpcReq := &userpb.RegisterRequest{
@@ -145,13 +145,13 @@ func (h *AuthHandler) Login(c *gin.Context) {
 		return
 	}
 
-	success, err := gwUtils.VerifyRecaptcha(payload.RecaptchaToken, c.ClientIP())
-    if err != nil || !success {
-        errMsg := "reCAPTCHA verification failed"
-        if err != nil { errMsg = err.Error() }
-        c.JSON(http.StatusForbidden, gin.H{"error": errMsg})
-        return
-    }
+	// success, err := gwUtils.VerifyRecaptcha(payload.RecaptchaToken, c.ClientIP())
+    // if err != nil || !success {
+    //     errMsg := "reCAPTCHA verification failed"
+    //     if err != nil { errMsg = err.Error() }
+    //     c.JSON(http.StatusForbidden, gin.H{"error": errMsg})
+    //     return
+    // }
 
 	grpcReq := &userpb.LoginRequest{
 		Email:    payload.Email,

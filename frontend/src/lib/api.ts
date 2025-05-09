@@ -26,11 +26,56 @@ export interface UserProfileResponse {
   created_at: string; // Expect ISO string from backend JSON
 }
 
+export interface MediaMetadata {
+  id: number;
+  uploader_user_id: number;
+  supabase_path: string;
+  bucket_name: string;
+  mime_type: string;
+  file_size: number; // JS uses number for int64
+  public_url: string;
+  created_at: string; // ISO String
+}
+
+export interface ThreadData {
+  id: number;
+  user_id: number;
+  content: string;
+  parent_thread_id?: number; // Optional
+  reply_restriction: string; // e.g., "EVERYONE", "FOLLOWING"
+  scheduled_at?: string | null; // ISO String or null
+  posted_at: string; // ISO String
+  community_id?: number; // Optional
+  is_advertisement: boolean;
+  media_ids: number[];
+  created_at: string; // ISO String
+  // --- Frontend-specific state ---
+  author?: UserProfileResponse | null; // Hydrated author info
+  media?: MediaMetadata[]; // Hydrated media info
+  is_liked?: boolean;
+  is_bookmarked?: boolean;
+  is_reposted?: boolean; // Add later
+  like_count: number;
+  reply_count: number;
+  repost_count: number;
+}
+
+export interface FeedResponse {
+  threads: ThreadData[];
+  has_more: boolean;
+}
+
+export interface ErrorResponse {
+  error?: string;
+  message?: string;
+  [key: string]: unknown; // Allow additional fields
+}
+
 export class ApiError extends Error {
   status: number;
-  details?: any;
+  details?: ErrorResponse;
 
-  constructor(message: string, status: number, details?: any) {
+  constructor(message: string, status: number, details?: ErrorResponse) {
     super(message);
     this.name = "ApiError";
     this.status = status; // HTTP status code
@@ -100,31 +145,35 @@ async function apiFetch<T>(
       headers: requestHeaders,
     });
   } catch (networkError) {
-    console.error("Network Error:", networkError);
-    throw new Error("Network error occurred while fetching data.");
+    throw new Error(
+      "Network error occurred while fetching data: " + networkError
+    );
   }
 
   if (!response.ok) {
-    let errorDetails: any = null;
+    let errorDetails: ErrorResponse | null = null;
     let errorMessage = `API request failed with status ${response.status}`;
 
     try {
       errorDetails = await response.json();
       errorMessage =
         errorDetails?.error || errorDetails?.message || errorMessage;
-    } catch (e) {
+    } catch {
       try {
         const textError = await response.text();
         if (textError) {
           errorMessage = `${errorMessage}: ${textError.substring(0, 100)}`; // Limit length
         }
-      } catch (textE) {
-        // Ignore if reading text also fails
+      } catch {
+        throw new Error("Could not parse error response body as JSON.");
       }
-      console.warn("Could not parse error response body as JSON.", e);
     }
 
-    throw new ApiError(errorMessage, response.status, errorDetails);
+    throw new ApiError(
+      errorMessage,
+      response.status,
+      errorDetails || undefined
+    );
   }
 
   if (
@@ -139,8 +188,7 @@ async function apiFetch<T>(
     const data = await response.json();
     return data as T;
   } catch (parsingError) {
-    console.error("Error parsing successful response:", parsingError);
-    throw new Error("Failed to parse successful API response.");
+    throw new Error("Failed to parse successful API response: " + parsingError);
   }
 }
 
@@ -180,6 +228,27 @@ export interface ResetPasswordRequestData {
   email: string;
   security_answer: string;
   new_password: string;
+}
+
+export interface CreateThreadRequestData {
+  content: string;
+  parent_thread_id?: number;
+  reply_restriction?: string; // Map frontend choice to backend enum string
+  scheduled_at?: string | null; // ISO 8601 format string
+  community_id?: number;
+  media_ids?: number[];
+}
+
+export interface UploadMediaResponseData {
+  media: MediaMetadata; // Matches backend
+}
+
+export interface GetMediaMetadataRequestData {
+  media_id: number;
+}
+
+export interface InteractThreadRequestData {
+  thread_id: number; // User ID inferred from token on backend
 }
 
 // --- API Methods ---
@@ -227,4 +296,92 @@ export const api = {
       // Uses auth token implicitly
       method: "GET",
     }),
+
+  // Upload: Takes FormData, returns parsed JSON response
+  uploadMedia: (formData: FormData): Promise<UploadMediaResponseData> => {
+    const token = getAccessToken();
+    const headers = new Headers(); // No need to set Content-Type for FormData, browser does it
+    if (token) {
+      headers.set("Authorization", `Bearer ${token}`);
+    }
+    // Use raw fetch for FormData upload
+    return fetch(`${API_BASE_URL}/media/upload`, {
+      method: "POST",
+      headers: headers,
+      body: formData,
+    })
+      .then(async (response) => {
+        if (!response.ok) {
+          let errorDetails: ErrorResponse | null = null;
+          let errorMessage = `Media upload failed with status ${response.status}`;
+          try {
+            errorDetails = await response.json();
+            errorMessage =
+              errorDetails?.error || errorDetails?.message || errorMessage;
+          } catch (e) {
+            errorDetails = e as ErrorResponse;
+          }
+          throw new ApiError(
+            errorMessage,
+            response.status,
+            errorDetails || undefined
+          );
+        }
+        if (
+          response.status === 204 ||
+          response.headers.get("content-length") === "0"
+        ) {
+          throw new ApiError(
+            "Media upload returned no content",
+            response.status
+          );
+        }
+        return response.json();
+      })
+      .catch((networkError) => {
+        throw new Error(
+          "Network error occurred during media upload:" + networkError
+        );
+      });
+  },
+  getMediaMetadata: (
+    req: GetMediaMetadataRequestData
+  ): Promise<MediaMetadata> =>
+    apiFetch<MediaMetadata>(`/media/${req.media_id}/metadata`, {
+      method: "GET",
+    }),
+
+  // Thread Methods
+  createThread: (
+    data: CreateThreadRequestData
+  ): Promise<ThreadData> => // Expect backend to return created thread
+    apiFetch<ThreadData>("/threads", {
+      method: "POST",
+      body: JSON.stringify(data),
+    }),
+  getThread: (
+    threadId: number
+  ): Promise<ThreadData> => // Expect backend to return hydrated thread
+    apiFetch<ThreadData>(`/threads/${threadId}`, { method: "GET" }),
+  deleteThread: (threadId: number): Promise<void> =>
+    apiFetch<void>(`/threads/${threadId}`, { method: "DELETE" }),
+  likeThread: (threadId: number): Promise<void> =>
+    apiFetch<void>(`/threads/${threadId}/like`, { method: "POST" }),
+  unlikeThread: (threadId: number): Promise<void> =>
+    apiFetch<void>(`/threads/${threadId}/like`, { method: "DELETE" }),
+  bookmarkThread: (threadId: number): Promise<void> =>
+    apiFetch<void>(`/threads/${threadId}/bookmark`, { method: "POST" }),
+  unbookmarkThread: (threadId: number): Promise<void> =>
+    apiFetch<void>(`/threads/${threadId}/bookmark`, { method: "DELETE" }),
+
+  // Feed Method Placeholder (adjust endpoint/params as needed)
+  getFeedThreads: (
+    page: number = 1,
+    limit: number = 20,
+    type: "foryou" | "following" = "foryou"
+  ): Promise<FeedResponse> =>
+    apiFetch<FeedResponse>(
+      `/threads/feed?type=${type}&page=${page}&limit=${limit}`,
+      { method: "GET" }
+    ),
 };

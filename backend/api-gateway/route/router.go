@@ -12,7 +12,12 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-func SetupRouter(authHandler *gwHTTPHandler.AuthHandler, wsHub *websocket.Hub, jwtSecret string) *gin.Engine {
+func SetupRouter(
+	authHandler *gwHTTPHandler.AuthHandler, 
+	threadHandler *gwHTTPHandler.ThreadHandler, 
+	mediaHandler *gwHTTPHandler.MediaHandler, 
+	wsHub *websocket.Hub, 
+	jwtSecret string) *gin.Engine {
 	r := gin.New()
 
 	// Configure CORS
@@ -45,6 +50,8 @@ func SetupRouter(authHandler *gwHTTPHandler.AuthHandler, wsHub *websocket.Hub, j
 		}
 	})
 
+	authMiddleware := middleware.AuthMiddleware(jwtSecret)
+
 	// Routes
 	v1 := r.Group("/api/v1")
 
@@ -60,12 +67,37 @@ func SetupRouter(authHandler *gwHTTPHandler.AuthHandler, wsHub *websocket.Hub, j
 
 	// --- User routes (Requires JWT auth) ---
 	users := v1.Group("/users")
-	users.Use(middleware.AuthMiddleware(jwtSecret))
+	users.Use(authMiddleware)
 	{
 		users.GET("/health", authHandler.HealthCheck)
 		users.GET("/profile", authHandler.GetProfile)
 		// users.PUT("/profile", authHandler.UpdateProfile) // Add later
 	}
+
+	// --- Protected Thread Routes ---
+	threads := v1.Group("/threads")
+	threads.Use(authMiddleware) // Apply auth here
+	{
+		threads.POST("", threadHandler.CreateThread)
+		threads.GET("/feed", threadHandler.GetFeed)
+		threads.GET("/:threadId", threadHandler.GetThread)
+		threads.DELETE("/:threadId", threadHandler.DeleteThread)
+
+		// Interactions
+		threads.POST("/:threadId/like", threadHandler.LikeThread)
+		threads.DELETE("/:threadId/like", threadHandler.UnlikeThread)
+		threads.POST("/:threadId/bookmark", threadHandler.BookmarkThread)
+		threads.DELETE("/:threadId/bookmark", threadHandler.UnbookmarkThread)
+		// Add repost routes later
+	}
+
+	// --- Protected Media Routes ---
+	media := v1.Group("/media")
+	media.Use(authMiddleware) // Apply auth here
+	{
+		media.POST("/upload", mediaHandler.UploadMedia) // Upload media file
+	}
+        // Maybe GET /media/:mediaId/metadata later if needed by frontend directly
 
 	// --- WebSocket routes (Auth handled potentially within the handler) ---
 	ws := v1.Group("/ws")

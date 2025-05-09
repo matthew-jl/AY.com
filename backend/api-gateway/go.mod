@@ -3,6 +3,8 @@ module github.com/Acad600-TPA/WEB-MJ-242/backend/api-gateway
 go 1.23.3
 
 require (
+	github.com/Acad600-TPA/WEB-MJ-242/backend/media-service v0.0.0
+	github.com/Acad600-TPA/WEB-MJ-242/backend/thread-service v0.0.0
 	github.com/Acad600-TPA/WEB-MJ-242/backend/user-service v0.0.0
 	github.com/gin-contrib/cors v1.7.5
 	github.com/gin-gonic/gin v1.10.0
@@ -43,3 +45,7 @@ require (
 )
 
 replace github.com/Acad600-TPA/WEB-MJ-242/backend/user-service => ../user-service
+
+replace github.com/Acad600-TPA/WEB-MJ-242/backend/media-service => ../media-service
+
+replace github.com/Acad600-TPA/WEB-MJ-242/backend/thread-service => ../thread-service

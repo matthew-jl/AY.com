@@ -1,26 +1,30 @@
 services:
   postgres:
     image: postgres:15
+    container_name: ay-postgres-db
     environment:
       POSTGRES_USER: user
       POSTGRES_PASSWORD: password
-      POSTGRES_DB: userdb
+      POSTGRES_DB: postgres
     ports:
       - "5432:5432"
     volumes:
-      - postgres_data:/var/lib/postgresql/data
+      - postgres_main_data:/var/lib/postgresql/data
+      # script for creating multiple databases
+      - ./scripts/init-multiple-databases.sh:/docker-entrypoint-initdb.d/init-multiple-databases.sh
     healthcheck:
       # pg_isready to check if the database server is accepting connections
-      test: ["CMD-SHELL", "pg_isready -U user -d userdb -h localhost"]
+      test: ["CMD-SHELL", "pg_isready -U user -d postgres -h localhost"]
       interval: 5s
       timeout: 5s
       retries: 5
-      start_period: 10s
+      start_period: 20s
 
   user-service:
     build:
       context: ./backend
       dockerfile: user-service/Dockerfile
+    container_name: user-service
     ports:
       - "50051:50051"
     env_file: ./backend/user-service/.env
@@ -35,15 +39,42 @@ services:
       - net.ipv6.conf.all.disable_ipv6=1
       - net.ipv6.conf.default.disable_ipv6=1
 
+  thread-service:
+    build:
+      context: ./backend
+      dockerfile: thread-service/Dockerfile
+    container_name: thread-service
+    ports:
+      - "50052:50052"
+    env_file: ./backend/thread-service/.env
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  media-service:
+    build:
+      context: ./backend
+      dockerfile: media-service/Dockerfile
+    container_name: media-service
+    ports:
+      - "50053:50053"
+    env_file: ./backend/media-service/.env
+    depends_on:
+      postgres:
+        condition: service_healthy
+
   api-gateway:
     build:
       context: ./backend
       dockerfile: api-gateway/Dockerfile
+    container_name: api-gateway
     ports:
       - "8080:8080"
     env_file: ./backend/api-gateway/.env
     depends_on:
       - user-service
+      - thread-service
+      - media-service
 
 volumes:
-  postgres_data:
+  postgres_main_data:

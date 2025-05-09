@@ -1,0 +1,45 @@
+syntax = "proto3";
+
+package media;
+
+option go_package = "github.com/Acad600-TPA/WEB-MJ-242/backend/media-service/genproto";
+
+import "google/protobuf/empty.proto";
+import "google/protobuf/timestamp.proto";
+
+service MediaService {
+  rpc HealthCheck(google.protobuf.Empty) returns (HealthResponse);
+  // Consider streaming for large files later
+  rpc UploadMedia(UploadMediaRequest) returns (UploadMediaResponse);
+  rpc GetMediaMetadata(GetMediaMetadataRequest) returns (Media);
+}
+
+message HealthResponse {
+  string status = 1;
+}
+
+message Media {
+  uint32 id = 1;
+  uint32 uploader_user_id = 2;
+  string supabase_path = 3; // Path within bucket
+  string bucket_name = 4;
+  string mime_type = 5;
+  int64 file_size = 6;
+  string public_url = 7; // Add dynamically generated public URL
+  google.protobuf.Timestamp created_at = 8;
+}
+
+message UploadMediaRequest {
+  uint32 uploader_user_id = 1;
+  string file_name = 2; // Original filename for context/extension
+  string mime_type = 3;
+  bytes file_content = 4;
+}
+
+message UploadMediaResponse {
+  Media media = 1; // Return full media info including ID and URL
+}
+
+message GetMediaMetadataRequest {
+  uint32 media_id = 1;
+}

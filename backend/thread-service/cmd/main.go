@@ -1,0 +1,36 @@
+package main
+
+import (
+	"fmt"
+	"log"
+	"net"
+	"os"
+
+	threadpb "github.com/Acad600-TPA/WEB-MJ-242/backend/thread-service/genproto/proto"
+	threadhandler "github.com/Acad600-TPA/WEB-MJ-242/backend/thread-service/handler/grpc"
+	"github.com/Acad600-TPA/WEB-MJ-242/backend/thread-service/repository/postgres"
+	"github.com/joho/godotenv"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/reflection"
+)
+
+func main() {
+	err := godotenv.Load()
+	if err != nil { log.Println("No .env file found for thread-service") }
+
+	repo, err := postgres.NewThreadRepository()
+	if err != nil { log.Fatalf("failed to initialize thread repository: %v", err) }
+
+	port := os.Getenv("PORT")
+	if port == "" { port = "50052" } // Default thread service port
+	lis, err := net.Listen("tcp", ":"+port)
+	if err != nil { log.Fatalf("failed to listen on port %s: %v", port, err) }
+
+	s := grpc.NewServer()
+	threadServer := threadhandler.NewThreadHandler(repo)
+	threadpb.RegisterThreadServiceServer(s, threadServer)
+	reflection.Register(s)
+
+	fmt.Printf("Thread gRPC server listening on :%s\n", port)
+	if err := s.Serve(lis); err != nil { log.Fatalf("failed to serve gRPC: %v", err) }
+}

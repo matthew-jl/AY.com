@@ -1,7 +1,7 @@
 <script lang="ts">
   import { Router, Route, navigate, link } from "svelte-routing";
   import { onDestroy, onMount } from 'svelte';
-  import { isAuthenticated } from './stores/authStore';
+  import { isAuthenticated, setAuthState } from './stores/authStore';
   import Landing from "./routes/Landing.svelte";
   import Login from "./routes/Login.svelte";
   import Register from "./routes/Register.svelte";
@@ -12,6 +12,10 @@
   import { currentPathname } from "./stores/locationStore";
   import LocationUpdater from "./components/LocationUpdater.svelte";
   import ForgotPassword from "./routes/ForgotPassword.svelte";
+  import { closeCreateThreadModal, isCreateThreadModalOpen } from "./stores/modalStore";
+  import CreateThreadModal from "./components/CreateThreadModal.svelte";
+  import { api, clearTokens, getAccessToken } from "./lib/api";
+  import { clearUser, setUser } from "./stores/userStore";
 
   export let url = "";
 
@@ -30,8 +34,35 @@
   let pathUnsubscribe: (() => void) | null = null;
 
   // --- Lifecycle ---
-  onMount(() => {
+  onMount(async () => {
     console.log("App Mounted");
+
+    // --- Rehydrate User Session on Load ---
+    const token = getAccessToken();
+    if (token) {
+        console.log("Token found on mount, attempting to fetch profile...");
+        try {
+            const userProfile = await api.getUserProfile();
+            setUser(userProfile); // Populate user store
+            setAuthState(true);   // Confirm auth state
+            console.log("User profile rehydrated:", userProfile);
+        } catch (err) {
+            console.error("Failed to rehydrate user profile on mount:", err);
+            // If profile fetch fails (e.g., token expired, server error), treat as logged out
+            clearTokens();
+            clearUser();
+            setAuthState(false);
+            // Optionally navigate to login if not on a public page
+            if (pathFromStore && !['/login', '/register', '/'].includes(pathFromStore)) {
+                navigate('/login', { replace: true });
+            }
+        }
+    } else {
+        // No token, ensure logged out state
+        clearUser();
+        setAuthState(false);
+        console.log("No token found on mount, user is logged out.");
+    }
 
     authUnsubscribe = isAuthenticated.subscribe(value => {
       const authChanged = isAuth !== value;
@@ -70,6 +101,9 @@
     if (authStatus && isGuestRoute && path !== '/') {
       console.log("Redirecting authenticated user from guest route to /home");
       setTimeout(() => navigate('/home', { replace: true }), 0);
+    } else if (!authStatus && isProtectedRoute) {
+      console.log("Redirecting unauthenticated user from protected route to /login");
+      setTimeout(() => navigate('/login', { replace: true }), 0);
     }
   }
 </script>
@@ -134,6 +168,11 @@
     {#if showSidebars}
       <RightSidebar />
     {/if}
+
+    {#if $isCreateThreadModalOpen}
+      <CreateThreadModal on:close={closeCreateThreadModal} on:threadcreated={() => console.log('Maybe refresh feed?')} />
+    {/if}
+
   </div>
 </Router>
 

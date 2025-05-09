@@ -5,6 +5,7 @@
   import { clearTokens } from '../lib/api';
   import { setAuthState } from '../stores/authStore';
   import { clearUser, user } from '../stores/userStore';
+  import { openCreateThreadModal } from '../stores/modalStore';
 
   
   let theme: 'light' | 'dark' = 'light';
@@ -68,7 +69,7 @@
       </a>
     {/each}
   </nav>
-  <button class="post-button">Post</button>
+  <button class="post-button" on:click={openCreateThreadModal}>Post</button>
   <button class="theme-toggle" on:click={toggleTheme}>
     {theme === 'light' ? '🌙' : '☀️'}
   </button>
