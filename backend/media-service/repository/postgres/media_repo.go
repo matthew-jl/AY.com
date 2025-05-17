@@ -68,3 +68,15 @@ func (r *MediaRepository) GetMediaMetadataByID(ctx context.Context, id uint) (*M
      if err != nil { return fmt.Errorf("media database ping failed: %w", err) }
      return nil
  }
+
+ func (r *MediaRepository) GetMediaMetadataByIDs(ctx context.Context, mediaIDs []uint) ([]Media, error) {
+    var mediaItems []Media
+    if len(mediaIDs) == 0 {
+        return mediaItems, nil
+    }
+    result := r.db.WithContext(ctx).Where("id IN ?", mediaIDs).Find(&mediaItems)
+    if result.Error != nil {
+        return nil, fmt.Errorf("failed to get media metadata by IDs: %w", result.Error)
+    }
+    return mediaItems, nil
+}

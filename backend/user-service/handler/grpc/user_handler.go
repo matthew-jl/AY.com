@@ -75,7 +75,6 @@ func validatePasswordComplexity(password string) error {
 	return nil
 }
 
-// Register implements user registration
 func (h *UserHandler) Register(ctx context.Context, req *userpb.RegisterRequest) (*emptypb.Empty, error) {
 	log.Printf("Received Register request for email: %s", req.Email)
 
@@ -123,7 +122,7 @@ func (h *UserHandler) Register(ctx context.Context, req *userpb.RegisterRequest)
 		Name:             req.Name,
 		Username:         req.Username,
 		Email:            req.Email,
-		Gender:           req.Gender, // Optional, handle if empty if needed
+		Gender:           req.Gender,
 		DateOfBirth:      dob.Format("2006-01-02"),
 		SecurityQuestion: req.SecurityQuestion,
 		// Passwords/Answers are hashed inside CreateUser
@@ -207,7 +206,6 @@ func (h *UserHandler) VerifyEmail(ctx context.Context, req *userpb.VerifyEmailRe
 }
 
 
-// Login implements user login
 func (h *UserHandler) Login(ctx context.Context, req *userpb.LoginRequest) (*userpb.AuthResponse, error) {
 	log.Printf("Received Login request for email: %s", req.Email)
 
@@ -220,7 +218,7 @@ func (h *UserHandler) Login(ctx context.Context, req *userpb.LoginRequest) (*use
 	if err != nil {
 		log.Printf("Login failed for %s: %v", req.Email, err)
 		if err.Error() == "user not found" {
-			return nil, status.Errorf(codes.NotFound, "Invalid email or password") // Generic message for security
+			return nil, status.Errorf(codes.NotFound, "Invalid email or password")
 		}
 		return nil, status.Errorf(codes.Internal, "Failed to retrieve user information")
 	}
@@ -229,7 +227,7 @@ func (h *UserHandler) Login(ctx context.Context, req *userpb.LoginRequest) (*use
 	err = bcrypt.CompareHashAndPassword([]byte(user.PasswordHash), []byte(req.Password))
 	if err != nil {
 		log.Printf("Invalid password attempt for user %d (%s)", user.ID, user.Email)
-		return nil, status.Errorf(codes.Unauthenticated, "Invalid email or password") // Generic message
+		return nil, status.Errorf(codes.Unauthenticated, "Invalid email or password")
 	}
 
 	// Check account status (e.g., 'active', 'banned', 'deactivated')
@@ -263,7 +261,6 @@ func (h *UserHandler) GetSecurityQuestion(ctx context.Context, req *userpb.GetSe
 	user, err := h.repo.GetUserByEmail(ctx, req.Email)
 	if err != nil {
 		log.Printf("GetSecurityQuestion failed for %s: %v", req.Email, err)
-		// Return NotFound even if email exists
 		return nil, status.Errorf(codes.NotFound, "Email not found or account inactive")
 	}
 
@@ -320,7 +317,7 @@ func (h *UserHandler) ResetPassword(ctx context.Context, req *userpb.ResetPasswo
         return nil, status.Errorf(codes.Internal, "Failed to validate new password")
     }
 
-	// 5. Hash the *new* password
+	// 5. Hash the new password
 	newPasswordHash, err := bcrypt.GenerateFromPassword([]byte(req.NewPassword), bcrypt.DefaultCost)
 	if err != nil {
 		log.Printf("ERROR hashing new password for user %d: %v", user.ID, err)
@@ -345,7 +342,6 @@ func (h *UserHandler) GetUserProfile(ctx context.Context, req *userpb.GetUserPro
 		return nil, status.Errorf(codes.InvalidArgument, "User ID is required")
 	}
 
-	// Fetch user from repository by ID
 	user, err := h.repo.GetUserByID(ctx, uint(req.UserId))
 	if err != nil {
 		log.Printf("GetUserProfile failed for User ID %d: %v", req.UserId, err)
@@ -355,8 +351,6 @@ func (h *UserHandler) GetUserProfile(ctx context.Context, req *userpb.GetUserPro
 		return nil, status.Errorf(codes.Internal, "Failed to retrieve user profile")
 	}
 
-	// Map repository User struct to proto User message
-	// Exclude sensitive fields like PasswordHash, SecurityAnswerHash, VerificationCode
 	return &userpb.User{
 		Id:             uint32(user.ID),
 		Name:           user.Name,
@@ -368,6 +362,37 @@ func (h *UserHandler) GetUserProfile(ctx context.Context, req *userpb.GetUserPro
 		DateOfBirth:    user.DateOfBirth,
 		AccountStatus:  user.AccountStatus,
 		AccountPrivacy: user.AccountPrivacy,
-		CreatedAt:      timestamppb.New(user.CreatedAt), // Convert time.Time to Timestamp proto
+		CreatedAt:      timestamppb.New(user.CreatedAt),
 	}, nil
+}
+
+func (h *UserHandler) GetUserProfilesByIds(ctx context.Context, req *userpb.GetUserProfilesByIdsRequest) (*userpb.GetUserProfilesByIdsResponse, error) {
+	log.Printf("Received GetUserProfilesByIds request for %d IDs", len(req.UserIds))
+	if len(req.UserIds) == 0 {
+		return &userpb.GetUserProfilesByIdsResponse{Users: make(map[uint32]*userpb.User)}, nil // Return empty map
+	}
+
+	// Convert uint32 IDs to uint for repository
+	uintUserIDs := make([]uint, len(req.UserIds))
+	for i, id := range req.UserIds {
+		uintUserIDs[i] = uint(id)
+	}
+
+	dbUsers, err := h.repo.GetUsersByIDs(ctx, uintUserIDs)
+	if err != nil {
+		log.Printf("Error getting users by IDs: %v", err)
+		return nil, status.Errorf(codes.Internal, "Failed to retrieve user profiles")
+	}
+
+	userMap := make(map[uint32]*userpb.User)
+	for _, dbUser := range dbUsers {
+		userMap[uint32(dbUser.ID)] = &userpb.User{
+			Id:             uint32(dbUser.ID),
+			Name:           dbUser.Name,
+			Username:       dbUser.Username,
+			Email:          dbUser.Email,
+			ProfilePicture: dbUser.ProfilePicture,
+		}
+	}
+	return &userpb.GetUserProfilesByIdsResponse{Users: userMap}, nil
 }

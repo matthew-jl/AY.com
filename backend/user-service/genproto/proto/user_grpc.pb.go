@@ -20,13 +20,14 @@ import (
 const _ = grpc.SupportPackageIsVersion9
 
 const (
-	UserService_HealthCheck_FullMethodName         = "/user.UserService/HealthCheck"
-	UserService_Register_FullMethodName            = "/user.UserService/Register"
-	UserService_Login_FullMethodName               = "/user.UserService/Login"
-	UserService_VerifyEmail_FullMethodName         = "/user.UserService/VerifyEmail"
-	UserService_GetSecurityQuestion_FullMethodName = "/user.UserService/GetSecurityQuestion"
-	UserService_ResetPassword_FullMethodName       = "/user.UserService/ResetPassword"
-	UserService_GetUserProfile_FullMethodName      = "/user.UserService/GetUserProfile"
+	UserService_HealthCheck_FullMethodName          = "/user.UserService/HealthCheck"
+	UserService_Register_FullMethodName             = "/user.UserService/Register"
+	UserService_Login_FullMethodName                = "/user.UserService/Login"
+	UserService_VerifyEmail_FullMethodName          = "/user.UserService/VerifyEmail"
+	UserService_GetSecurityQuestion_FullMethodName  = "/user.UserService/GetSecurityQuestion"
+	UserService_ResetPassword_FullMethodName        = "/user.UserService/ResetPassword"
+	UserService_GetUserProfile_FullMethodName       = "/user.UserService/GetUserProfile"
+	UserService_GetUserProfilesByIds_FullMethodName = "/user.UserService/GetUserProfilesByIds"
 )
 
 // UserServiceClient is the client API for UserService service.
@@ -40,6 +41,7 @@ type UserServiceClient interface {
 	GetSecurityQuestion(ctx context.Context, in *GetSecurityQuestionRequest, opts ...grpc.CallOption) (*GetSecurityQuestionResponse, error)
 	ResetPassword(ctx context.Context, in *ResetPasswordRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
 	GetUserProfile(ctx context.Context, in *GetUserProfileRequest, opts ...grpc.CallOption) (*User, error)
+	GetUserProfilesByIds(ctx context.Context, in *GetUserProfilesByIdsRequest, opts ...grpc.CallOption) (*GetUserProfilesByIdsResponse, error)
 }
 
 type userServiceClient struct {
@@ -120,6 +122,16 @@ func (c *userServiceClient) GetUserProfile(ctx context.Context, in *GetUserProfi
 	return out, nil
 }
 
+func (c *userServiceClient) GetUserProfilesByIds(ctx context.Context, in *GetUserProfilesByIdsRequest, opts ...grpc.CallOption) (*GetUserProfilesByIdsResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(GetUserProfilesByIdsResponse)
+	err := c.cc.Invoke(ctx, UserService_GetUserProfilesByIds_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // UserServiceServer is the server API for UserService service.
 // All implementations must embed UnimplementedUserServiceServer
 // for forward compatibility.
@@ -131,6 +143,7 @@ type UserServiceServer interface {
 	GetSecurityQuestion(context.Context, *GetSecurityQuestionRequest) (*GetSecurityQuestionResponse, error)
 	ResetPassword(context.Context, *ResetPasswordRequest) (*emptypb.Empty, error)
 	GetUserProfile(context.Context, *GetUserProfileRequest) (*User, error)
+	GetUserProfilesByIds(context.Context, *GetUserProfilesByIdsRequest) (*GetUserProfilesByIdsResponse, error)
 	mustEmbedUnimplementedUserServiceServer()
 }
 
@@ -161,6 +174,9 @@ func (UnimplementedUserServiceServer) ResetPassword(context.Context, *ResetPassw
 }
 func (UnimplementedUserServiceServer) GetUserProfile(context.Context, *GetUserProfileRequest) (*User, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method GetUserProfile not implemented")
+}
+func (UnimplementedUserServiceServer) GetUserProfilesByIds(context.Context, *GetUserProfilesByIdsRequest) (*GetUserProfilesByIdsResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetUserProfilesByIds not implemented")
 }
 func (UnimplementedUserServiceServer) mustEmbedUnimplementedUserServiceServer() {}
 func (UnimplementedUserServiceServer) testEmbeddedByValue()                     {}
@@ -309,6 +325,24 @@ func _UserService_GetUserProfile_Handler(srv interface{}, ctx context.Context, d
 	return interceptor(ctx, in, info, handler)
 }
 
+func _UserService_GetUserProfilesByIds_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetUserProfilesByIdsRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(UserServiceServer).GetUserProfilesByIds(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: UserService_GetUserProfilesByIds_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(UserServiceServer).GetUserProfilesByIds(ctx, req.(*GetUserProfilesByIdsRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // UserService_ServiceDesc is the grpc.ServiceDesc for UserService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -343,6 +377,10 @@ var UserService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "GetUserProfile",
 			Handler:    _UserService_GetUserProfile_Handler,
+		},
+		{
+			MethodName: "GetUserProfilesByIds",
+			Handler:    _UserService_GetUserProfilesByIds_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

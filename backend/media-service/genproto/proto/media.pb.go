@@ -71,11 +71,11 @@ type Media struct {
 	state          protoimpl.MessageState `protogen:"open.v1"`
 	Id             uint32                 `protobuf:"varint,1,opt,name=id,proto3" json:"id,omitempty"`
 	UploaderUserId uint32                 `protobuf:"varint,2,opt,name=uploader_user_id,json=uploaderUserId,proto3" json:"uploader_user_id,omitempty"`
-	SupabasePath   string                 `protobuf:"bytes,3,opt,name=supabase_path,json=supabasePath,proto3" json:"supabase_path,omitempty"` // Path within bucket
+	SupabasePath   string                 `protobuf:"bytes,3,opt,name=supabase_path,json=supabasePath,proto3" json:"supabase_path,omitempty"`
 	BucketName     string                 `protobuf:"bytes,4,opt,name=bucket_name,json=bucketName,proto3" json:"bucket_name,omitempty"`
 	MimeType       string                 `protobuf:"bytes,5,opt,name=mime_type,json=mimeType,proto3" json:"mime_type,omitempty"`
 	FileSize       int64                  `protobuf:"varint,6,opt,name=file_size,json=fileSize,proto3" json:"file_size,omitempty"`
-	PublicUrl      string                 `protobuf:"bytes,7,opt,name=public_url,json=publicUrl,proto3" json:"public_url,omitempty"` // Add dynamically generated public URL
+	PublicUrl      string                 `protobuf:"bytes,7,opt,name=public_url,json=publicUrl,proto3" json:"public_url,omitempty"`
 	CreatedAt      *timestamppb.Timestamp `protobuf:"bytes,8,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`
 	unknownFields  protoimpl.UnknownFields
 	sizeCache      protoimpl.SizeCache
@@ -170,7 +170,7 @@ func (x *Media) GetCreatedAt() *timestamppb.Timestamp {
 type UploadMediaRequest struct {
 	state          protoimpl.MessageState `protogen:"open.v1"`
 	UploaderUserId uint32                 `protobuf:"varint,1,opt,name=uploader_user_id,json=uploaderUserId,proto3" json:"uploader_user_id,omitempty"`
-	FileName       string                 `protobuf:"bytes,2,opt,name=file_name,json=fileName,proto3" json:"file_name,omitempty"` // Original filename for context/extension
+	FileName       string                 `protobuf:"bytes,2,opt,name=file_name,json=fileName,proto3" json:"file_name,omitempty"`
 	MimeType       string                 `protobuf:"bytes,3,opt,name=mime_type,json=mimeType,proto3" json:"mime_type,omitempty"`
 	FileContent    []byte                 `protobuf:"bytes,4,opt,name=file_content,json=fileContent,proto3" json:"file_content,omitempty"`
 	unknownFields  protoimpl.UnknownFields
@@ -237,7 +237,7 @@ func (x *UploadMediaRequest) GetFileContent() []byte {
 
 type UploadMediaResponse struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
-	Media         *Media                 `protobuf:"bytes,1,opt,name=media,proto3" json:"media,omitempty"` // Return full media info including ID and URL
+	Media         *Media                 `protobuf:"bytes,1,opt,name=media,proto3" json:"media,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -323,6 +323,94 @@ func (x *GetMediaMetadataRequest) GetMediaId() uint32 {
 	return 0
 }
 
+type GetMultipleMediaMetadataRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	MediaIds      []uint32               `protobuf:"varint,1,rep,packed,name=media_ids,json=mediaIds,proto3" json:"media_ids,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *GetMultipleMediaMetadataRequest) Reset() {
+	*x = GetMultipleMediaMetadataRequest{}
+	mi := &file_proto_media_proto_msgTypes[5]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GetMultipleMediaMetadataRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GetMultipleMediaMetadataRequest) ProtoMessage() {}
+
+func (x *GetMultipleMediaMetadataRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_media_proto_msgTypes[5]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GetMultipleMediaMetadataRequest.ProtoReflect.Descriptor instead.
+func (*GetMultipleMediaMetadataRequest) Descriptor() ([]byte, []int) {
+	return file_proto_media_proto_rawDescGZIP(), []int{5}
+}
+
+func (x *GetMultipleMediaMetadataRequest) GetMediaIds() []uint32 {
+	if x != nil {
+		return x.MediaIds
+	}
+	return nil
+}
+
+type GetMultipleMediaMetadataResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	MediaItems    map[uint32]*Media      `protobuf:"bytes,1,rep,name=media_items,json=mediaItems,proto3" json:"media_items,omitempty" protobuf_key:"varint,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *GetMultipleMediaMetadataResponse) Reset() {
+	*x = GetMultipleMediaMetadataResponse{}
+	mi := &file_proto_media_proto_msgTypes[6]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GetMultipleMediaMetadataResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GetMultipleMediaMetadataResponse) ProtoMessage() {}
+
+func (x *GetMultipleMediaMetadataResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_media_proto_msgTypes[6]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GetMultipleMediaMetadataResponse.ProtoReflect.Descriptor instead.
+func (*GetMultipleMediaMetadataResponse) Descriptor() ([]byte, []int) {
+	return file_proto_media_proto_rawDescGZIP(), []int{6}
+}
+
+func (x *GetMultipleMediaMetadataResponse) GetMediaItems() map[uint32]*Media {
+	if x != nil {
+		return x.MediaItems
+	}
+	return nil
+}
+
 var File_proto_media_proto protoreflect.FileDescriptor
 
 const file_proto_media_proto_rawDesc = "" +
@@ -350,11 +438,20 @@ const file_proto_media_proto_rawDesc = "" +
 	"\x13UploadMediaResponse\x12\"\n" +
 	"\x05media\x18\x01 \x01(\v2\f.media.MediaR\x05media\"4\n" +
 	"\x17GetMediaMetadataRequest\x12\x19\n" +
-	"\bmedia_id\x18\x01 \x01(\rR\amediaId2\xd4\x01\n" +
+	"\bmedia_id\x18\x01 \x01(\rR\amediaId\">\n" +
+	"\x1fGetMultipleMediaMetadataRequest\x12\x1b\n" +
+	"\tmedia_ids\x18\x01 \x03(\rR\bmediaIds\"\xc9\x01\n" +
+	" GetMultipleMediaMetadataResponse\x12X\n" +
+	"\vmedia_items\x18\x01 \x03(\v27.media.GetMultipleMediaMetadataResponse.MediaItemsEntryR\n" +
+	"mediaItems\x1aK\n" +
+	"\x0fMediaItemsEntry\x12\x10\n" +
+	"\x03key\x18\x01 \x01(\rR\x03key\x12\"\n" +
+	"\x05value\x18\x02 \x01(\v2\f.media.MediaR\x05value:\x028\x012\xc1\x02\n" +
 	"\fMediaService\x12<\n" +
 	"\vHealthCheck\x12\x16.google.protobuf.Empty\x1a\x15.media.HealthResponse\x12D\n" +
 	"\vUploadMedia\x12\x19.media.UploadMediaRequest\x1a\x1a.media.UploadMediaResponse\x12@\n" +
-	"\x10GetMediaMetadata\x12\x1e.media.GetMediaMetadataRequest\x1a\f.media.MediaBBZ@github.com/Acad600-TPA/WEB-MJ-242/backend/media-service/genprotob\x06proto3"
+	"\x10GetMediaMetadata\x12\x1e.media.GetMediaMetadataRequest\x1a\f.media.Media\x12k\n" +
+	"\x18GetMultipleMediaMetadata\x12&.media.GetMultipleMediaMetadataRequest\x1a'.media.GetMultipleMediaMetadataResponseBBZ@github.com/Acad600-TPA/WEB-MJ-242/backend/media-service/genprotob\x06proto3"
 
 var (
 	file_proto_media_proto_rawDescOnce sync.Once
@@ -368,30 +465,37 @@ func file_proto_media_proto_rawDescGZIP() []byte {
 	return file_proto_media_proto_rawDescData
 }
 
-var file_proto_media_proto_msgTypes = make([]protoimpl.MessageInfo, 5)
+var file_proto_media_proto_msgTypes = make([]protoimpl.MessageInfo, 8)
 var file_proto_media_proto_goTypes = []any{
-	(*HealthResponse)(nil),          // 0: media.HealthResponse
-	(*Media)(nil),                   // 1: media.Media
-	(*UploadMediaRequest)(nil),      // 2: media.UploadMediaRequest
-	(*UploadMediaResponse)(nil),     // 3: media.UploadMediaResponse
-	(*GetMediaMetadataRequest)(nil), // 4: media.GetMediaMetadataRequest
-	(*timestamppb.Timestamp)(nil),   // 5: google.protobuf.Timestamp
-	(*emptypb.Empty)(nil),           // 6: google.protobuf.Empty
+	(*HealthResponse)(nil),                   // 0: media.HealthResponse
+	(*Media)(nil),                            // 1: media.Media
+	(*UploadMediaRequest)(nil),               // 2: media.UploadMediaRequest
+	(*UploadMediaResponse)(nil),              // 3: media.UploadMediaResponse
+	(*GetMediaMetadataRequest)(nil),          // 4: media.GetMediaMetadataRequest
+	(*GetMultipleMediaMetadataRequest)(nil),  // 5: media.GetMultipleMediaMetadataRequest
+	(*GetMultipleMediaMetadataResponse)(nil), // 6: media.GetMultipleMediaMetadataResponse
+	nil,                                      // 7: media.GetMultipleMediaMetadataResponse.MediaItemsEntry
+	(*timestamppb.Timestamp)(nil),            // 8: google.protobuf.Timestamp
+	(*emptypb.Empty)(nil),                    // 9: google.protobuf.Empty
 }
 var file_proto_media_proto_depIdxs = []int32{
-	5, // 0: media.Media.created_at:type_name -> google.protobuf.Timestamp
+	8, // 0: media.Media.created_at:type_name -> google.protobuf.Timestamp
 	1, // 1: media.UploadMediaResponse.media:type_name -> media.Media
-	6, // 2: media.MediaService.HealthCheck:input_type -> google.protobuf.Empty
-	2, // 3: media.MediaService.UploadMedia:input_type -> media.UploadMediaRequest
-	4, // 4: media.MediaService.GetMediaMetadata:input_type -> media.GetMediaMetadataRequest
-	0, // 5: media.MediaService.HealthCheck:output_type -> media.HealthResponse
-	3, // 6: media.MediaService.UploadMedia:output_type -> media.UploadMediaResponse
-	1, // 7: media.MediaService.GetMediaMetadata:output_type -> media.Media
-	5, // [5:8] is the sub-list for method output_type
-	2, // [2:5] is the sub-list for method input_type
-	2, // [2:2] is the sub-list for extension type_name
-	2, // [2:2] is the sub-list for extension extendee
-	0, // [0:2] is the sub-list for field type_name
+	7, // 2: media.GetMultipleMediaMetadataResponse.media_items:type_name -> media.GetMultipleMediaMetadataResponse.MediaItemsEntry
+	1, // 3: media.GetMultipleMediaMetadataResponse.MediaItemsEntry.value:type_name -> media.Media
+	9, // 4: media.MediaService.HealthCheck:input_type -> google.protobuf.Empty
+	2, // 5: media.MediaService.UploadMedia:input_type -> media.UploadMediaRequest
+	4, // 6: media.MediaService.GetMediaMetadata:input_type -> media.GetMediaMetadataRequest
+	5, // 7: media.MediaService.GetMultipleMediaMetadata:input_type -> media.GetMultipleMediaMetadataRequest
+	0, // 8: media.MediaService.HealthCheck:output_type -> media.HealthResponse
+	3, // 9: media.MediaService.UploadMedia:output_type -> media.UploadMediaResponse
+	1, // 10: media.MediaService.GetMediaMetadata:output_type -> media.Media
+	6, // 11: media.MediaService.GetMultipleMediaMetadata:output_type -> media.GetMultipleMediaMetadataResponse
+	8, // [8:12] is the sub-list for method output_type
+	4, // [4:8] is the sub-list for method input_type
+	4, // [4:4] is the sub-list for extension type_name
+	4, // [4:4] is the sub-list for extension extendee
+	0, // [0:4] is the sub-list for field type_name
 }
 
 func init() { file_proto_media_proto_init() }
@@ -405,7 +509,7 @@ func file_proto_media_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_proto_media_proto_rawDesc), len(file_proto_media_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   5,
+			NumMessages:   8,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

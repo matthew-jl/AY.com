@@ -52,12 +52,13 @@ export interface ThreadData {
   // --- Frontend-specific state ---
   author?: UserProfileResponse | null; // Hydrated author info
   media?: MediaMetadata[]; // Hydrated media info
-  is_liked?: boolean;
-  is_bookmarked?: boolean;
-  is_reposted?: boolean; // Add later
+  is_liked_by_current_user?: boolean;
+  is_bookmarked_by_current_user?: boolean;
+  is_reposted_by_current_user?: boolean; // Add later
   like_count: number;
   reply_count: number;
   repost_count: number;
+  bookmark_count: number;
 }
 
 export interface FeedResponse {

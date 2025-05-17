@@ -15,6 +15,7 @@ service UserService {
   rpc GetSecurityQuestion(GetSecurityQuestionRequest) returns (GetSecurityQuestionResponse);
   rpc ResetPassword(ResetPasswordRequest) returns (google.protobuf.Empty);
   rpc GetUserProfile(GetUserProfileRequest) returns (User);
+  rpc GetUserProfilesByIds(GetUserProfilesByIdsRequest) returns (GetUserProfilesByIdsResponse);
 }
 
 message HealthResponse {
@@ -77,4 +78,12 @@ message User {
 
 message GetUserProfileRequest {
   uint32 user_id = 1;
+}
+
+message GetUserProfilesByIdsRequest {
+  repeated uint32 user_ids = 1;
+}
+
+message GetUserProfilesByIdsResponse {
+  map<uint32, User> users = 1;
 }

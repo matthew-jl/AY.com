@@ -7,7 +7,7 @@ import (
 
 	threadpb "github.com/Acad600-TPA/WEB-MJ-242/backend/thread-service/genproto/proto"
 	"github.com/Acad600-TPA/WEB-MJ-242/backend/thread-service/repository/postgres"
-	"github.com/lib/pq" // For pq.Int64Array type conversion
+	"github.com/lib/pq"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/emptypb"
@@ -45,11 +45,11 @@ func (h *ThreadHandler) CreateThread(ctx context.Context, req *threadpb.CreateTh
 	thread := &postgres.Thread{
 		UserID:           uint(req.UserId),
 		Content:          req.Content,
-		ReplyRestriction: req.ReplyRestriction.String(), // Convert enum to string
-        MediaIDs:         uint32SliceToInt64Array(req.MediaIds), // Convert slice
+		ReplyRestriction: req.ReplyRestriction.String(),
+        MediaIDs:         uint32SliceToInt64Array(req.MediaIds),
 	}
     if req.GetParentThreadId() != 0 {
-         parentID := uint(req.GetParentThreadId()) // Use Get method for optional field
+         parentID := uint(req.GetParentThreadId())
          thread.ParentThreadID = &parentID
     }
      if req.GetCommunityId() != 0 {
@@ -74,6 +74,38 @@ func (h *ThreadHandler) CreateThread(ctx context.Context, req *threadpb.CreateTh
 	return mapThreadToProto(thread), nil
 }
 
+func (h *ThreadHandler) hydrateThreadInteractions(ctx context.Context, tProto *threadpb.Thread, currentUserID uint32) {
+	if tProto == nil {
+		return
+	}
+
+	likeCount, bookmarkCount, err := h.repo.GetInteractionCountsForThread(ctx, uint(tProto.Id))
+	if err != nil {
+		log.Printf("Error getting interaction counts for thread %d: %v", tProto.Id, err)
+	} else {
+		tProto.LikeCount = int32(likeCount)
+		tProto.BookmarkCount = int32(bookmarkCount)
+		// TODO: Populate reply_count, repost_count when implemented
+	}
+
+	if currentUserID != 0 {
+		isLiked, err := h.repo.CheckUserInteraction(ctx, uint(currentUserID), uint(tProto.Id), "like")
+		if err != nil {
+			log.Printf("Error checking like status for user %d, thread %d: %v", currentUserID, tProto.Id, err)
+		} else {
+			tProto.IsLikedByCurrentUser = isLiked
+		}
+
+		isBookmarked, err := h.repo.CheckUserInteraction(ctx, uint(currentUserID), uint(tProto.Id), "bookmark")
+		if err != nil {
+			log.Printf("Error checking bookmark status for user %d, thread %d: %v", currentUserID, tProto.Id, err)
+		} else {
+			tProto.IsBookmarkedByCurrentUser = isBookmarked
+		}
+	}
+}
+
+
 func (h *ThreadHandler) GetThread(ctx context.Context, req *threadpb.GetThreadRequest) (*threadpb.Thread, error) {
      log.Printf("Received GetThread request for ID: %d", req.ThreadId)
      if req.ThreadId == 0 { return nil, status.Errorf(codes.InvalidArgument, "Thread ID is required") }
@@ -84,8 +116,11 @@ func (h *ThreadHandler) GetThread(ctx context.Context, req *threadpb.GetThreadRe
          if err.Error() == "thread not found" { return nil, status.Errorf(codes.NotFound, "Thread not found") }
          return nil, status.Errorf(codes.Internal, "Failed to retrieve thread")
      }
-     // TODO: Fetch interaction counts and map them
-     return mapThreadToProto(thread), nil // Map DB to proto
+     
+     tProto := mapThreadToProto(thread)
+     h.hydrateThreadInteractions(ctx, tProto, *req.CurrentUserId)
+
+     return tProto, nil
 }
 
 func (h *ThreadHandler) DeleteThread(ctx context.Context, req *threadpb.DeleteThreadRequest) (*emptypb.Empty, error) {
@@ -177,43 +212,60 @@ func (h *ThreadHandler) UnlikeThread(ctx context.Context, req *threadpb.Interact
  }
 
  func (h *ThreadHandler) GetFeedThreads(ctx context.Context, req *threadpb.GetFeedThreadsRequest) (*threadpb.GetFeedThreadsResponse, error) {
-	log.Printf("Received GetFeedThreads request. Page: %d, Limit: %d, Type: %s, User: %d", req.Page, req.Limit, req.FeedType, req.UserId)
+	log.Printf("Received GetFeedThreads request. Page: %d, Limit: %d, Type: %s, CurrentUser: %d", req.Page, req.Limit, req.FeedType, req.GetCurrentUserId())
 
-	// Basic validation for pagination
-	limit := int(req.Limit)
-	if limit <= 0 || limit > 50 {
-		limit = 20
-	}
-	page := int(req.Page)
-	if page <= 0 {
-		page = 1
-	}
+	limit := int(req.Limit); if limit <= 0 || limit > 50 { limit = 20 }
+	page := int(req.Page); if page <= 0 { page = 1 }
 	offset := (page - 1) * limit
 
-	params := postgres.GetThreadsParams{
-		Limit:  limit,
-		Offset: offset,
-	}
+	params := postgres.GetThreadsParams{Limit: limit, Offset: offset}
+	// TODO: Add logic for "following" feed type using req.GetCurrentUserId()
 
-	// TODO: Implement logic for "following" feed type based on req.UserId
-
-	threads, err := h.repo.GetThreads(ctx, params)
+	dbThreads, err := h.repo.GetThreads(ctx, params)
 	if err != nil {
 		log.Printf("Failed to get feed threads from repo: %v", err)
 		return nil, status.Errorf(codes.Internal, "Could not retrieve feed")
 	}
 
-	// Map DB threads to proto threads
-	protoThreads := make([]*threadpb.Thread, 0, len(threads))
-	for i := range threads {
-		// TODO: Fetch/Attach interaction counts and author/media details here before mapping
-        // For now, map directly
-		protoThreads = append(protoThreads, mapThreadToProto(&threads[i]))
+	protoThreads := make([]*threadpb.Thread, 0, len(dbThreads))
+	if len(dbThreads) > 0 {
+		threadIDs := make([]uint, len(dbThreads))
+		for i, t := range dbThreads {
+			threadIDs[i] = t.ID
+		}
+
+		countsMap, errCounts := h.repo.GetInteractionCountsForMultipleThreads(ctx, threadIDs)
+		if errCounts != nil {
+			log.Printf("Error fetching batch interaction counts: %v", errCounts)
+		}
+
+		userInteractionsMap := make(map[uint]map[string]bool)
+		if req.GetCurrentUserId() != 0 {
+			userInteractionsMap, err = h.repo.CheckUserInteractionsForMultipleThreads(ctx, uint(req.GetCurrentUserId()), threadIDs)
+			if err != nil {
+				log.Printf("Error fetching batch user interactions: %v", err)
+			}
+		}
+
+		for i := range dbThreads {
+			tProto := mapThreadToProto(&dbThreads[i])
+
+			if threadCounts, ok := countsMap[dbThreads[i].ID]; ok {
+				tProto.LikeCount = int32(threadCounts["like"])
+				tProto.BookmarkCount = int32(threadCounts["bookmark"])
+				// Populate other counts (reply, repost) when available
+			}
+
+			if userThreadInteractions, ok := userInteractionsMap[dbThreads[i].ID]; ok {
+				tProto.IsLikedByCurrentUser = userThreadInteractions["like"]
+				tProto.IsBookmarkedByCurrentUser = userThreadInteractions["bookmark"]
+			}
+			protoThreads = append(protoThreads, tProto)
+		}
 	}
 
-	hasMore := len(threads) == limit
-
-	log.Printf("Returning %d threads for feed request.", len(protoThreads))
+	hasMore := len(dbThreads) == limit
+	log.Printf("Returning %d hydrated threads for feed request.", len(protoThreads))
 
 	return &threadpb.GetFeedThreadsResponse{
 		Threads: protoThreads,
@@ -223,7 +275,6 @@ func (h *ThreadHandler) UnlikeThread(ctx context.Context, req *threadpb.Interact
 
 // --- Helper Functions ---
 
-// Converts DB Thread model to Protobuf Thread message
 func mapThreadToProto(t *postgres.Thread) *threadpb.Thread {
     if t == nil { return nil }
     protoThread := &threadpb.Thread{
@@ -251,17 +302,15 @@ func mapThreadToProto(t *postgres.Thread) *threadpb.Thread {
     return protoThread
 }
 
-// Maps string from DB to proto enum
 func mapStringToReplyRestriction(s string) threadpb.ReplyRestriction {
     switch s {
     case "following": return threadpb.ReplyRestriction_FOLLOWING
     case "verified": return threadpb.ReplyRestriction_VERIFIED
-    case "everyone": fallthrough // Default case
+    case "everyone": fallthrough
     default:         return threadpb.ReplyRestriction_EVERYONE
     }
 }
 
-// Helper to convert pq.Int64Array to []uint32
 func int64ArrayToUint32Slice(arr pq.Int64Array) []uint32 {
     if arr == nil { return nil }
     res := make([]uint32, len(arr))
@@ -271,7 +320,6 @@ func int64ArrayToUint32Slice(arr pq.Int64Array) []uint32 {
     return res
 }
 
-// Helper to convert []uint32 to pq.Int64Array
 func uint32SliceToInt64Array(slice []uint32) pq.Int64Array {
     if slice == nil { return nil }
     res := make(pq.Int64Array, len(slice))

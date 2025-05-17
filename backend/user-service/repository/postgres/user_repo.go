@@ -138,3 +138,15 @@ func (r *UserRepository) GetUserByID(ctx context.Context, userID uint) (*User, e
 	}
 	return &user, nil
 }
+
+func (r *UserRepository) GetUsersByIDs(ctx context.Context, userIDs []uint) ([]User, error) {
+    var users []User
+    if len(userIDs) == 0 {
+        return users, nil
+    }
+    result := r.db.WithContext(ctx).Where("id IN ?", userIDs).Find(&users)
+    if result.Error != nil {
+        return nil, fmt.Errorf("failed to get users by IDs: %w", result.Error)
+    }
+    return users, nil
+}

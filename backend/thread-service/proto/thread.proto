@@ -41,10 +41,13 @@ message Thread {
   bool is_advertisement = 9;
   repeated uint32 media_ids = 10;
   google.protobuf.Timestamp created_at = 11;
-  // Interaction counts (calculate on retrieval)
   int32 like_count = 12;
   int32 reply_count = 13;
   int32 repost_count = 14;
+  int32 bookmark_count = 15; 
+  bool is_liked_by_current_user = 16;
+  bool is_bookmarked_by_current_user = 17;
+  // bool is_reposted_by_current_user = 18; // Add later
   // Add user info (name, handle, pic) from User service during aggregation later
 }
 
@@ -61,6 +64,7 @@ message CreateThreadRequest {
 
 message GetThreadRequest {
   uint32 thread_id = 1;
+  optional uint32 current_user_id = 2;
 }
 
 message DeleteThreadRequest {
@@ -74,7 +78,7 @@ message InteractThreadRequest {
 }
 
 message GetFeedThreadsRequest {
-  uint32 user_id = 1; // ID of the user requesting the feed (for "Following" later)
+  optional uint32 current_user_id = 1; // ID of the user requesting the feed (for "Following" later)
   int32 page = 2;
   int32 limit = 3;
   string feed_type = 4; // "foryou", "following" (optional for now)

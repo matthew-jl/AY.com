@@ -60,3 +60,7 @@ func (c *UserClient) ResetPassword(ctx context.Context, req *userpb.ResetPasswor
 func (c *UserClient) GetUserProfile(ctx context.Context, req *userpb.GetUserProfileRequest) (*userpb.User, error) {
 	return c.client.GetUserProfile(ctx, req)
 }
+
+func (c *UserClient) GetUserProfilesByIds(ctx context.Context, req *userpb.GetUserProfilesByIdsRequest) (*userpb.GetUserProfilesByIdsResponse, error) {
+	return c.client.GetUserProfilesByIds(ctx, req)
+}

@@ -167,4 +167,93 @@ func (r *ThreadRepository) GetThreads(ctx context.Context, params GetThreadsPara
 	return threads, nil
 }
 
+func (r *ThreadRepository) GetInteractionCountsForThread(ctx context.Context, threadID uint) (likeCount int64, bookmarkCount int64, err error) {
+	var counts []struct {
+		InteractionType string
+		Count           int64
+	}
+	result := r.db.WithContext(ctx).Model(&ThreadInteraction{}).
+		Select("interaction_type, count(*) as count").
+		Where("thread_id = ?", threadID).
+		Group("interaction_type").
+		Find(&counts)
+
+	if result.Error != nil {
+		return 0, 0, fmt.Errorf("failed to get interaction counts for thread %d: %w", threadID, result.Error)
+	}
+
+	for _, c := range counts {
+		if c.InteractionType == "like" {
+			likeCount = c.Count
+		} else if c.InteractionType == "bookmark" {
+			bookmarkCount = c.Count
+		}
+	}
+	return likeCount, bookmarkCount, nil
+}
+
+func (r *ThreadRepository) GetInteractionCountsForMultipleThreads(ctx context.Context, threadIDs []uint) (map[uint]map[string]int64, error) {
+	if len(threadIDs) == 0 {
+		return make(map[uint]map[string]int64), nil
+	}
+	var results []struct {
+		ThreadID        uint
+		InteractionType string
+		Count           int64
+	}
+	err := r.db.WithContext(ctx).Model(&ThreadInteraction{}).
+		Select("thread_id, interaction_type, count(*) as count").
+		Where("thread_id IN ?", threadIDs).
+		Group("thread_id, interaction_type").
+		Find(&results).Error
+
+	if err != nil {
+		return nil, fmt.Errorf("failed to get interaction counts for multiple threads: %w", err)
+	}
+
+	countsMap := make(map[uint]map[string]int64)
+	for _, res := range results {
+		if _, ok := countsMap[res.ThreadID]; !ok {
+			countsMap[res.ThreadID] = make(map[string]int64)
+		}
+		countsMap[res.ThreadID][res.InteractionType] = res.Count
+	}
+	return countsMap, nil
+}
+
+func (r *ThreadRepository) CheckUserInteraction(ctx context.Context, userID, threadID uint, interactionType string) (bool, error) {
+	var count int64
+	result := r.db.WithContext(ctx).Model(&ThreadInteraction{}).
+		Where("user_id = ? AND thread_id = ? AND interaction_type = ?", userID, threadID, interactionType).
+		Count(&count)
+
+	if result.Error != nil {
+		return false, fmt.Errorf("failed to check user interaction: %w", result.Error)
+	}
+	return count > 0, nil
+}
+
+func (r *ThreadRepository) CheckUserInteractionsForMultipleThreads(ctx context.Context, userID uint, threadIDs []uint) (map[uint]map[string]bool, error) {
+	if userID == 0 || len(threadIDs) == 0 {
+		return make(map[uint]map[string]bool), nil
+	}
+	var interactions []ThreadInteraction
+	err := r.db.WithContext(ctx).
+		Where("user_id = ? AND thread_id IN ?", userID, threadIDs).
+		Find(&interactions).Error
+
+	if err != nil {
+		return nil, fmt.Errorf("failed to check user interactions for multiple threads: %w", err)
+	}
+
+	userInteractionsMap := make(map[uint]map[string]bool)
+	for _, interaction := range interactions {
+		if _, ok := userInteractionsMap[interaction.ThreadID]; !ok {
+			userInteractionsMap[interaction.ThreadID] = make(map[string]bool)
+		}
+		userInteractionsMap[interaction.ThreadID][interaction.InteractionType] = true
+	}
+	return userInteractionsMap, nil
+}
+
 // Add methods for user threads, interactions etc. later

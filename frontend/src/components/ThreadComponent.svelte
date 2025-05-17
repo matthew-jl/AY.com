@@ -1,27 +1,26 @@
 <script lang="ts">
-  import type { ThreadData } from '../lib/api'; // Use the defined interface
+  import type { ThreadData } from '../lib/api';
   import { api, ApiError } from '../lib/api';
-  import { user } from '../stores/userStore'; // To check ownership
+  import { user } from '../stores/userStore';
   import { createEventDispatcher } from 'svelte';
-  import { link } from 'svelte-routing'; // For potential links in content/author
-  import { timeAgo } from '../lib/utils/timeAgo'; // Helper for relative time (create this)
+  import { link } from 'svelte-routing';
+  import { timeAgo } from '../lib/utils/timeAgo';
   import { MessageSquare, Repeat2, Heart, Bookmark, Share2, MoreHorizontal } from 'lucide-svelte';
 
   export let thread: ThreadData;
 
   const dispatch = createEventDispatcher();
 
-  // Local reactive state for interactions (allows optimistic UI)
-  let isLiked = thread.is_liked ?? false;
-  let isBookmarked = thread.is_bookmarked ?? false;
+  let isLiked = thread.is_liked_by_current_user ?? false;
+  let isBookmarked = thread.is_bookmarked_by_current_user ?? false;
   let likeCount = thread.like_count ?? 0;
-  // let bookmarkCount = thread.bookmark_count ?? 0; // Add if needed
+  let bookmarkCount = thread.bookmark_count ?? 0;
 
   let interactionError: string | null = null;
   let isDeleting = false;
 
   $: isOwnThread = $user?.id === thread.user_id;
-  $: author = thread.author; // Assuming author is pre-populated
+  $: author = thread.author;
 
   // --- Interaction Handlers ---
   async function handleLike() {
@@ -52,7 +51,7 @@
   async function handleBookmark() {
     interactionError = null;
     const originalBookmarked = isBookmarked;
-    isBookmarked = !isBookmarked; // Optimistic update
+    isBookmarked = !isBookmarked;
 
     try {
       if (isBookmarked) {
@@ -63,7 +62,7 @@
       console.log(`Bookmark/Unbookmark success for thread ${thread.id}`);
     } catch (err) {
       console.error("Bookmark error:", err);
-      isBookmarked = originalBookmarked; // Revert
+      isBookmarked = originalBookmarked;
       interactionError = "Failed to update bookmark status.";
     }
   }
@@ -83,7 +82,6 @@
          interactionError = "Failed to delete thread.";
          isDeleting = false;
     }
-    // No need to set isDeleting=false on success, component will be removed
   }
 
   // TODO: Add Reply and Repost handlers
@@ -115,7 +113,6 @@
             {#if isOwnThread}
                  <button class="more-options-btn" on:click={handleDelete} disabled={isDeleting} aria-label="Delete thread">
                     <MoreHorizontal size={18} />   
-                  <!-- <svg viewBox="0 0 24 24"><g><path d="M3 12c0-1.1.9-2 2-2s2 .9 2 2-.9 2-2 2-2-.9-2-2zm9 2c1.1 0 2-.9 2-2s-.9-2-2-2-2 .9-2 2 .9 2 2 2zm7 0c1.1 0 2-.9 2-2s-.9-2-2-2-2 .9-2 2 .9 2 2 2z"></path></g></svg> -->
                 </button>
             {/if}
         </div>
@@ -143,31 +140,23 @@
 
         <div class="thread-actions">
             <button class="action-btn reply" aria-label="Reply">
-                <!-- <svg viewBox="0 0 24 24"><g><path d="M1.751 10c0-4.42 3.584-8 8.005-8h4.366c4.49 0 8.129 3.64 8.129 8.13 0 2.96-1.607 5.68-4.196 7.11l-8.054 4.46v-3.69h-.067c-4.49.1-8.183-3.51-8.183-8.01zm8.005-6c-3.317 0-6.005 2.69-6.005 6 0 3.37 2.77 6.08 6.138 6.01l.351-.01h1.761v2.3l5.087-2.81c1.951-1.08 3.163-3.13 3.163-5.36 0-3.39-2.744-6.13-6.129-6.13H9.756z"></path></g></svg> -->
                 <MessageSquare size={18} />
                 <span>{thread.reply_count > 0 ? thread.reply_count : ''}</span>
             </button>
              <button class="action-btn repost" aria-label="Repost">
-                <!-- <svg viewBox="0 0 24 24"><g><path d="M4.5 3.88l4.43-4.43L10 1l-6 6-6-6 1.07-1.55L4.5 3.88zM19.5 20.12l-4.43 4.43L14 23l6-6 6 6-1.07 1.55L19.5 20.12zM14.93 4.24L22 11.31v-2.83L14.93 1.4l-2.12 2.12 7.07 7.07-7.07 7.07 2.12 2.12L22 12.69v-2.83L14.93 4.24zM9.07 19.76L2 12.69v2.83L9.07 22.6l2.12-2.12-7.07-7.07 7.07-7.07-2.12-2.12L2 11.31v2.83L9.07 19.76z"></path></g></svg> -->
                 <Repeat2 size={18} />
                 <span>{thread.repost_count > 0 ? thread.repost_count : ''}</span>
             </button>
              <button class="action-btn like" class:liked={isLiked} on:click={handleLike} aria-pressed={isLiked} aria-label={isLiked ? 'Unlike' : 'Like'}>
-               <!-- {#if isLiked}
-                    <svg viewBox="0 0 24 24" class="liked-icon"><g><path d="M12 21.638h-.014C9.403 21.59 1.95 14.856 1.95 8.478c0-3.064 2.525-5.754 5.403-5.754 2.29 0 4.134 1.336 5.103 3.24H12v1.453c0 .414.336.75.75.75h5.5c.414 0 .75-.336.75-.75V7.677c1.926-1.912 3.24-4.36 3.24-7.138 0-3.064-2.525-5.754-5.403-5.754-2.29 0-4.134 1.336-5.103 3.24h-.037c-.967-1.903-2.81-3.24-5.102-3.24z"></path></g></svg>
-                {:else}
-                   <svg viewBox="0 0 24 24"><g><path d="M16.697 5.5c-1.222-.06-2.679.51-3.89 2.16l-.805 1.09-.806-1.09C9.984 6.01 8.526 5.44 7.304 5.5c-1.845.09-3.391 1.64-3.391 3.43 0 3.16 2.18 5.78 5.08 8.28l.806.69.806-.69c2.9-2.5 5.08-5.12 5.08-8.28 0-1.79-1.546-3.34-3.393-3.43z"></path></g></svg>
-                {/if} -->
                 <Heart size={18} fill={isLiked ? '#f91880' : 'none'} stroke={isLiked ? '#f91880' : 'currentColor'} />
                  <span>{likeCount > 0 ? likeCount : ''}</span>
             </button>
              <button class="action-btn bookmark" class:bookmarked={isBookmarked} on:click={handleBookmark} aria-pressed={isBookmarked} aria-label={isBookmarked ? 'Remove bookmark' : 'Bookmark'}>
                  <Bookmark size={18} fill={isBookmarked ? 'var(--primary-color)' : 'none'} stroke={isBookmarked ? 'var(--primary-color)' : 'currentColor'} />
-                 <!-- No count usually shown for bookmark -->
+                 <span>{bookmarkCount > 0 ? bookmarkCount : ''}</span>
             </button>
             <!-- Share Button Placeholder -->
              <button class="action-btn share" aria-label="Share">
-                 <!-- <svg viewBox="0 0 24 24"><g><path d="M12 2.59l5.7 5.7-1.41 1.42L13 6.41V16h-2V6.41L7.71 9.71 6.3 8.29l5.7-5.7zM20 17v3h-2v-3H6v3H4v-3H2v-2h20v2h-2z"></path></g></svg> -->
                   <Share2 size={18} />
              </button>
         </div>

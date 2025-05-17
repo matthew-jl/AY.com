@@ -35,3 +35,7 @@ func (c *MediaClient) UploadMedia(ctx context.Context, req *mediapb.UploadMediaR
 func (c *MediaClient) GetMediaMetadata(ctx context.Context, req *mediapb.GetMediaMetadataRequest) (*mediapb.Media, error) {
 	return c.client.GetMediaMetadata(ctx, req)
 }
+
+func (c *MediaClient) GetMultipleMediaMetadata(ctx context.Context, req *mediapb.GetMultipleMediaMetadataRequest) (*mediapb.GetMultipleMediaMetadataResponse, error) {
+	return c.client.GetMultipleMediaMetadata(ctx, req)
+}

@@ -639,6 +639,94 @@ func (x *GetUserProfileRequest) GetUserId() uint32 {
 	return 0
 }
 
+type GetUserProfilesByIdsRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	UserIds       []uint32               `protobuf:"varint,1,rep,packed,name=user_ids,json=userIds,proto3" json:"user_ids,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *GetUserProfilesByIdsRequest) Reset() {
+	*x = GetUserProfilesByIdsRequest{}
+	mi := &file_proto_user_proto_msgTypes[10]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GetUserProfilesByIdsRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GetUserProfilesByIdsRequest) ProtoMessage() {}
+
+func (x *GetUserProfilesByIdsRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_user_proto_msgTypes[10]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GetUserProfilesByIdsRequest.ProtoReflect.Descriptor instead.
+func (*GetUserProfilesByIdsRequest) Descriptor() ([]byte, []int) {
+	return file_proto_user_proto_rawDescGZIP(), []int{10}
+}
+
+func (x *GetUserProfilesByIdsRequest) GetUserIds() []uint32 {
+	if x != nil {
+		return x.UserIds
+	}
+	return nil
+}
+
+type GetUserProfilesByIdsResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Users         map[uint32]*User       `protobuf:"bytes,1,rep,name=users,proto3" json:"users,omitempty" protobuf_key:"varint,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *GetUserProfilesByIdsResponse) Reset() {
+	*x = GetUserProfilesByIdsResponse{}
+	mi := &file_proto_user_proto_msgTypes[11]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GetUserProfilesByIdsResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GetUserProfilesByIdsResponse) ProtoMessage() {}
+
+func (x *GetUserProfilesByIdsResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_user_proto_msgTypes[11]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GetUserProfilesByIdsResponse.ProtoReflect.Descriptor instead.
+func (*GetUserProfilesByIdsResponse) Descriptor() ([]byte, []int) {
+	return file_proto_user_proto_rawDescGZIP(), []int{11}
+}
+
+func (x *GetUserProfilesByIdsResponse) GetUsers() map[uint32]*User {
+	if x != nil {
+		return x.Users
+	}
+	return nil
+}
+
 var File_proto_user_proto protoreflect.FileDescriptor
 
 const file_proto_user_proto_rawDesc = "" +
@@ -687,7 +775,16 @@ const file_proto_user_proto_rawDesc = "" +
 	"\n" +
 	"created_at\x18\v \x01(\v2\x1a.google.protobuf.TimestampR\tcreatedAt\"0\n" +
 	"\x15GetUserProfileRequest\x12\x17\n" +
-	"\auser_id\x18\x01 \x01(\rR\x06userId2\xd3\x03\n" +
+	"\auser_id\x18\x01 \x01(\rR\x06userId\"8\n" +
+	"\x1bGetUserProfilesByIdsRequest\x12\x19\n" +
+	"\buser_ids\x18\x01 \x03(\rR\auserIds\"\xa9\x01\n" +
+	"\x1cGetUserProfilesByIdsResponse\x12C\n" +
+	"\x05users\x18\x01 \x03(\v2-.user.GetUserProfilesByIdsResponse.UsersEntryR\x05users\x1aD\n" +
+	"\n" +
+	"UsersEntry\x12\x10\n" +
+	"\x03key\x18\x01 \x01(\rR\x03key\x12 \n" +
+	"\x05value\x18\x02 \x01(\v2\n" +
+	".user.UserR\x05value:\x028\x012\xb2\x04\n" +
 	"\vUserService\x12;\n" +
 	"\vHealthCheck\x12\x16.google.protobuf.Empty\x1a\x14.user.HealthResponse\x129\n" +
 	"\bRegister\x12\x15.user.RegisterRequest\x1a\x16.google.protobuf.Empty\x12/\n" +
@@ -696,7 +793,8 @@ const file_proto_user_proto_rawDesc = "" +
 	"\x13GetSecurityQuestion\x12 .user.GetSecurityQuestionRequest\x1a!.user.GetSecurityQuestionResponse\x12C\n" +
 	"\rResetPassword\x12\x1a.user.ResetPasswordRequest\x1a\x16.google.protobuf.Empty\x129\n" +
 	"\x0eGetUserProfile\x12\x1b.user.GetUserProfileRequest\x1a\n" +
-	".user.UserBAZ?github.com/Acad600-TPA/WEB-MJ-242/backend/user-service/genprotob\x06proto3"
+	".user.User\x12]\n" +
+	"\x14GetUserProfilesByIds\x12!.user.GetUserProfilesByIdsRequest\x1a\".user.GetUserProfilesByIdsResponseBAZ?github.com/Acad600-TPA/WEB-MJ-242/backend/user-service/genprotob\x06proto3"
 
 var (
 	file_proto_user_proto_rawDescOnce sync.Once
@@ -710,42 +808,49 @@ func file_proto_user_proto_rawDescGZIP() []byte {
 	return file_proto_user_proto_rawDescData
 }
 
-var file_proto_user_proto_msgTypes = make([]protoimpl.MessageInfo, 10)
+var file_proto_user_proto_msgTypes = make([]protoimpl.MessageInfo, 13)
 var file_proto_user_proto_goTypes = []any{
-	(*HealthResponse)(nil),              // 0: user.HealthResponse
-	(*RegisterRequest)(nil),             // 1: user.RegisterRequest
-	(*LoginRequest)(nil),                // 2: user.LoginRequest
-	(*AuthResponse)(nil),                // 3: user.AuthResponse
-	(*VerifyEmailRequest)(nil),          // 4: user.VerifyEmailRequest
-	(*GetSecurityQuestionRequest)(nil),  // 5: user.GetSecurityQuestionRequest
-	(*GetSecurityQuestionResponse)(nil), // 6: user.GetSecurityQuestionResponse
-	(*ResetPasswordRequest)(nil),        // 7: user.ResetPasswordRequest
-	(*User)(nil),                        // 8: user.User
-	(*GetUserProfileRequest)(nil),       // 9: user.GetUserProfileRequest
-	(*timestamppb.Timestamp)(nil),       // 10: google.protobuf.Timestamp
-	(*emptypb.Empty)(nil),               // 11: google.protobuf.Empty
+	(*HealthResponse)(nil),               // 0: user.HealthResponse
+	(*RegisterRequest)(nil),              // 1: user.RegisterRequest
+	(*LoginRequest)(nil),                 // 2: user.LoginRequest
+	(*AuthResponse)(nil),                 // 3: user.AuthResponse
+	(*VerifyEmailRequest)(nil),           // 4: user.VerifyEmailRequest
+	(*GetSecurityQuestionRequest)(nil),   // 5: user.GetSecurityQuestionRequest
+	(*GetSecurityQuestionResponse)(nil),  // 6: user.GetSecurityQuestionResponse
+	(*ResetPasswordRequest)(nil),         // 7: user.ResetPasswordRequest
+	(*User)(nil),                         // 8: user.User
+	(*GetUserProfileRequest)(nil),        // 9: user.GetUserProfileRequest
+	(*GetUserProfilesByIdsRequest)(nil),  // 10: user.GetUserProfilesByIdsRequest
+	(*GetUserProfilesByIdsResponse)(nil), // 11: user.GetUserProfilesByIdsResponse
+	nil,                                  // 12: user.GetUserProfilesByIdsResponse.UsersEntry
+	(*timestamppb.Timestamp)(nil),        // 13: google.protobuf.Timestamp
+	(*emptypb.Empty)(nil),                // 14: google.protobuf.Empty
 }
 var file_proto_user_proto_depIdxs = []int32{
-	10, // 0: user.User.created_at:type_name -> google.protobuf.Timestamp
-	11, // 1: user.UserService.HealthCheck:input_type -> google.protobuf.Empty
-	1,  // 2: user.UserService.Register:input_type -> user.RegisterRequest
-	2,  // 3: user.UserService.Login:input_type -> user.LoginRequest
-	4,  // 4: user.UserService.VerifyEmail:input_type -> user.VerifyEmailRequest
-	5,  // 5: user.UserService.GetSecurityQuestion:input_type -> user.GetSecurityQuestionRequest
-	7,  // 6: user.UserService.ResetPassword:input_type -> user.ResetPasswordRequest
-	9,  // 7: user.UserService.GetUserProfile:input_type -> user.GetUserProfileRequest
-	0,  // 8: user.UserService.HealthCheck:output_type -> user.HealthResponse
-	11, // 9: user.UserService.Register:output_type -> google.protobuf.Empty
-	3,  // 10: user.UserService.Login:output_type -> user.AuthResponse
-	11, // 11: user.UserService.VerifyEmail:output_type -> google.protobuf.Empty
-	6,  // 12: user.UserService.GetSecurityQuestion:output_type -> user.GetSecurityQuestionResponse
-	11, // 13: user.UserService.ResetPassword:output_type -> google.protobuf.Empty
-	8,  // 14: user.UserService.GetUserProfile:output_type -> user.User
-	8,  // [8:15] is the sub-list for method output_type
-	1,  // [1:8] is the sub-list for method input_type
-	1,  // [1:1] is the sub-list for extension type_name
-	1,  // [1:1] is the sub-list for extension extendee
-	0,  // [0:1] is the sub-list for field type_name
+	13, // 0: user.User.created_at:type_name -> google.protobuf.Timestamp
+	12, // 1: user.GetUserProfilesByIdsResponse.users:type_name -> user.GetUserProfilesByIdsResponse.UsersEntry
+	8,  // 2: user.GetUserProfilesByIdsResponse.UsersEntry.value:type_name -> user.User
+	14, // 3: user.UserService.HealthCheck:input_type -> google.protobuf.Empty
+	1,  // 4: user.UserService.Register:input_type -> user.RegisterRequest
+	2,  // 5: user.UserService.Login:input_type -> user.LoginRequest
+	4,  // 6: user.UserService.VerifyEmail:input_type -> user.VerifyEmailRequest
+	5,  // 7: user.UserService.GetSecurityQuestion:input_type -> user.GetSecurityQuestionRequest
+	7,  // 8: user.UserService.ResetPassword:input_type -> user.ResetPasswordRequest
+	9,  // 9: user.UserService.GetUserProfile:input_type -> user.GetUserProfileRequest
+	10, // 10: user.UserService.GetUserProfilesByIds:input_type -> user.GetUserProfilesByIdsRequest
+	0,  // 11: user.UserService.HealthCheck:output_type -> user.HealthResponse
+	14, // 12: user.UserService.Register:output_type -> google.protobuf.Empty
+	3,  // 13: user.UserService.Login:output_type -> user.AuthResponse
+	14, // 14: user.UserService.VerifyEmail:output_type -> google.protobuf.Empty
+	6,  // 15: user.UserService.GetSecurityQuestion:output_type -> user.GetSecurityQuestionResponse
+	14, // 16: user.UserService.ResetPassword:output_type -> google.protobuf.Empty
+	8,  // 17: user.UserService.GetUserProfile:output_type -> user.User
+	11, // 18: user.UserService.GetUserProfilesByIds:output_type -> user.GetUserProfilesByIdsResponse
+	11, // [11:19] is the sub-list for method output_type
+	3,  // [3:11] is the sub-list for method input_type
+	3,  // [3:3] is the sub-list for extension type_name
+	3,  // [3:3] is the sub-list for extension extendee
+	0,  // [0:3] is the sub-list for field type_name
 }
 
 func init() { file_proto_user_proto_init() }
@@ -759,7 +864,7 @@ func file_proto_user_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_proto_user_proto_rawDesc), len(file_proto_user_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   10,
+			NumMessages:   13,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

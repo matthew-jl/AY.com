@@ -6,10 +6,13 @@ import (
 	"net/http"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/Acad600-TPA/WEB-MJ-242/backend/api-gateway/client"
+	mediapb "github.com/Acad600-TPA/WEB-MJ-242/backend/media-service/genproto/proto"
 	threadpb "github.com/Acad600-TPA/WEB-MJ-242/backend/thread-service/genproto/proto"
+	userpb "github.com/Acad600-TPA/WEB-MJ-242/backend/user-service/genproto/proto"
 	"github.com/gin-gonic/gin"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -18,56 +21,96 @@ import (
 
 type ThreadHandler struct {
 	threadClient *client.ThreadClient
-	mediaClient  *client.MediaClient // Inject media client for potential uploads before thread creation
+	mediaClient  *client.MediaClient
+	userClient  *client.UserClient
 }
 
-func NewThreadHandler(threadClient *client.ThreadClient, mediaClient *client.MediaClient) *ThreadHandler {
-	return &ThreadHandler{threadClient: threadClient, mediaClient: mediaClient}
+func NewThreadHandler(threadClient *client.ThreadClient, mediaClient *client.MediaClient, userClient *client.UserClient) *ThreadHandler {
+	return &ThreadHandler{threadClient: threadClient, mediaClient: mediaClient, userClient: userClient}
 }
 
 // Payload for creating a thread (matches frontend structure)
 type CreateThreadPayload struct {
-	Content          string   `form:"content"`                     // Use form binding if potentially mixed with files
-	ParentThreadID   *uint32  `form:"parent_thread_id"`          // Optional
-	ReplyRestriction string   `form:"reply_restriction"`         // e.g., "EVERYONE", "FOLLOWING"
-	ScheduledAt      *string  `form:"scheduled_at"`              // Optional ISO 8601 string
-	CommunityID      *uint32  `form:"community_id"`              // Optional
-	MediaIDs         []uint32 `form:"media_ids,omitempty"`       // Optional: IDs from previous uploads
-	// Note: Files would be handled via c.FormFile("media_files")
+	Content          string   `json:"content"`
+	ParentThreadID   *uint32  `json:"parent_thread_id,omitempty"`
+	ReplyRestriction string   `json:"reply_restriction,omitempty"` // e.g., "EVERYONE", "FOLLOWING"
+	ScheduledAt      *string  `json:"scheduled_at,omitempty"`
+	CommunityID      *uint32  `json:"community_id,omitempty"`
+	MediaIDs         []uint32 `json:"media_ids,omitempty"`
+}
+
+type FrontendMediaMetadata struct {
+	ID             uint32 `json:"id"`
+	UploaderUserID uint32 `json:"uploader_user_id"`
+	SupabasePath   string `json:"supabase_path"`
+	BucketName     string `json:"bucket_name"`
+	MimeType       string `json:"mime_type"`
+	FileSize       int64  `json:"file_size"`
+	PublicURL      string `json:"public_url"`
+	CreatedAt      string `json:"created_at"`
+}
+
+type FrontendUserProfile struct {
+	ID             uint32 `json:"id"`
+	Name           string `json:"name"`
+	Username       string `json:"username"`
+	Email          string `json:"email"`
+	ProfilePicture string `json:"profile_picture,omitempty"`
+	// Add other fields frontend needs, e.g., account_privacy, is_verified
+}
+
+type FrontendThreadData struct {
+	ID               uint32                `json:"id"`
+	UserID           uint32                `json:"user_id"`
+	Content          string                `json:"content"`
+	ParentThreadID   *uint32               `json:"parent_thread_id,omitempty"`
+	ReplyRestriction string                `json:"reply_restriction"`
+	ScheduledAt      *string               `json:"scheduled_at,omitempty"`
+	PostedAt         string                `json:"posted_at"`             
+	CommunityID      *uint32               `json:"community_id,omitempty"`
+	IsAdvertisement  bool                  `json:"is_advertisement"`
+	MediaIDs         []uint32              `json:"media_ids"`
+	CreatedAt        string                `json:"created_at"`     
+	Author           *FrontendUserProfile  `json:"author,omitempty"`  // Hydrated
+	Media            []FrontendMediaMetadata `json:"media,omitempty"`   // Hydrated
+	LikeCount        int32                 `json:"like_count"`
+	ReplyCount       int32                 `json:"reply_count"`
+	RepostCount      int32                 `json:"repost_count"`
+	BookmarkCount               int32                 `json:"bookmark_count"`
+	IsLikedByCurrentUser        bool                  `json:"is_liked_by_current_user"`
+	IsBookmarkedByCurrentUser   bool                  `json:"is_bookmarked_by_current_user"`
+}
+
+type FrontendFeedResponse struct {
+	Threads []FrontendThreadData `json:"threads"`
+	HasMore bool                 `json:"has_more"`
 }
 
 
-// CreateThread handles creating a new thread, possibly with media uploads first.
-// For simplicity NOW, assumes media_ids are provided if media exists.
-// A more robust flow would handle file uploads within this request or via separate /media/upload calls first.
+
 func (h *ThreadHandler) CreateThread(c *gin.Context) {
 	userID, ok := getUserIDFromContext(c)
-	if !ok { return /* Error handled in helper */ }
+	if !ok { return }
 
 	var payload CreateThreadPayload
-	// Use ShouldBind for flexibility (handles JSON, form data)
-	if err := c.ShouldBind(&payload); err != nil {
+	if err := c.ShouldBindJSON(&payload); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request data: " + err.Error()})
 		return
 	}
 
-	// Basic validation
 	if payload.Content == "" && len(payload.MediaIDs) == 0 {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Thread must contain content or media"})
 		return
 	}
 
-	// Prepare gRPC request
 	grpcReq := &threadpb.CreateThreadRequest{
 		UserId:   userID,
 		Content:  payload.Content,
-		MediaIds: payload.MediaIDs, // Directly use provided IDs
+		MediaIds: payload.MediaIDs,
 	}
 
-	// Map Reply Restriction string to enum
 	grpcReq.ReplyRestriction = mapHTTPReplyRestrictionToProto(payload.ReplyRestriction)
 
-	// Handle optional fields
 	if payload.ParentThreadID != nil {
 		grpcReq.ParentThreadId = payload.ParentThreadID
 	}
@@ -75,7 +118,6 @@ func (h *ThreadHandler) CreateThread(c *gin.Context) {
 		grpcReq.CommunityId = payload.CommunityID
 	}
 	if payload.ScheduledAt != nil && *payload.ScheduledAt != "" {
-		// Parse timestamp string (e.g., ISO 8601)
 		t, err := time.Parse(time.RFC3339, *payload.ScheduledAt)
 		if err != nil {
 			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid scheduled_at format. Use ISO 8601 (RFC3339)."})
@@ -84,12 +126,6 @@ func (h *ThreadHandler) CreateThread(c *gin.Context) {
 		grpcReq.ScheduledAt = timestamppb.New(t)
 	}
 
-	// --- TODO: Handle direct file uploads if needed ---
-	// If files are uploaded with this request (multipart/form-data):
-	// 1. Get files using c.FormFile or c.MultipartForm
-	// 2. Loop through files, call h.mediaClient.UploadMedia for each
-	// 3. Collect the returned media IDs and ADD them to grpcReq.MediaIds
-
 	// Call Thread Service
 	createdThread, err := h.threadClient.CreateThread(c.Request.Context(), grpcReq)
 	if err != nil {
@@ -97,24 +133,42 @@ func (h *ThreadHandler) CreateThread(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusCreated, createdThread) // Return the created thread
+	c.JSON(http.StatusCreated, createdThread)
 }
 
-// GetThread retrieves a single thread by ID.
 func (h *ThreadHandler) GetThread(c *gin.Context) {
+	currentUserID, _ := getUserIDFromContext(c)
 	threadID, ok := getUint32Param(c, "threadId")
 	if !ok { return }
 
-	grpcReq := &threadpb.GetThreadRequest{ThreadId: threadID}
-	thread, err := h.threadClient.GetThread(c.Request.Context(), grpcReq)
+	grpcReq := &threadpb.GetThreadRequest{ThreadId: threadID, CurrentUserId: &currentUserID}
+	threadProto, err := h.threadClient.GetThread(c.Request.Context(), grpcReq)
 	if err != nil {
 		handleGRPCError(c, "get thread", err)
 		return
 	}
-	c.JSON(http.StatusOK, thread)
+	var authorsMap map[uint32]*userpb.User
+	var mediaMap map[uint32]*mediapb.Media
+	var userErr, mediaErr error // Not strictly needed if fetching for single thread without goroutines
+
+	if threadProto.GetUserId() != 0 {
+		// Fetch single author
+		resp, err := h.userClient.GetUserProfilesByIds(c.Request.Context(), &userpb.GetUserProfilesByIdsRequest{UserIds: []uint32{threadProto.GetUserId()}})
+		if err == nil && resp != nil { authorsMap = resp.GetUsers() } else { userErr = err }
+	}
+	if len(threadProto.GetMediaIds()) > 0 {
+		// Fetch multiple media
+		resp, err := h.mediaClient.GetMultipleMediaMetadata(c.Request.Context(), &mediapb.GetMultipleMediaMetadataRequest{MediaIds: threadProto.GetMediaIds()})
+		if err == nil && resp != nil { mediaMap = resp.GetMediaItems() } else { mediaErr = err }
+	}
+    if userErr != nil { log.Printf("Error fetching author for GetThread: %v", userErr) }
+    if mediaErr != nil { log.Printf("Error fetching media for GetThread: %v", mediaErr) }
+
+
+	feThread := mapProtoThreadToFrontend(threadProto, authorsMap, mediaMap)
+	c.JSON(http.StatusOK, feThread)
 }
 
-// DeleteThread deletes a thread if the user is the owner.
 func (h *ThreadHandler) DeleteThread(c *gin.Context) {
 	userID, ok := getUserIDFromContext(c)
 	if !ok { return }
@@ -148,7 +202,6 @@ func (h *ThreadHandler) UnbookmarkThread(c *gin.Context) {
 	h.handleInteraction(c, "unbookmark")
 }
 
-// handleInteraction is a helper for like/unlike/bookmark/unbookmark
 func (h *ThreadHandler) handleInteraction(c *gin.Context, action string) {
 	userID, ok := getUserIDFromContext(c)
 	if !ok { return }
@@ -178,10 +231,8 @@ func (h *ThreadHandler) handleInteraction(c *gin.Context, action string) {
 	}
 
 	if err != nil {
-		// Allow "already exists" or "not found" errors for idempotent actions
 		st, ok := status.FromError(err)
 		if ok && (st.Code() == codes.AlreadyExists || st.Code() == codes.NotFound) {
-            // Consider these successful for idempotency
             log.Printf("Idempotent %s action for thread %d user %d resulted in: %s", action, threadID, userID, st.Code())
 			c.JSON(http.StatusOK, gin.H{"message": fmt.Sprintf("Interaction '%s' processed", action)})
 			return
@@ -194,9 +245,8 @@ func (h *ThreadHandler) handleInteraction(c *gin.Context, action string) {
 }
 
 func (h *ThreadHandler) GetFeed(c *gin.Context) {
-	userID, _ := getUserIDFromContext(c) // Get user ID, ignore error if not logged in (for public feed?) - adjust as needed
+	currentUserID, _ := getUserIDFromContext(c)
 
-	// Get query parameters
 	pageStr := c.DefaultQuery("page", "1")
 	limitStr := c.DefaultQuery("limit", "20")
 	feedType := c.DefaultQuery("type", "foryou") // Default to 'foryou'
@@ -208,25 +258,96 @@ func (h *ThreadHandler) GetFeed(c *gin.Context) {
 
 
 	grpcReq := &threadpb.GetFeedThreadsRequest{
-		UserId:   userID, // Pass user ID for potential 'following' logic
+		CurrentUserId:   &currentUserID,
 		Page:     int32(page),
 		Limit:    int32(limit),
 		FeedType: feedType,
 	}
 
-	resp, err := h.threadClient.GetFeedThreads(c.Request.Context(), grpcReq)
+	// 1. Fetch base threads from Thread Service
+	threadServiceResp, err := h.threadClient.GetFeedThreads(c.Request.Context(), grpcReq)
 	if err != nil {
 		handleGRPCError(c, "get feed threads", err)
 		return
 	}
 
-	// TODO: Hydrate threads with Author and Media data here
-	// 1. Collect all user IDs and media IDs from resp.Threads
-	// 2. Make batch calls to User Service (GetUserProfilesByIds - needs implementation)
-	// 3. Make batch calls to Media Service (GetMediaMetadataByIds - needs implementation)
-	// 4. Map the results back onto the threads before sending response
+	if len(threadServiceResp.GetThreads()) == 0 {
+		c.JSON(http.StatusOK, FrontendFeedResponse{Threads: []FrontendThreadData{}, HasMore: false})
+		return
+	}
 
-	c.JSON(http.StatusOK, resp) // Send GetFeedThreadsResponse (includes threads and hasMore)
+	// 2. Collect User IDs and Media IDs for batch fetching
+	authorIDsSet := make(map[uint32]bool)
+	mediaIDsSet := make(map[uint32]bool)
+	for _, t := range threadServiceResp.GetThreads() {
+		if t.GetUserId() != 0 {
+			authorIDsSet[t.GetUserId()] = true
+		}
+		for _, mediaID := range t.GetMediaIds() {
+			if mediaID != 0 {
+				mediaIDsSet[mediaID] = true
+			}
+		}
+	}
+
+	var authorIDs []uint32
+	for id := range authorIDsSet { authorIDs = append(authorIDs, id) }
+	var mediaIDs []uint32
+	for id := range mediaIDsSet { mediaIDs = append(mediaIDs, id) }
+
+	// 3. Fetch Author and Media data in parallel
+	var wg sync.WaitGroup
+	var authorsMap map[uint32]*userpb.User
+	var mediaMap map[uint32]*mediapb.Media
+	var userErr, mediaErr error
+
+	if len(authorIDs) > 0 {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			resp, err := h.userClient.GetUserProfilesByIds(c.Request.Context(), &userpb.GetUserProfilesByIdsRequest{UserIds: authorIDs})
+			if err != nil {
+				userErr = err
+				return
+			}
+			authorsMap = resp.GetUsers()
+		}()
+	}
+
+	if len(mediaIDs) > 0 {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			resp, err := h.mediaClient.GetMultipleMediaMetadata(c.Request.Context(), &mediapb.GetMultipleMediaMetadataRequest{MediaIds: mediaIDs})
+			if err != nil {
+				mediaErr = err
+				return
+			}
+			mediaMap = resp.GetMediaItems()
+		}()
+	}
+	wg.Wait() // Wait for both goroutines to finish
+
+	// For now, no error handling for empty authors or media
+	if userErr != nil {
+		log.Printf("Error fetching author profiles: %v", userErr)
+	}
+	if mediaErr != nil {
+		log.Printf("Error fetching media metadata: %v", mediaErr)
+	}
+
+
+	// 4. Hydrate Threads
+	hydratedThreads := make([]FrontendThreadData, 0, len(threadServiceResp.GetThreads()))
+	for _, tProto := range threadServiceResp.GetThreads() {
+		feThread := mapProtoThreadToFrontend(tProto, authorsMap, mediaMap)
+		hydratedThreads = append(hydratedThreads, feThread)
+	}
+
+	c.JSON(http.StatusOK, FrontendFeedResponse{
+		Threads: hydratedThreads,
+		HasMore: threadServiceResp.GetHasMore(),
+	})
 }
 
 // --- Helper Functions ---
@@ -267,15 +388,59 @@ func mapHTTPReplyRestrictionToProto(s string) threadpb.ReplyRestriction {
 	}
 }
 
-// Centralized gRPC error handling for HTTP responses
 func handleGRPCError(c *gin.Context, operation string, err error) {
 	st, ok := status.FromError(err)
-	log.Printf("gRPC error during '%s': Code=%s, Msg=%s", operation, st.Code(), st.Message()) // Log details
+	log.Printf("gRPC error during '%s': Code=%s, Msg=%s", operation, st.Code(), st.Message())
 	if ok {
-		httpCode := grpcStatusCodeToHTTP(st.Code()) // Use existing helper
+		httpCode := grpcStatusCodeToHTTP(st.Code())
 		c.JSON(httpCode, gin.H{"error": st.Message()})
 	} else {
-		// Non-gRPC error
 		c.JSON(http.StatusInternalServerError, gin.H{"error": fmt.Sprintf("Failed to %s: %s", operation, err.Error())})
 	}
+}
+
+func mapProtoThreadToFrontend(tProto *threadpb.Thread, authorsMap map[uint32]*userpb.User, mediaMap map[uint32]*mediapb.Media) FrontendThreadData {
+	feThread := FrontendThreadData{
+		ID:                          tProto.GetId(),
+		UserID:                      tProto.GetUserId(),
+		Content:                     tProto.GetContent(),
+		ReplyRestriction:            tProto.GetReplyRestriction().String(),
+		PostedAt:                    tProto.GetPostedAt().AsTime().Format(time.RFC3339),
+		IsAdvertisement:             tProto.GetIsAdvertisement(),
+		MediaIDs:                    tProto.GetMediaIds(),
+		CreatedAt:                   tProto.GetCreatedAt().AsTime().Format(time.RFC3339),
+		LikeCount:                   tProto.GetLikeCount(),
+		ReplyCount:                  tProto.GetReplyCount(),
+		RepostCount:                 tProto.GetRepostCount(),
+		BookmarkCount:               tProto.GetBookmarkCount(), // Added
+		IsLikedByCurrentUser:        tProto.GetIsLikedByCurrentUser(),
+		IsBookmarkedByCurrentUser:   tProto.GetIsBookmarkedByCurrentUser(),
+	}
+	if tProto.ParentThreadId != nil { val := tProto.GetParentThreadId(); feThread.ParentThreadID = &val }
+	if tProto.CommunityId != nil { val := tProto.GetCommunityId(); feThread.CommunityID = &val }
+	if tProto.GetScheduledAt().IsValid() { val := tProto.GetScheduledAt().AsTime().Format(time.RFC3339); feThread.ScheduledAt = &val }
+
+	if authorsMap != nil {
+		if authorProto, ok := authorsMap[tProto.GetUserId()]; ok && authorProto != nil {
+			feThread.Author = &FrontendUserProfile{
+				ID: authorProto.GetId(), Name: authorProto.GetName(), Username: authorProto.GetUsername(),
+				Email: authorProto.GetEmail(), ProfilePicture: authorProto.GetProfilePicture(),
+			}
+		}
+	}
+
+	if mediaMap != nil && len(tProto.GetMediaIds()) > 0 {
+		feThread.Media = make([]FrontendMediaMetadata, 0)
+		for _, mediaID := range tProto.GetMediaIds() {
+			if mediaProto, ok := mediaMap[mediaID]; ok && mediaProto != nil {
+				feThread.Media = append(feThread.Media, FrontendMediaMetadata{
+					ID: mediaProto.GetId(), UploaderUserID: mediaProto.GetUploaderUserId(),
+					SupabasePath: mediaProto.GetSupabasePath(), BucketName: mediaProto.GetBucketName(),
+					MimeType: mediaProto.GetMimeType(), FileSize: mediaProto.GetFileSize(),
+					PublicURL: mediaProto.GetPublicUrl(), CreatedAt: mediaProto.GetCreatedAt().AsTime().Format(time.RFC3339),
+				})
+			}
+		}
+	}
+	return feThread
 }

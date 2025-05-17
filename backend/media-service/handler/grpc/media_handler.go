@@ -43,21 +43,18 @@ func (h *MediaHandler) UploadMedia(ctx context.Context, req *mediapb.UploadMedia
     }
     // Add more validation: file size limits, mime type checking
 
-	// Upload to Supabase
 	supabasePath, fileSize, err := utils.UploadFileToSupabase(ctx, uint(req.UploaderUserId), req.FileName, req.MimeType, req.FileContent)
 	if err != nil {
 		log.Printf("Upload to Supabase failed for user %d: %v", req.UploaderUserId, err)
 		return nil, status.Errorf(codes.Internal, "Failed to store media file")
 	}
 
-	// Save metadata to DB
 	media := &postgres.Media{
 		UploaderUserID: uint(req.UploaderUserId),
 		SupabasePath:   supabasePath,
         BucketName:     os.Getenv("SUPABASE_BUCKET_NAME"),
 		MimeType:       req.MimeType,
         FileSize:       fileSize,
-		// CreatedAt/UpdatedAt set by GORM
 	}
 	err = h.repo.CreateMediaMetadata(ctx, media)
 	if err != nil {
@@ -66,12 +63,10 @@ func (h *MediaHandler) UploadMedia(ctx context.Context, req *mediapb.UploadMedia
 		return nil, status.Errorf(codes.Internal, "Failed to save media information")
 	}
 
-    // Generate public URL
     publicURL := utils.GetPublicURL(media.SupabasePath)
 
 	log.Printf("Media metadata saved successfully. ID: %d, Path: %s", media.ID, media.SupabasePath)
 
-	// Return response including the new media ID and URL
 	return &mediapb.UploadMediaResponse{
 		Media: &mediapb.Media{
 			Id:             uint32(media.ID),
@@ -113,4 +108,38 @@ func (h *MediaHandler) GetMediaMetadata(ctx context.Context, req *mediapb.GetMed
          PublicUrl:      publicURL,
          CreatedAt:      timestamppb.New(media.CreatedAt),
      }, nil
+}
+
+func (h *MediaHandler) GetMultipleMediaMetadata(ctx context.Context, req *mediapb.GetMultipleMediaMetadataRequest) (*mediapb.GetMultipleMediaMetadataResponse, error) {
+    log.Printf("Received GetMultipleMediaMetadata request for %d IDs", len(req.MediaIds))
+    if len(req.MediaIds) == 0 {
+        return &mediapb.GetMultipleMediaMetadataResponse{MediaItems: make(map[uint32]*mediapb.Media)}, nil
+    }
+
+    uintMediaIDs := make([]uint, len(req.MediaIds))
+    for i, id := range req.MediaIds {
+        uintMediaIDs[i] = uint(id)
+    }
+
+    dbMediaItems, err := h.repo.GetMediaMetadataByIDs(ctx, uintMediaIDs)
+    if err != nil {
+        log.Printf("Error getting media by IDs: %v", err)
+        return nil, status.Errorf(codes.Internal, "Failed to retrieve media metadata")
+    }
+
+    mediaMap := make(map[uint32]*mediapb.Media)
+    for _, dbMedia := range dbMediaItems {
+        publicURL := utils.GetPublicURL(dbMedia.SupabasePath)
+        mediaMap[uint32(dbMedia.ID)] = &mediapb.Media{
+            Id:             uint32(dbMedia.ID),
+            UploaderUserId: uint32(dbMedia.UploaderUserID),
+            SupabasePath:   dbMedia.SupabasePath,
+            BucketName:     dbMedia.BucketName,
+            MimeType:       dbMedia.MimeType,
+            FileSize:       dbMedia.FileSize,
+            PublicUrl:      publicURL,
+            CreatedAt:      timestamppb.New(dbMedia.CreatedAt),
+        }
+    }
+    return &mediapb.GetMultipleMediaMetadataResponse{MediaItems: mediaMap}, nil
 }

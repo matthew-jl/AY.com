@@ -1,7 +1,7 @@
 <script lang="ts">
   import { createEventDispatcher, onDestroy } from 'svelte';
   import { api, ApiError, type CreateThreadRequestData, type MediaMetadata } from '../lib/api';
-  import { user } from '../stores/userStore'; // Get current user for avatar
+  import { user } from '../stores/userStore';
 
   const dispatch = createEventDispatcher();
 
@@ -13,7 +13,7 @@
   let createError: string | null = null;
   let isLoading = false;
   let charCount = 0;
-  const maxChars = 280; // Example limit
+  const maxChars = 280;
 
   $: charCount = content.length;
   $: progress = Math.min(100, (charCount / maxChars) * 100);
@@ -22,13 +22,11 @@
 
   // TODO: Add state for reply restriction, schedule, community
 
-  // --- Handle File Selection for Previews ---
   function handleFileSelectionChange() {
     if (!selectedFiles) return;
 
-    // Clear previous previews if selecting new files
     mediaPreviews = [];
-    uploadError = null; // Clear previous upload errors
+    uploadError = null;
 
     const filesArray = Array.from(selectedFiles);
 
@@ -43,22 +41,18 @@
     // Optional: Revoke object URLs later in onDestroy or when removing preview
   }
 
-  // Trigger preview generation when selectedFiles changes
   $: if (selectedFiles) handleFileSelectionChange();
 
   function removePreview(urlToRemove: string) {
       mediaPreviews = mediaPreviews.filter(p => p.url !== urlToRemove);
-      // Also update selectedFiles if needed, though it's usually simpler
-      // to just re-select files if the user removes one this way.
-      // For simplicity, we'll upload all files currently in mediaPreviews on submit.
        const fileInput = document.getElementById('file-input') as HTMLInputElement;
-       if(fileInput) fileInput.value = ''; // Clear input value so user can re-select same file
+       if(fileInput) fileInput.value = '';
   }
 
 
   async function handleCreateThread() {
     createError = null;
-    uploadError = null; // Clear upload error on submit attempt
+    uploadError = null;
     if (isOverLimit) {
         createError = "Thread content exceeds maximum length.";
         return;
@@ -83,13 +77,13 @@
                  formData.append('media_file', preview.file);
                  const response = await api.uploadMedia(formData);
                  console.log(`Uploaded ${preview.file.name}:`, response.media);
-                 return response.media.id; // Return only the ID
+                 return response.media.id;
              });
              uploadedMediaIDs = await Promise.all(uploadPromises);
              console.log("All media uploaded. IDs:", uploadedMediaIDs);
-             uploadError = null; // Clear upload error if successful
+             uploadError = null;
         }
-        isUploading = false; // Upload phase finished
+        isUploading = false;
 
         // --- Step 2: Create Thread with Content and Media IDs ---
         const threadData: CreateThreadRequestData = {
@@ -102,24 +96,21 @@
         const createdThread = await api.createThread(threadData);
         console.log("Thread created:", createdThread);
 
-        // Success
         dispatch('close');
         dispatch('threadcreated', createdThread);
-        // Reset form
         content = ''; selectedFiles = null; mediaPreviews = []; charCount = 0;
 
     } catch (err) {
         console.error("Error during thread creation/upload:", err);
-        if (isUploading) { // Check if error happened during upload phase
+        if (isUploading) {
              if (err instanceof ApiError) { uploadError = `Upload failed: ${err.message}`; }
              else if (err instanceof Error) { uploadError = `Upload error: ${err.message}`; }
              else { uploadError = 'An unexpected upload error occurred.'; }
-        } else { // Error happened during thread creation API call
+        } else {
              if (err instanceof ApiError) { createError = `Failed to create thread: ${err.message}`; }
              else if (err instanceof Error) { createError = `An error occurred: ${err.message}`; }
              else { createError = 'An unexpected error occurred while creating thread.'; }
         }
-        // Don't reset form on error so user can retry/fix
     } finally {
         isLoading = false;
         isUploading = false;
@@ -128,7 +119,6 @@
 
   // --- Cleanup ---
   onDestroy(() => {
-      // Revoke object URLs to prevent memory leaks
       mediaPreviews.forEach(p => URL.revokeObjectURL(p.url));
   });
 
@@ -166,7 +156,7 @@
     <!-- Media Previews -->
     {#if mediaPreviews.length > 0}
         <div class="media-preview-grid">
-            {#each mediaPreviews as preview (preview.url)} <!-- Key by unique URL -->
+            {#each mediaPreviews as preview (preview.url)}
                 <div class="media-preview-item">
                      <!-- Use preview.url for image src -->
                      <img src={preview.url} alt="Upload preview {preview.file.name}" />

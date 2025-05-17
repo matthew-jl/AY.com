@@ -20,9 +20,10 @@ import (
 const _ = grpc.SupportPackageIsVersion9
 
 const (
-	MediaService_HealthCheck_FullMethodName      = "/media.MediaService/HealthCheck"
-	MediaService_UploadMedia_FullMethodName      = "/media.MediaService/UploadMedia"
-	MediaService_GetMediaMetadata_FullMethodName = "/media.MediaService/GetMediaMetadata"
+	MediaService_HealthCheck_FullMethodName              = "/media.MediaService/HealthCheck"
+	MediaService_UploadMedia_FullMethodName              = "/media.MediaService/UploadMedia"
+	MediaService_GetMediaMetadata_FullMethodName         = "/media.MediaService/GetMediaMetadata"
+	MediaService_GetMultipleMediaMetadata_FullMethodName = "/media.MediaService/GetMultipleMediaMetadata"
 )
 
 // MediaServiceClient is the client API for MediaService service.
@@ -30,9 +31,9 @@ const (
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 type MediaServiceClient interface {
 	HealthCheck(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*HealthResponse, error)
-	// Consider streaming for large files later
 	UploadMedia(ctx context.Context, in *UploadMediaRequest, opts ...grpc.CallOption) (*UploadMediaResponse, error)
 	GetMediaMetadata(ctx context.Context, in *GetMediaMetadataRequest, opts ...grpc.CallOption) (*Media, error)
+	GetMultipleMediaMetadata(ctx context.Context, in *GetMultipleMediaMetadataRequest, opts ...grpc.CallOption) (*GetMultipleMediaMetadataResponse, error)
 }
 
 type mediaServiceClient struct {
@@ -73,14 +74,24 @@ func (c *mediaServiceClient) GetMediaMetadata(ctx context.Context, in *GetMediaM
 	return out, nil
 }
 
+func (c *mediaServiceClient) GetMultipleMediaMetadata(ctx context.Context, in *GetMultipleMediaMetadataRequest, opts ...grpc.CallOption) (*GetMultipleMediaMetadataResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(GetMultipleMediaMetadataResponse)
+	err := c.cc.Invoke(ctx, MediaService_GetMultipleMediaMetadata_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // MediaServiceServer is the server API for MediaService service.
 // All implementations must embed UnimplementedMediaServiceServer
 // for forward compatibility.
 type MediaServiceServer interface {
 	HealthCheck(context.Context, *emptypb.Empty) (*HealthResponse, error)
-	// Consider streaming for large files later
 	UploadMedia(context.Context, *UploadMediaRequest) (*UploadMediaResponse, error)
 	GetMediaMetadata(context.Context, *GetMediaMetadataRequest) (*Media, error)
+	GetMultipleMediaMetadata(context.Context, *GetMultipleMediaMetadataRequest) (*GetMultipleMediaMetadataResponse, error)
 	mustEmbedUnimplementedMediaServiceServer()
 }
 
@@ -99,6 +110,9 @@ func (UnimplementedMediaServiceServer) UploadMedia(context.Context, *UploadMedia
 }
 func (UnimplementedMediaServiceServer) GetMediaMetadata(context.Context, *GetMediaMetadataRequest) (*Media, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method GetMediaMetadata not implemented")
+}
+func (UnimplementedMediaServiceServer) GetMultipleMediaMetadata(context.Context, *GetMultipleMediaMetadataRequest) (*GetMultipleMediaMetadataResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetMultipleMediaMetadata not implemented")
 }
 func (UnimplementedMediaServiceServer) mustEmbedUnimplementedMediaServiceServer() {}
 func (UnimplementedMediaServiceServer) testEmbeddedByValue()                      {}
@@ -175,6 +189,24 @@ func _MediaService_GetMediaMetadata_Handler(srv interface{}, ctx context.Context
 	return interceptor(ctx, in, info, handler)
 }
 
+func _MediaService_GetMultipleMediaMetadata_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetMultipleMediaMetadataRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(MediaServiceServer).GetMultipleMediaMetadata(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: MediaService_GetMultipleMediaMetadata_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(MediaServiceServer).GetMultipleMediaMetadata(ctx, req.(*GetMultipleMediaMetadataRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // MediaService_ServiceDesc is the grpc.ServiceDesc for MediaService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -193,6 +225,10 @@ var MediaService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "GetMediaMetadata",
 			Handler:    _MediaService_GetMediaMetadata_Handler,
+		},
+		{
+			MethodName: "GetMultipleMediaMetadata",
+			Handler:    _MediaService_GetMultipleMediaMetadata_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

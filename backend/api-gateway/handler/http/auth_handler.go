@@ -21,13 +21,12 @@ func NewAuthHandler(userClient *client.UserClient) *AuthHandler {
 }
 
 type RegisterPayload struct {
-	// Fields matching userpb.RegisterRequest
 	Name             string `json:"name" binding:"required"`
 	Username         string `json:"username" binding:"required"`
 	Email            string `json:"email" binding:"required,email"`
 	Password         string `json:"password" binding:"required"`
 	Gender           string `json:"gender"`
-	DateOfBirth      string `json:"date_of_birth" binding:"required"` // Add validation later if needed
+	DateOfBirth      string `json:"date_of_birth" binding:"required"`
 	SecurityQuestion string `json:"security_question" binding:"required"`
 	SecurityAnswer   string `json:"security_answer" binding:"required"`
 	RecaptchaToken   string `json:"recaptchaToken" binding:"required"`

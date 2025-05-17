@@ -35,7 +35,7 @@ func main() {
 
 	// Initialize handlers
 	authHandler := gwHTTPHandler.NewAuthHandler(userClient)
-	threadHandler := gwHTTPHandler.NewThreadHandler(threadClient, mediaClient)
+	threadHandler := gwHTTPHandler.NewThreadHandler(threadClient, mediaClient, userClient)
 	mediaHandler := gwHTTPHandler.NewMediaHandler(mediaClient)
 	wsHub := websocket.NewHub()
 

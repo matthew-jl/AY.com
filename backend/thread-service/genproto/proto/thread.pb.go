@@ -120,24 +120,26 @@ func (x *HealthResponse) GetStatus() string {
 }
 
 type Thread struct {
-	state            protoimpl.MessageState `protogen:"open.v1"`
-	Id               uint32                 `protobuf:"varint,1,opt,name=id,proto3" json:"id,omitempty"`
-	UserId           uint32                 `protobuf:"varint,2,opt,name=user_id,json=userId,proto3" json:"user_id,omitempty"`
-	Content          string                 `protobuf:"bytes,3,opt,name=content,proto3" json:"content,omitempty"`
-	ParentThreadId   *uint32                `protobuf:"varint,4,opt,name=parent_thread_id,json=parentThreadId,proto3,oneof" json:"parent_thread_id,omitempty"`
-	ReplyRestriction ReplyRestriction       `protobuf:"varint,5,opt,name=reply_restriction,json=replyRestriction,proto3,enum=thread.ReplyRestriction" json:"reply_restriction,omitempty"`
-	ScheduledAt      *timestamppb.Timestamp `protobuf:"bytes,6,opt,name=scheduled_at,json=scheduledAt,proto3" json:"scheduled_at,omitempty"` // Use Timestamp proto
-	PostedAt         *timestamppb.Timestamp `protobuf:"bytes,7,opt,name=posted_at,json=postedAt,proto3" json:"posted_at,omitempty"`          // Use Timestamp proto
-	CommunityId      *uint32                `protobuf:"varint,8,opt,name=community_id,json=communityId,proto3,oneof" json:"community_id,omitempty"`
-	IsAdvertisement  bool                   `protobuf:"varint,9,opt,name=is_advertisement,json=isAdvertisement,proto3" json:"is_advertisement,omitempty"`
-	MediaIds         []uint32               `protobuf:"varint,10,rep,packed,name=media_ids,json=mediaIds,proto3" json:"media_ids,omitempty"` // Store IDs referencing media service
-	CreatedAt        *timestamppb.Timestamp `protobuf:"bytes,11,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`
-	// Interaction counts (calculate on retrieval)
-	LikeCount     int32 `protobuf:"varint,12,opt,name=like_count,json=likeCount,proto3" json:"like_count,omitempty"`
-	ReplyCount    int32 `protobuf:"varint,13,opt,name=reply_count,json=replyCount,proto3" json:"reply_count,omitempty"`
-	RepostCount   int32 `protobuf:"varint,14,opt,name=repost_count,json=repostCount,proto3" json:"repost_count,omitempty"` // Add user info (name, handle, pic) from User service during aggregation later
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	state                     protoimpl.MessageState `protogen:"open.v1"`
+	Id                        uint32                 `protobuf:"varint,1,opt,name=id,proto3" json:"id,omitempty"`
+	UserId                    uint32                 `protobuf:"varint,2,opt,name=user_id,json=userId,proto3" json:"user_id,omitempty"`
+	Content                   string                 `protobuf:"bytes,3,opt,name=content,proto3" json:"content,omitempty"`
+	ParentThreadId            *uint32                `protobuf:"varint,4,opt,name=parent_thread_id,json=parentThreadId,proto3,oneof" json:"parent_thread_id,omitempty"`
+	ReplyRestriction          ReplyRestriction       `protobuf:"varint,5,opt,name=reply_restriction,json=replyRestriction,proto3,enum=thread.ReplyRestriction" json:"reply_restriction,omitempty"`
+	ScheduledAt               *timestamppb.Timestamp `protobuf:"bytes,6,opt,name=scheduled_at,json=scheduledAt,proto3" json:"scheduled_at,omitempty"`
+	PostedAt                  *timestamppb.Timestamp `protobuf:"bytes,7,opt,name=posted_at,json=postedAt,proto3" json:"posted_at,omitempty"`
+	CommunityId               *uint32                `protobuf:"varint,8,opt,name=community_id,json=communityId,proto3,oneof" json:"community_id,omitempty"`
+	IsAdvertisement           bool                   `protobuf:"varint,9,opt,name=is_advertisement,json=isAdvertisement,proto3" json:"is_advertisement,omitempty"`
+	MediaIds                  []uint32               `protobuf:"varint,10,rep,packed,name=media_ids,json=mediaIds,proto3" json:"media_ids,omitempty"`
+	CreatedAt                 *timestamppb.Timestamp `protobuf:"bytes,11,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`
+	LikeCount                 int32                  `protobuf:"varint,12,opt,name=like_count,json=likeCount,proto3" json:"like_count,omitempty"`
+	ReplyCount                int32                  `protobuf:"varint,13,opt,name=reply_count,json=replyCount,proto3" json:"reply_count,omitempty"`
+	RepostCount               int32                  `protobuf:"varint,14,opt,name=repost_count,json=repostCount,proto3" json:"repost_count,omitempty"`
+	BookmarkCount             int32                  `protobuf:"varint,15,opt,name=bookmark_count,json=bookmarkCount,proto3" json:"bookmark_count,omitempty"`
+	IsLikedByCurrentUser      bool                   `protobuf:"varint,16,opt,name=is_liked_by_current_user,json=isLikedByCurrentUser,proto3" json:"is_liked_by_current_user,omitempty"`
+	IsBookmarkedByCurrentUser bool                   `protobuf:"varint,17,opt,name=is_bookmarked_by_current_user,json=isBookmarkedByCurrentUser,proto3" json:"is_bookmarked_by_current_user,omitempty"`
+	unknownFields             protoimpl.UnknownFields
+	sizeCache                 protoimpl.SizeCache
 }
 
 func (x *Thread) Reset() {
@@ -268,6 +270,27 @@ func (x *Thread) GetRepostCount() int32 {
 	return 0
 }
 
+func (x *Thread) GetBookmarkCount() int32 {
+	if x != nil {
+		return x.BookmarkCount
+	}
+	return 0
+}
+
+func (x *Thread) GetIsLikedByCurrentUser() bool {
+	if x != nil {
+		return x.IsLikedByCurrentUser
+	}
+	return false
+}
+
+func (x *Thread) GetIsBookmarkedByCurrentUser() bool {
+	if x != nil {
+		return x.IsBookmarkedByCurrentUser
+	}
+	return false
+}
+
 type CreateThreadRequest struct {
 	state            protoimpl.MessageState `protogen:"open.v1"`
 	UserId           uint32                 `protobuf:"varint,1,opt,name=user_id,json=userId,proto3" json:"user_id,omitempty"` // Provided by gateway (from JWT)
@@ -363,6 +386,7 @@ func (x *CreateThreadRequest) GetMediaIds() []uint32 {
 type GetThreadRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	ThreadId      uint32                 `protobuf:"varint,1,opt,name=thread_id,json=threadId,proto3" json:"thread_id,omitempty"`
+	CurrentUserId *uint32                `protobuf:"varint,2,opt,name=current_user_id,json=currentUserId,proto3,oneof" json:"current_user_id,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -404,10 +428,17 @@ func (x *GetThreadRequest) GetThreadId() uint32 {
 	return 0
 }
 
+func (x *GetThreadRequest) GetCurrentUserId() uint32 {
+	if x != nil && x.CurrentUserId != nil {
+		return *x.CurrentUserId
+	}
+	return 0
+}
+
 type DeleteThreadRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	ThreadId      uint32                 `protobuf:"varint,1,opt,name=thread_id,json=threadId,proto3" json:"thread_id,omitempty"`
-	UserId        uint32                 `protobuf:"varint,2,opt,name=user_id,json=userId,proto3" json:"user_id,omitempty"` // Ensure user owns the thread
+	UserId        uint32                 `protobuf:"varint,2,opt,name=user_id,json=userId,proto3" json:"user_id,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -459,7 +490,7 @@ func (x *DeleteThreadRequest) GetUserId() uint32 {
 type InteractThreadRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	ThreadId      uint32                 `protobuf:"varint,1,opt,name=thread_id,json=threadId,proto3" json:"thread_id,omitempty"`
-	UserId        uint32                 `protobuf:"varint,2,opt,name=user_id,json=userId,proto3" json:"user_id,omitempty"` // User performing the action
+	UserId        uint32                 `protobuf:"varint,2,opt,name=user_id,json=userId,proto3" json:"user_id,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -510,8 +541,8 @@ func (x *InteractThreadRequest) GetUserId() uint32 {
 
 type GetFeedThreadsRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
-	UserId        uint32                 `protobuf:"varint,1,opt,name=user_id,json=userId,proto3" json:"user_id,omitempty"` // ID of the user requesting the feed (for "Following" later)
-	Page          int32                  `protobuf:"varint,2,opt,name=page,proto3" json:"page,omitempty"`                   // Use int32 for pagination params
+	CurrentUserId *uint32                `protobuf:"varint,1,opt,name=current_user_id,json=currentUserId,proto3,oneof" json:"current_user_id,omitempty"` // ID of the user requesting the feed (for "Following" later)
+	Page          int32                  `protobuf:"varint,2,opt,name=page,proto3" json:"page,omitempty"`
 	Limit         int32                  `protobuf:"varint,3,opt,name=limit,proto3" json:"limit,omitempty"`
 	FeedType      string                 `protobuf:"bytes,4,opt,name=feed_type,json=feedType,proto3" json:"feed_type,omitempty"` // "foryou", "following" (optional for now)
 	unknownFields protoimpl.UnknownFields
@@ -548,9 +579,9 @@ func (*GetFeedThreadsRequest) Descriptor() ([]byte, []int) {
 	return file_proto_thread_proto_rawDescGZIP(), []int{6}
 }
 
-func (x *GetFeedThreadsRequest) GetUserId() uint32 {
-	if x != nil {
-		return x.UserId
+func (x *GetFeedThreadsRequest) GetCurrentUserId() uint32 {
+	if x != nil && x.CurrentUserId != nil {
+		return *x.CurrentUserId
 	}
 	return 0
 }
@@ -579,7 +610,7 @@ func (x *GetFeedThreadsRequest) GetFeedType() string {
 type GetFeedThreadsResponse struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Threads       []*Thread              `protobuf:"bytes,1,rep,name=threads,proto3" json:"threads,omitempty"`
-	HasMore       bool                   `protobuf:"varint,2,opt,name=has_more,json=hasMore,proto3" json:"has_more,omitempty"` // Indicate if more pages might exist
+	HasMore       bool                   `protobuf:"varint,2,opt,name=has_more,json=hasMore,proto3" json:"has_more,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -634,7 +665,7 @@ const file_proto_thread_proto_rawDesc = "" +
 	"\n" +
 	"\x12proto/thread.proto\x12\x06thread\x1a\x1bgoogle/protobuf/empty.proto\x1a\x1fgoogle/protobuf/timestamp.proto\"(\n" +
 	"\x0eHealthResponse\x12\x16\n" +
-	"\x06status\x18\x01 \x01(\tR\x06status\"\xed\x04\n" +
+	"\x06status\x18\x01 \x01(\tR\x06status\"\x8e\x06\n" +
 	"\x06Thread\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\rR\x02id\x12\x17\n" +
 	"\auser_id\x18\x02 \x01(\rR\x06userId\x12\x18\n" +
@@ -653,7 +684,10 @@ const file_proto_thread_proto_rawDesc = "" +
 	"like_count\x18\f \x01(\x05R\tlikeCount\x12\x1f\n" +
 	"\vreply_count\x18\r \x01(\x05R\n" +
 	"replyCount\x12!\n" +
-	"\frepost_count\x18\x0e \x01(\x05R\vrepostCountB\x13\n" +
+	"\frepost_count\x18\x0e \x01(\x05R\vrepostCount\x12%\n" +
+	"\x0ebookmark_count\x18\x0f \x01(\x05R\rbookmarkCount\x126\n" +
+	"\x18is_liked_by_current_user\x18\x10 \x01(\bR\x14isLikedByCurrentUser\x12@\n" +
+	"\x1dis_bookmarked_by_current_user\x18\x11 \x01(\bR\x19isBookmarkedByCurrentUserB\x13\n" +
 	"\x11_parent_thread_idB\x0f\n" +
 	"\r_community_id\"\xe8\x02\n" +
 	"\x13CreateThreadRequest\x12\x17\n" +
@@ -665,20 +699,23 @@ const file_proto_thread_proto_rawDesc = "" +
 	"\fcommunity_id\x18\x06 \x01(\rH\x01R\vcommunityId\x88\x01\x01\x12\x1b\n" +
 	"\tmedia_ids\x18\a \x03(\rR\bmediaIdsB\x13\n" +
 	"\x11_parent_thread_idB\x0f\n" +
-	"\r_community_id\"/\n" +
+	"\r_community_id\"p\n" +
 	"\x10GetThreadRequest\x12\x1b\n" +
-	"\tthread_id\x18\x01 \x01(\rR\bthreadId\"K\n" +
+	"\tthread_id\x18\x01 \x01(\rR\bthreadId\x12+\n" +
+	"\x0fcurrent_user_id\x18\x02 \x01(\rH\x00R\rcurrentUserId\x88\x01\x01B\x12\n" +
+	"\x10_current_user_id\"K\n" +
 	"\x13DeleteThreadRequest\x12\x1b\n" +
 	"\tthread_id\x18\x01 \x01(\rR\bthreadId\x12\x17\n" +
 	"\auser_id\x18\x02 \x01(\rR\x06userId\"M\n" +
 	"\x15InteractThreadRequest\x12\x1b\n" +
 	"\tthread_id\x18\x01 \x01(\rR\bthreadId\x12\x17\n" +
-	"\auser_id\x18\x02 \x01(\rR\x06userId\"w\n" +
-	"\x15GetFeedThreadsRequest\x12\x17\n" +
-	"\auser_id\x18\x01 \x01(\rR\x06userId\x12\x12\n" +
+	"\auser_id\x18\x02 \x01(\rR\x06userId\"\x9f\x01\n" +
+	"\x15GetFeedThreadsRequest\x12+\n" +
+	"\x0fcurrent_user_id\x18\x01 \x01(\rH\x00R\rcurrentUserId\x88\x01\x01\x12\x12\n" +
 	"\x04page\x18\x02 \x01(\x05R\x04page\x12\x14\n" +
 	"\x05limit\x18\x03 \x01(\x05R\x05limit\x12\x1b\n" +
-	"\tfeed_type\x18\x04 \x01(\tR\bfeedType\"]\n" +
+	"\tfeed_type\x18\x04 \x01(\tR\bfeedTypeB\x12\n" +
+	"\x10_current_user_id\"]\n" +
 	"\x16GetFeedThreadsResponse\x12(\n" +
 	"\athreads\x18\x01 \x03(\v2\x0e.thread.ThreadR\athreads\x12\x19\n" +
 	"\bhas_more\x18\x02 \x01(\bR\ahasMore*`\n" +
@@ -766,6 +803,8 @@ func file_proto_thread_proto_init() {
 	}
 	file_proto_thread_proto_msgTypes[1].OneofWrappers = []any{}
 	file_proto_thread_proto_msgTypes[2].OneofWrappers = []any{}
+	file_proto_thread_proto_msgTypes[3].OneofWrappers = []any{}
+	file_proto_thread_proto_msgTypes[6].OneofWrappers = []any{}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
