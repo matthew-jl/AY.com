@@ -23,7 +23,8 @@ export interface UserProfileResponse {
   date_of_birth: string;
   account_status: string;
   account_privacy: string;
-  created_at: string; // Expect ISO string from backend JSON
+  created_at: string;
+  subscribed_to_newsletter: boolean;
 }
 
 export interface MediaMetadata {
@@ -204,6 +205,9 @@ export interface RegisterRequestData {
   security_question: string;
   security_answer: string;
   recaptchaToken: string;
+  subscribed_to_newsletter: boolean;
+  profile_picture_url?: string | null;
+  banner_url?: string | null;
 }
 
 export interface LoginRequestData {
@@ -229,6 +233,10 @@ export interface ResetPasswordRequestData {
   email: string;
   security_answer: string;
   new_password: string;
+}
+
+export interface ResendVerificationRequestData {
+  email: string;
 }
 
 export interface CreateThreadRequestData {
@@ -292,20 +300,26 @@ export const api = {
       body: JSON.stringify(data),
     }),
 
+  resendVerificationCode: (
+    data: ResendVerificationRequestData
+  ): Promise<void> =>
+    apiFetch<void>("/auth/verify/resend", {
+      method: "POST",
+      body: JSON.stringify(data),
+    }),
+
   getUserProfile: (): Promise<UserProfileResponse> =>
     apiFetch<UserProfileResponse>("/users/profile", {
-      // Uses auth token implicitly
       method: "GET",
     }),
 
   // Upload: Takes FormData, returns parsed JSON response
   uploadMedia: (formData: FormData): Promise<UploadMediaResponseData> => {
     const token = getAccessToken();
-    const headers = new Headers(); // No need to set Content-Type for FormData, browser does it
+    const headers = new Headers();
     if (token) {
       headers.set("Authorization", `Bearer ${token}`);
     }
-    // Use raw fetch for FormData upload
     return fetch(`${API_BASE_URL}/media/upload`, {
       method: "POST",
       headers: headers,

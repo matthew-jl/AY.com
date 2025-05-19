@@ -125,7 +125,9 @@ func (h *UserHandler) Register(ctx context.Context, req *userpb.RegisterRequest)
 		Gender:           req.Gender,
 		DateOfBirth:      dob.Format("2006-01-02"),
 		SecurityQuestion: req.SecurityQuestion,
-		// Passwords/Answers are hashed inside CreateUser
+		SubscribedToNewsletter: req.SubscribedToNewsletter,
+		ProfilePicture: req.GetProfilePictureUrl(),
+		Banner: req.GetBannerUrl(),
 	}
 
 	// Call repository to create user (handles hashing)
@@ -203,6 +205,41 @@ func (h *UserHandler) VerifyEmail(ctx context.Context, req *userpb.VerifyEmailRe
 	}(user.Email, user.Name)
 
 	return &emptypb.Empty{}, nil
+}
+
+func (h *UserHandler) ResendVerificationCode(ctx context.Context, req *userpb.ResendVerificationCodeRequest) (*emptypb.Empty, error) {
+    log.Printf("Received ResendVerificationCode request for email: %s", req.Email)
+    if req.Email == "" {
+        return nil, status.Errorf(codes.InvalidArgument, "Email is required")
+    }
+
+    newVerificationCode, err := utils.GenerateVerificationCode(6)
+    if err != nil {
+        log.Printf("Error generating new verification code for resend: %v", err)
+        return nil, status.Errorf(codes.Internal, "Failed to prepare for resend")
+    }
+
+    user, err := h.repo.UpdateVerificationCode(ctx, req.Email, newVerificationCode)
+    if err != nil {
+        log.Printf("Error updating verification code for user %s: %v", req.Email, err)
+        if err.Error() == "user not found with this email" {
+            return nil, status.Errorf(codes.NotFound, "%s", err.Error())
+        }
+        if err.Error() == "account is already active" {
+            return nil, status.Errorf(codes.FailedPrecondition, "%s", err.Error())
+        }
+        return nil, status.Errorf(codes.Internal, "Failed to update verification details")
+    }
+
+    go func(email, code string) {
+        errEmail := utils.SendVerificationEmail(email, code)
+        if errEmail != nil {
+            log.Printf("Failed to resend verification email to %s (user ID: %d): %v", email, user.ID, errEmail)
+        }
+    }(user.Email, newVerificationCode)
+
+    log.Printf("New verification code sent to %s", req.Email)
+    return &emptypb.Empty{}, nil
 }
 
 
@@ -362,6 +399,7 @@ func (h *UserHandler) GetUserProfile(ctx context.Context, req *userpb.GetUserPro
 		DateOfBirth:    user.DateOfBirth,
 		AccountStatus:  user.AccountStatus,
 		AccountPrivacy: user.AccountPrivacy,
+		SubscribedToNewsletter: user.SubscribedToNewsletter,
 		CreatedAt:      timestamppb.New(user.CreatedAt),
 	}, nil
 }

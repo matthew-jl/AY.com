@@ -30,6 +30,9 @@ type RegisterPayload struct {
 	SecurityQuestion string `json:"security_question" binding:"required"`
 	SecurityAnswer   string `json:"security_answer" binding:"required"`
 	RecaptchaToken   string `json:"recaptchaToken" binding:"required"`
+	SubscribedToNewsletter bool   `json:"subscribed_to_newsletter"`
+	ProfilePictureURL      *string `json:"profile_picture_url,omitempty"`
+	BannerURL              *string `json:"banner_url,omitempty"`
 }
 
 type LoginPayload struct {
@@ -51,6 +54,10 @@ type ResetPasswordPayload struct {
 	Email           string `json:"email" binding:"required,email"`
 	SecurityAnswer  string `json:"security_answer" binding:"required"`
 	NewPassword     string `json:"new_password" binding:"required"`
+}
+
+type ResendVerificationPayload struct {
+    Email string `json:"email" binding:"required,email"`
 }
 
 func (h *AuthHandler) HealthCheck(c *gin.Context) {
@@ -88,9 +95,15 @@ func (h *AuthHandler) Register(c *gin.Context) {
 		DateOfBirth:      payload.DateOfBirth,
 		SecurityQuestion: payload.SecurityQuestion,
 		SecurityAnswer:   payload.SecurityAnswer,
+		SubscribedToNewsletter: payload.SubscribedToNewsletter,
 	}
 
-
+	if payload.ProfilePictureURL != nil {
+		grpcReq.ProfilePictureUrl = payload.ProfilePictureURL
+	}
+	if payload.BannerURL != nil {
+		grpcReq.BannerUrl = payload.BannerURL
+	}
 	// Forward request to User Service via gRPC client
 	resp, err := h.userClient.Register(c.Request.Context(), grpcReq)
 	if err != nil {
@@ -225,6 +238,28 @@ func (h *AuthHandler) ResetPassword(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, gin.H{"message": "Password reset successfully. You can now log in."})
+}
+
+func (h *AuthHandler) ResendVerificationCode(c *gin.Context) {
+    var payload ResendVerificationPayload
+    if err := c.ShouldBindJSON(&payload); err != nil {
+        c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request: " + err.Error()})
+        return
+    }
+
+    grpcReq := &userpb.ResendVerificationCodeRequest{Email: payload.Email}
+    _, err := h.userClient.ResendVerificationCode(c.Request.Context(), grpcReq)
+    if err != nil {
+        st, ok := status.FromError(err)
+        if ok {
+            httpCode := grpcStatusCodeToHTTP(st.Code())
+            c.JSON(httpCode, gin.H{"error": st.Message()})
+        } else {
+            c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to resend verification code: " + err.Error()})
+        }
+        return
+    }
+    c.JSON(http.StatusOK, gin.H{"message": "Verification code resent successfully. Please check your email."})
 }
 
 func (h *AuthHandler) GetProfile(c *gin.Context) {

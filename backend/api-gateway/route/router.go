@@ -61,6 +61,7 @@ func SetupRouter(
 		auth.POST("/register", authHandler.Register)
 		auth.POST("/login", authHandler.Login)
 		auth.POST("/verify", authHandler.VerifyEmail)
+		auth.POST("/verify/resend", authHandler.ResendVerificationCode)
 		auth.POST("/forgot-password/question", authHandler.GetSecurityQuestion)
 		auth.POST("/forgot-password/reset", authHandler.ResetPassword) 
 	}
@@ -91,9 +92,8 @@ func SetupRouter(
 		// Add repost routes later
 	}
 
-	// --- Protected Media Routes ---
+	// --- Public Media Routes ---
 	media := v1.Group("/media")
-	media.Use(authMiddleware) // Apply auth here
 	{
 		media.POST("/upload", mediaHandler.UploadMedia) // Upload media file
 	}

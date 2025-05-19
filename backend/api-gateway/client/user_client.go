@@ -64,3 +64,7 @@ func (c *UserClient) GetUserProfile(ctx context.Context, req *userpb.GetUserProf
 func (c *UserClient) GetUserProfilesByIds(ctx context.Context, req *userpb.GetUserProfilesByIdsRequest) (*userpb.GetUserProfilesByIdsResponse, error) {
 	return c.client.GetUserProfilesByIds(ctx, req)
 }
+
+func (c *UserClient) ResendVerificationCode(ctx context.Context, req *userpb.ResendVerificationCodeRequest) (*emptypb.Empty, error) {
+	return c.client.ResendVerificationCode(ctx, req)
+}

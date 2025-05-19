@@ -304,7 +304,7 @@
       cursor: pointer;
       display: flex;
       align-items: center;
-      gap: 5px; /* Space between icon and count */
+      gap: 5px;
       font-size: 13px;
       padding: 6px;
       border-radius: 50%;
@@ -316,14 +316,14 @@
           fill: currentColor;
       }
 
-      span { /* Number count */
+      span {
           line-height: 1;
       }
 
       /* Specific hover colors */
     &.reply:hover { color: var(--primary-color); background-color: rgba(var(--primary-color-rgb, 29, 155, 240), 0.1); }
-    &.repost:hover { color: #00ba7c; background-color: rgba(0, 186, 124, 0.1); } /* Green */
-    &.like:hover { color: #f91880; background-color: rgba(249, 24, 128, 0.1); } /* Pink */
+    &.repost:hover { color: #00ba7c; background-color: rgba(0, 186, 124, 0.1); }
+    &.like:hover { color: #f91880; background-color: rgba(249, 24, 128, 0.1); }
     &.bookmark:hover { color: var(--primary-color); background-color: rgba(var(--primary-color-rgb, 29, 155, 240), 0.1); }
     &.share:hover { color: var(--primary-color); background-color: rgba(var(--primary-color-rgb, 29, 155, 240), 0.1); }
 

@@ -21,10 +21,14 @@ func NewMediaHandler(mediaClient *client.MediaClient) *MediaHandler {
 
 // UploadMedia handles file uploads from multipart form.
 func (h *MediaHandler) UploadMedia(c *gin.Context) {
-	userID, ok := getUserIDFromContext(c) // Use the helper from thread_handler (or move to utils)
-	if !ok { return }
-
-	// Limit overall request body size if needed via middleware before this point
+	var uploaderID uint32 = 0 // Default to 0 for anonymous/pre-auth uploads
+    userIDFromCtx, ok := c.Get("userID")
+    if ok {
+        if uid, typeOK := userIDFromCtx.(uint); typeOK {
+            uploaderID = uint32(uid)
+        }
+    }
+    log.Printf("UploadMedia attempt by UserID (0 if anonymous): %d", uploaderID)
 
 	// Get the file from the form
 	fileHeader, err := c.FormFile("media_file") // "media_file" is the expected form field name
@@ -73,7 +77,7 @@ func (h *MediaHandler) UploadMedia(c *gin.Context) {
 
 	// Prepare gRPC request
 	grpcReq := &mediapb.UploadMediaRequest{
-		UploaderUserId: userID,
+		UploaderUserId: uploaderID,
 		FileName:       fileHeader.Filename, // Use original filename
 		MimeType:       mimeType,
 		FileContent:    fileBytes,

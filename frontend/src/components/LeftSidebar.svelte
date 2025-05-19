@@ -76,8 +76,11 @@
   {#if $user}
     <div class="user-info-container" role="button" tabindex="0" aria-label="Account options" on:click={toggleLogout} on:keydown={(e) => e.key === 'Enter' && toggleLogout()}>
         <div class="user-avatar-placeholder">
-            <!-- Placeholder - Replace with actual img later -->
-            {$user.name.charAt(0).toUpperCase()}
+            {#if $user.profile_picture}
+              <img src="{$user.profile_picture}" alt="{$user.name}" style="width:100%;height:100%;border-radius:50%;" />
+            {:else}
+              {$user.name.charAt(0).toUpperCase()}
+            {/if}
         </div>
         <div class="user-details">
             <span class="user-name">{$user.name}</span>

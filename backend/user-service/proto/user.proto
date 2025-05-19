@@ -16,6 +16,7 @@ service UserService {
   rpc ResetPassword(ResetPasswordRequest) returns (google.protobuf.Empty);
   rpc GetUserProfile(GetUserProfileRequest) returns (User);
   rpc GetUserProfilesByIds(GetUserProfilesByIdsRequest) returns (GetUserProfilesByIdsResponse);
+  rpc ResendVerificationCode(ResendVerificationCodeRequest) returns (google.protobuf.Empty);
 }
 
 message HealthResponse {
@@ -28,9 +29,12 @@ message RegisterRequest {
   string email = 3;
   string password = 4;
   string gender = 5;
-  string date_of_birth = 6; // YYYY-MM-DD string
+  string date_of_birth = 6;
   string security_question = 7;
   string security_answer = 8;
+  bool subscribed_to_newsletter = 9;
+  optional string profile_picture_url = 10;
+  optional string banner_url = 11;
 }
 
 message LoginRequest {
@@ -58,7 +62,7 @@ message GetSecurityQuestionResponse {
 
 message ResetPasswordRequest {
   string email = 1;
-  string security_answer = 2; // User's provided answer
+  string security_answer = 2;
   string new_password = 3;
 }
 
@@ -70,10 +74,11 @@ message User {
   string gender = 5;
   string profile_picture = 6; // URL or identifier
   string banner = 7;          // URL or identifier
-  string date_of_birth = 8;   // YYYY-MM-DD string
+  string date_of_birth = 8;
   string account_status = 9;
   string account_privacy = 10;
   google.protobuf.Timestamp created_at = 11;
+  bool subscribed_to_newsletter = 12;
 }
 
 message GetUserProfileRequest {
@@ -86,4 +91,8 @@ message GetUserProfilesByIdsRequest {
 
 message GetUserProfilesByIdsResponse {
   map<uint32, User> users = 1;
+}
+
+message ResendVerificationCodeRequest {
+  string email = 1;
 }

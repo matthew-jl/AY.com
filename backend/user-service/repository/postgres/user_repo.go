@@ -20,14 +20,15 @@ type User struct {
     Email                 string `gorm:"type:varchar(100);unique;not null"`
     PasswordHash          string `gorm:"type:varchar(255);not null"`
     Gender                string `gorm:"type:varchar(10)"`
-    ProfilePicture        string `gorm:"type:varchar(255)"`
-    Banner                string `gorm:"type:varchar(255)"`
+    ProfilePicture        string `gorm:"type:varchar(255);default:''"`
+    Banner                string `gorm:"type:varchar(255);default:''"`
     DateOfBirth           string `gorm:"type:date"`
     SecurityQuestion      string `gorm:"type:varchar(255);not null"`
     SecurityAnswerHash    string `gorm:"type:varchar(255);not null"`
     EmailVerificationCode string `gorm:"type:varchar(100);index"`
     AccountStatus         string `gorm:"type:varchar(20);default:'pending_verification';not null"`
 	AccountPrivacy 	   	  string `gorm:"type:varchar(10);default:'public';not null"`
+	SubscribedToNewsletter bool   `gorm:"default:false;not null"`
 }
 
 type UserRepository struct {
@@ -113,6 +114,35 @@ func (r *UserRepository) ActivateUserAccount(ctx context.Context, userID uint) e
 	}
 	log.Printf("Activated account for user ID: %d", userID)
 	return nil
+}
+
+func (r *UserRepository) UpdateVerificationCode(ctx context.Context, email string, newCode string) (*User, error) {
+    var user User
+    result := r.db.WithContext(ctx).Where("email = ?", email).First(&user)
+    if result.Error != nil {
+        if errors.Is(result.Error, gorm.ErrRecordNotFound) {
+            return nil, errors.New("user not found with this email")
+        }
+        return nil, fmt.Errorf("failed to find user for resend: %w", result.Error)
+    }
+
+    if user.AccountStatus == "active" {
+        return nil, errors.New("account is already active")
+    }
+
+    user.EmailVerificationCode = newCode
+    updateResult := r.db.WithContext(ctx).Model(&user).Updates(map[string]interface{}{
+        "email_verification_code": newCode,
+        "account_status": "pending_verification",
+    })
+
+    if updateResult.Error != nil {
+        return nil, fmt.Errorf("failed to update verification code for user %s: %w", email, updateResult.Error)
+    }
+    if updateResult.RowsAffected == 0 {
+        return nil, errors.New("failed to update user record for resend")
+    }
+    return &user, nil
 }
 
 func (r *UserRepository) UpdatePassword(ctx context.Context, userID uint, newPasswordHash string) error {

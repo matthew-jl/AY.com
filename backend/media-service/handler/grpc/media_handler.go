@@ -38,12 +38,14 @@ func (h *MediaHandler) UploadMedia(ctx context.Context, req *mediapb.UploadMedia
 	if len(req.FileContent) == 0 {
 		return nil, status.Errorf(codes.InvalidArgument, "File content cannot be empty")
 	}
-    if req.UploaderUserId == 0 {
-         return nil, status.Errorf(codes.InvalidArgument, "Uploader user ID is required")
+    var uploaderIDForPath uint = 0
+    if req.UploaderUserId != 0 {
+        uploaderIDForPath = uint(req.UploaderUserId)
+    } else {
+        log.Println("UploadMedia: UploaderUserId is 0, treating as pre-auth upload.")
     }
-    // Add more validation: file size limits, mime type checking
 
-	supabasePath, fileSize, err := utils.UploadFileToSupabase(ctx, uint(req.UploaderUserId), req.FileName, req.MimeType, req.FileContent)
+	supabasePath, fileSize, err := utils.UploadFileToSupabase(ctx, uploaderIDForPath, req.FileName, req.MimeType, req.FileContent)
 	if err != nil {
 		log.Printf("Upload to Supabase failed for user %d: %v", req.UploaderUserId, err)
 		return nil, status.Errorf(codes.Internal, "Failed to store media file")

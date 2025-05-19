@@ -1,7 +1,7 @@
 <script lang="ts">
   import { api, ApiError } from '../lib/api';
   import { navigate } from 'svelte-routing';
-  import type { RegisterRequestData, VerifyEmailRequestData } from '../lib/api';
+  import type { RegisterRequestData, ResendVerificationRequestData, VerifyEmailRequestData } from '../lib/api';
   import { link } from 'svelte-routing';
   import { onMount } from 'svelte';
 
@@ -17,10 +17,19 @@
   let securityQuestion = 'pet';
   let securityAnswer = '';
   let recaptchaToken: string | null = null;
+  let profilePictureFile: File | null = null;
+  let bannerFile: File | null = null;
+  let profilePicturePreview: string | null = null;
+  let bannerPreview: string | null = null;
+  let subscribedToNewsletter = false;
 
   let verificationCode = '';
+  let resendLoading = false;
+  let resendError: string | null = null;
+  let resendSuccess: string | null = null;
 
   let loading = false;
+  let isUploadingImages = false;
   let errorStep1: string | null = null;
   let errorStep2: string | null = null;
   let passwordError: string | null = null;
@@ -139,6 +148,38 @@
        return /^\S+@\S+\.\S+$/.test(emailToCheck);
   }
 
+  function handleFilePreview(event: Event, type: 'profile' | 'banner') {
+      const input = event.target as HTMLInputElement;
+      if (input.files && input.files[0]) {
+          const file = input.files[0];
+          if (file.size > 5 * 1024 * 1024) { // 5MB limit
+              alert(`${type === 'profile' ? 'Profile picture' : 'Banner'} is too large! Max 5MB.`);
+              input.value = '';
+              return;
+          }
+          const reader = new FileReader();
+          reader.onload = (e) => {
+              if (type === 'profile') {
+                  profilePictureFile = file;
+                  profilePicturePreview = e.target?.result as string;
+              } else {
+                  bannerFile = file;
+                  bannerPreview = e.target?.result as string;
+              }
+          };
+          reader.readAsDataURL(file);
+      } else {
+          if (type === 'profile') {
+              profilePictureFile = null;
+              profilePicturePreview = null;
+          } else {
+              bannerFile = null;
+              bannerPreview = null;
+          }
+      }
+  }
+
+
   function validateStep1(): boolean {
     errorStep1 = null; // Clear previous error
     if (!validatePasswords()) return false;
@@ -162,17 +203,46 @@
     if (!validateStep1()) return;
 
     loading = true;
-    errorStep1 = null; // Clear error before API call
+    isUploadingImages = false;
+    errorStep1 = null;
 
-    const userData: RegisterRequestData = {
-      name, username, email, password, gender,
-      date_of_birth: dateOfBirth,
-      security_question: securityQuestion,
-      security_answer: securityAnswer,
-      recaptchaToken: recaptchaToken as string,
-    };
+    let profilePicUrl: string | null = null;
+    let bannerUrl: string | null = null;
 
     try {
+      if (profilePictureFile) {
+          isUploadingImages = true;
+          console.log("Uploading profile picture...");
+          const formData = new FormData();
+          formData.append('media_file', profilePictureFile);
+          const response = await api.uploadMedia(formData);
+          profilePicUrl = response.media.public_url;
+          console.log("Profile picture uploaded, URL:", profilePicUrl);
+      }
+
+      if (bannerFile) {
+          isUploadingImages = true;
+          console.log("Uploading banner...");
+          const formData = new FormData();
+          formData.append('media_file', bannerFile);
+          const response = await api.uploadMedia(formData);
+          bannerUrl = response.media.public_url;
+          console.log("Banner uploaded, URL:", bannerUrl);
+      }
+      isUploadingImages = false;
+
+      const userData: RegisterRequestData = {
+          name, username, email, password, gender,
+          date_of_birth: dateOfBirth,
+          security_question: securityQuestion,
+          security_answer: securityAnswer,
+          recaptchaToken: recaptchaToken as string,
+          subscribed_to_newsletter: subscribedToNewsletter,
+          profile_picture_url: profilePicUrl,
+          banner_url: bannerUrl,
+      };
+
+      console.log("Registering with data:", userData);
       await api.register(userData);
       currentStep = 2;
       if (recaptchaWidgetId !== null && window.grecaptcha) {
@@ -194,6 +264,7 @@
       }
     } finally {
       loading = false;
+      isUploadingImages = false;
     }
   }
 
@@ -232,6 +303,30 @@
           loading = false;
       }
   }
+
+  async function handleResendCode() {
+      if (!email || !isEmailValid(email)) {
+          errorStep2 = "Please ensure a valid email is entered in Step 1 to resend the code.";
+          return;
+      }
+      resendLoading = true;
+      resendError = null;
+      resendSuccess = null;
+
+      const resendData: ResendVerificationRequestData = { email };
+      try {
+          await api.resendVerificationCode(resendData);
+          resendSuccess = "New verification code sent. Please check your email.";
+      } catch (err) {
+          console.error("Resend Code Error:", err);
+          if (err instanceof ApiError) { resendError = `Failed to resend code: ${err.message}`; }
+          else if (err instanceof Error) { resendError = `Error: ${err.message}`; }
+          else { resendError = 'An unexpected error occurred.'; }
+      } finally {
+          resendLoading = false;
+      }
+  }
+
 
   function goToStep1() {
       currentStep = 1;
@@ -318,6 +413,26 @@
           <input type="text" id="securityAnswer" bind:value={securityAnswer} required />
       </div>
 
+      <div class="form-group">
+        <label for="profilePicture">Profile Picture (Optional)</label>
+        <input type="file" id="profilePicture" accept="image/*" on:change={(e) => handleFilePreview(e, 'profile')} />
+        {#if profilePicturePreview}
+            <img src={profilePicturePreview} alt="Profile preview" class="image-preview" />
+        {/if}
+      </div>
+
+      <div class="form-group">
+        <label for="banner">Banner (Optional)</label>
+        <input type="file" id="banner" accept="image/*" on:change={(e) => handleFilePreview(e, 'banner')} />
+        {#if bannerPreview}
+            <img src={bannerPreview} alt="Banner preview" class="image-preview banner-preview" />
+        {/if}
+      </div>
+
+      <div class="form-group-checkbox">
+          <input type="checkbox" id="newsletter" bind:checked={subscribedToNewsletter} />
+          <label for="newsletter">Subscribe to our newsletter for updates and promotions.</label>
+      </div>
 
       <!-- reCAPTCHA -->
        <div class="form-group recaptcha-container">
@@ -378,8 +493,13 @@
                 {loading ? 'Verifying...' : 'Verify Account'}
              </button>
         </div>
-         <!-- TODO: Add "Resend Code" functionality later -->
-         <!-- <button type="button" class="btn-link">Resend Code</button> -->
+        <div class="resend-container">
+          <button type="button" class="btn btn-secondary" on:click={handleResendCode} disabled={resendLoading || !!successMessage}>
+              {resendLoading ? 'Sending...' : 'Resend Code'}
+          </button>
+          {#if resendError} <p class="error-text">{resendError}</p> {/if}
+          {#if resendSuccess && !errorStep2} <p class="success-text small">{resendSuccess}</p> {/if} <!-- Show resend success if no main error -->
+      </div>
      </form>
 
   {/if}
@@ -437,6 +557,57 @@
        .btn {
            margin-top: 0;
            flex: 1;
+       }
+  }
+
+  .image-preview {
+    max-width: 100px;
+    max-height: 100px;
+    border-radius: 8px;
+    margin-top: 8px;
+    object-fit: cover;
+    border: 1px solid var(--border-color);
+  }
+  .banner-preview {
+    max-width: 100%;
+    max-height: 120px;
+  }
+  .form-group-checkbox {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin-top: 0.5rem;
+    input[type="checkbox"] {
+        width: auto;
+        accent-color: var(--primary-color);
+    }
+    label {
+        margin-bottom: 0;
+        font-weight: normal;
+        font-size: 0.9rem;
+        color: var(--secondary-text-color);
+    }
+  }
+  .resend-container {
+      text-align: center;
+       .btn-link {
+           background: none;
+           border: none;
+           color: var(--primary-color);
+           text-decoration: underline;
+           cursor: pointer;
+           padding: 0.5rem;
+           font-size: 0.9rem;
+            &:disabled {
+                color: var(--secondary-text-color);
+                text-decoration: none;
+                cursor: not-allowed;
+            }
+       }
+       .success-text.small {
+           font-size: 0.85rem;
+           padding: 0.5rem;
+           margin-top: 0.5rem;
        }
   }
 
