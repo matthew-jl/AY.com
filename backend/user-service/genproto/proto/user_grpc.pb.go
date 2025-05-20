@@ -29,6 +29,13 @@ const (
 	UserService_GetUserProfile_FullMethodName         = "/user.UserService/GetUserProfile"
 	UserService_GetUserProfilesByIds_FullMethodName   = "/user.UserService/GetUserProfilesByIds"
 	UserService_ResendVerificationCode_FullMethodName = "/user.UserService/ResendVerificationCode"
+	UserService_FollowUser_FullMethodName             = "/user.UserService/FollowUser"
+	UserService_UnfollowUser_FullMethodName           = "/user.UserService/UnfollowUser"
+	UserService_BlockUser_FullMethodName              = "/user.UserService/BlockUser"
+	UserService_UnblockUser_FullMethodName            = "/user.UserService/UnblockUser"
+	UserService_GetFollowers_FullMethodName           = "/user.UserService/GetFollowers"
+	UserService_GetFollowing_FullMethodName           = "/user.UserService/GetFollowing"
+	UserService_GetUserByUsername_FullMethodName      = "/user.UserService/GetUserByUsername"
 )
 
 // UserServiceClient is the client API for UserService service.
@@ -41,9 +48,16 @@ type UserServiceClient interface {
 	VerifyEmail(ctx context.Context, in *VerifyEmailRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
 	GetSecurityQuestion(ctx context.Context, in *GetSecurityQuestionRequest, opts ...grpc.CallOption) (*GetSecurityQuestionResponse, error)
 	ResetPassword(ctx context.Context, in *ResetPasswordRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
-	GetUserProfile(ctx context.Context, in *GetUserProfileRequest, opts ...grpc.CallOption) (*User, error)
+	GetUserProfile(ctx context.Context, in *GetUserProfileRequest, opts ...grpc.CallOption) (*UserProfileResponse, error)
 	GetUserProfilesByIds(ctx context.Context, in *GetUserProfilesByIdsRequest, opts ...grpc.CallOption) (*GetUserProfilesByIdsResponse, error)
 	ResendVerificationCode(ctx context.Context, in *ResendVerificationCodeRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
+	FollowUser(ctx context.Context, in *FollowRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
+	UnfollowUser(ctx context.Context, in *FollowRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
+	BlockUser(ctx context.Context, in *BlockRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
+	UnblockUser(ctx context.Context, in *BlockRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
+	GetFollowers(ctx context.Context, in *GetSocialListRequest, opts ...grpc.CallOption) (*GetSocialListResponse, error)
+	GetFollowing(ctx context.Context, in *GetSocialListRequest, opts ...grpc.CallOption) (*GetSocialListResponse, error)
+	GetUserByUsername(ctx context.Context, in *GetUserByUsernameRequest, opts ...grpc.CallOption) (*User, error)
 }
 
 type userServiceClient struct {
@@ -114,9 +128,9 @@ func (c *userServiceClient) ResetPassword(ctx context.Context, in *ResetPassword
 	return out, nil
 }
 
-func (c *userServiceClient) GetUserProfile(ctx context.Context, in *GetUserProfileRequest, opts ...grpc.CallOption) (*User, error) {
+func (c *userServiceClient) GetUserProfile(ctx context.Context, in *GetUserProfileRequest, opts ...grpc.CallOption) (*UserProfileResponse, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
-	out := new(User)
+	out := new(UserProfileResponse)
 	err := c.cc.Invoke(ctx, UserService_GetUserProfile_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
@@ -144,6 +158,76 @@ func (c *userServiceClient) ResendVerificationCode(ctx context.Context, in *Rese
 	return out, nil
 }
 
+func (c *userServiceClient) FollowUser(ctx context.Context, in *FollowRequest, opts ...grpc.CallOption) (*emptypb.Empty, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(emptypb.Empty)
+	err := c.cc.Invoke(ctx, UserService_FollowUser_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *userServiceClient) UnfollowUser(ctx context.Context, in *FollowRequest, opts ...grpc.CallOption) (*emptypb.Empty, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(emptypb.Empty)
+	err := c.cc.Invoke(ctx, UserService_UnfollowUser_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *userServiceClient) BlockUser(ctx context.Context, in *BlockRequest, opts ...grpc.CallOption) (*emptypb.Empty, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(emptypb.Empty)
+	err := c.cc.Invoke(ctx, UserService_BlockUser_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *userServiceClient) UnblockUser(ctx context.Context, in *BlockRequest, opts ...grpc.CallOption) (*emptypb.Empty, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(emptypb.Empty)
+	err := c.cc.Invoke(ctx, UserService_UnblockUser_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *userServiceClient) GetFollowers(ctx context.Context, in *GetSocialListRequest, opts ...grpc.CallOption) (*GetSocialListResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(GetSocialListResponse)
+	err := c.cc.Invoke(ctx, UserService_GetFollowers_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *userServiceClient) GetFollowing(ctx context.Context, in *GetSocialListRequest, opts ...grpc.CallOption) (*GetSocialListResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(GetSocialListResponse)
+	err := c.cc.Invoke(ctx, UserService_GetFollowing_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *userServiceClient) GetUserByUsername(ctx context.Context, in *GetUserByUsernameRequest, opts ...grpc.CallOption) (*User, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(User)
+	err := c.cc.Invoke(ctx, UserService_GetUserByUsername_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // UserServiceServer is the server API for UserService service.
 // All implementations must embed UnimplementedUserServiceServer
 // for forward compatibility.
@@ -154,9 +238,16 @@ type UserServiceServer interface {
 	VerifyEmail(context.Context, *VerifyEmailRequest) (*emptypb.Empty, error)
 	GetSecurityQuestion(context.Context, *GetSecurityQuestionRequest) (*GetSecurityQuestionResponse, error)
 	ResetPassword(context.Context, *ResetPasswordRequest) (*emptypb.Empty, error)
-	GetUserProfile(context.Context, *GetUserProfileRequest) (*User, error)
+	GetUserProfile(context.Context, *GetUserProfileRequest) (*UserProfileResponse, error)
 	GetUserProfilesByIds(context.Context, *GetUserProfilesByIdsRequest) (*GetUserProfilesByIdsResponse, error)
 	ResendVerificationCode(context.Context, *ResendVerificationCodeRequest) (*emptypb.Empty, error)
+	FollowUser(context.Context, *FollowRequest) (*emptypb.Empty, error)
+	UnfollowUser(context.Context, *FollowRequest) (*emptypb.Empty, error)
+	BlockUser(context.Context, *BlockRequest) (*emptypb.Empty, error)
+	UnblockUser(context.Context, *BlockRequest) (*emptypb.Empty, error)
+	GetFollowers(context.Context, *GetSocialListRequest) (*GetSocialListResponse, error)
+	GetFollowing(context.Context, *GetSocialListRequest) (*GetSocialListResponse, error)
+	GetUserByUsername(context.Context, *GetUserByUsernameRequest) (*User, error)
 	mustEmbedUnimplementedUserServiceServer()
 }
 
@@ -185,7 +276,7 @@ func (UnimplementedUserServiceServer) GetSecurityQuestion(context.Context, *GetS
 func (UnimplementedUserServiceServer) ResetPassword(context.Context, *ResetPasswordRequest) (*emptypb.Empty, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method ResetPassword not implemented")
 }
-func (UnimplementedUserServiceServer) GetUserProfile(context.Context, *GetUserProfileRequest) (*User, error) {
+func (UnimplementedUserServiceServer) GetUserProfile(context.Context, *GetUserProfileRequest) (*UserProfileResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method GetUserProfile not implemented")
 }
 func (UnimplementedUserServiceServer) GetUserProfilesByIds(context.Context, *GetUserProfilesByIdsRequest) (*GetUserProfilesByIdsResponse, error) {
@@ -193,6 +284,27 @@ func (UnimplementedUserServiceServer) GetUserProfilesByIds(context.Context, *Get
 }
 func (UnimplementedUserServiceServer) ResendVerificationCode(context.Context, *ResendVerificationCodeRequest) (*emptypb.Empty, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method ResendVerificationCode not implemented")
+}
+func (UnimplementedUserServiceServer) FollowUser(context.Context, *FollowRequest) (*emptypb.Empty, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method FollowUser not implemented")
+}
+func (UnimplementedUserServiceServer) UnfollowUser(context.Context, *FollowRequest) (*emptypb.Empty, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method UnfollowUser not implemented")
+}
+func (UnimplementedUserServiceServer) BlockUser(context.Context, *BlockRequest) (*emptypb.Empty, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method BlockUser not implemented")
+}
+func (UnimplementedUserServiceServer) UnblockUser(context.Context, *BlockRequest) (*emptypb.Empty, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method UnblockUser not implemented")
+}
+func (UnimplementedUserServiceServer) GetFollowers(context.Context, *GetSocialListRequest) (*GetSocialListResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetFollowers not implemented")
+}
+func (UnimplementedUserServiceServer) GetFollowing(context.Context, *GetSocialListRequest) (*GetSocialListResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetFollowing not implemented")
+}
+func (UnimplementedUserServiceServer) GetUserByUsername(context.Context, *GetUserByUsernameRequest) (*User, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetUserByUsername not implemented")
 }
 func (UnimplementedUserServiceServer) mustEmbedUnimplementedUserServiceServer() {}
 func (UnimplementedUserServiceServer) testEmbeddedByValue()                     {}
@@ -377,6 +489,132 @@ func _UserService_ResendVerificationCode_Handler(srv interface{}, ctx context.Co
 	return interceptor(ctx, in, info, handler)
 }
 
+func _UserService_FollowUser_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(FollowRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(UserServiceServer).FollowUser(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: UserService_FollowUser_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(UserServiceServer).FollowUser(ctx, req.(*FollowRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _UserService_UnfollowUser_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(FollowRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(UserServiceServer).UnfollowUser(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: UserService_UnfollowUser_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(UserServiceServer).UnfollowUser(ctx, req.(*FollowRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _UserService_BlockUser_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(BlockRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(UserServiceServer).BlockUser(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: UserService_BlockUser_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(UserServiceServer).BlockUser(ctx, req.(*BlockRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _UserService_UnblockUser_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(BlockRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(UserServiceServer).UnblockUser(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: UserService_UnblockUser_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(UserServiceServer).UnblockUser(ctx, req.(*BlockRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _UserService_GetFollowers_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetSocialListRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(UserServiceServer).GetFollowers(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: UserService_GetFollowers_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(UserServiceServer).GetFollowers(ctx, req.(*GetSocialListRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _UserService_GetFollowing_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetSocialListRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(UserServiceServer).GetFollowing(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: UserService_GetFollowing_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(UserServiceServer).GetFollowing(ctx, req.(*GetSocialListRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _UserService_GetUserByUsername_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetUserByUsernameRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(UserServiceServer).GetUserByUsername(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: UserService_GetUserByUsername_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(UserServiceServer).GetUserByUsername(ctx, req.(*GetUserByUsernameRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // UserService_ServiceDesc is the grpc.ServiceDesc for UserService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -419,6 +657,34 @@ var UserService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "ResendVerificationCode",
 			Handler:    _UserService_ResendVerificationCode_Handler,
+		},
+		{
+			MethodName: "FollowUser",
+			Handler:    _UserService_FollowUser_Handler,
+		},
+		{
+			MethodName: "UnfollowUser",
+			Handler:    _UserService_UnfollowUser_Handler,
+		},
+		{
+			MethodName: "BlockUser",
+			Handler:    _UserService_BlockUser_Handler,
+		},
+		{
+			MethodName: "UnblockUser",
+			Handler:    _UserService_UnblockUser_Handler,
+		},
+		{
+			MethodName: "GetFollowers",
+			Handler:    _UserService_GetFollowers_Handler,
+		},
+		{
+			MethodName: "GetFollowing",
+			Handler:    _UserService_GetFollowing_Handler,
+		},
+		{
+			MethodName: "GetUserByUsername",
+			Handler:    _UserService_GetUserByUsername_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

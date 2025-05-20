@@ -52,3 +52,30 @@ export function timeAgo(
 
   return "just now"; // Fallback
 }
+
+export function timeAgoProfile(
+  dateInput:
+    | string
+    | {
+        seconds: number;
+        nanos: number;
+      }
+): string {
+  if (
+    dateInput &&
+    typeof dateInput === "object" &&
+    "seconds" in dateInput &&
+    "nanos" in dateInput
+  ) {
+    const milliseconds =
+      dateInput.seconds * 1000 + Math.floor(dateInput.nanos / 1_000_000);
+    const date = new Date(milliseconds);
+
+    const options: Intl.DateTimeFormatOptions = {
+      year: "numeric",
+      month: "long",
+    };
+    return date.toLocaleDateString(undefined, options);
+  }
+  return "Just Now";
+}

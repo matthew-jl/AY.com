@@ -281,7 +281,7 @@ func (h *AuthHandler) GetProfile(c *gin.Context) {
 
 	// Prepare gRPC request
 	grpcReq := &userpb.GetUserProfileRequest{
-		UserId: uint32(userID),
+		UserIdToView: uint32(userID),
 	}
 
 	// Call User Service

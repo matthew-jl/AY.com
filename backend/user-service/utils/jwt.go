@@ -49,7 +49,6 @@ func GenerateTokens(userID uint) (accessToken string, refreshToken string, err e
 	return accessToken, refreshToken, nil
 }
 
-// ValidateToken (Optional for this phase, but useful later)
 func ValidateToken(tokenString string) (*jwt.Token, error) {
 	token, err := jwt.Parse(tokenString, func(token *jwt.Token) (interface{}, error) {
 		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {

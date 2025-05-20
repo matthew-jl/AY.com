@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"time"
 
 	"github.com/jackc/pgx/v5/pgconn"
 	"golang.org/x/crypto/bcrypt"
@@ -29,7 +30,23 @@ type User struct {
     AccountStatus         string `gorm:"type:varchar(20);default:'pending_verification';not null"`
 	AccountPrivacy 	   	  string `gorm:"type:varchar(10);default:'public';not null"`
 	SubscribedToNewsletter bool   `gorm:"default:false;not null"`
+	Bio				   string `gorm:"type:text"`
 }
+
+type Follow struct {
+	FollowerID uint `gorm:"primaryKey;autoIncrement:false"`
+	FollowedID uint `gorm:"primaryKey;autoIncrement:false"` 
+	CreatedAt  time.Time
+}
+
+type Block struct {
+	BlockerID uint `gorm:"primaryKey;autoIncrement:false"` 
+	BlockedID uint `gorm:"primaryKey;autoIncrement:false"` 
+	CreatedAt time.Time
+}
+
+func (Follow) TableName() string { return "follows" }
+func (Block) TableName() string  { return "blocks" }
 
 type UserRepository struct {
 	db *gorm.DB
@@ -45,7 +62,7 @@ func NewUserRepository() (*UserRepository, error) {
 		return nil, err
 	}
 
-	if err := db.AutoMigrate(&User{}); err != nil {
+	if err := db.AutoMigrate(&User{}, &Follow{}, &Block{}); err != nil {
 		return nil, err
 	}
 
@@ -98,6 +115,18 @@ func (r *UserRepository) GetUserByEmail(ctx context.Context, email string) (*Use
 		return nil, fmt.Errorf("failed to get user by email: %w", result.Error)
 	}
 	return &user, nil
+}
+
+func (r *UserRepository) GetUserByUsername(ctx context.Context, username string) (*User, error) {
+    var user User
+    result := r.db.WithContext(ctx).Where("username = ?", username).First(&user)
+    if result.Error != nil {
+        if errors.Is(result.Error, gorm.ErrRecordNotFound) {
+            return nil, errors.New("user not found by username")
+        }
+        return nil, fmt.Errorf("failed to get user by username %s: %w", username, result.Error)
+    }
+    return &user, nil
 }
 
 func (r *UserRepository) ActivateUserAccount(ctx context.Context, userID uint) error {
@@ -179,4 +208,122 @@ func (r *UserRepository) GetUsersByIDs(ctx context.Context, userIDs []uint) ([]U
         return nil, fmt.Errorf("failed to get users by IDs: %w", result.Error)
     }
     return users, nil
+}
+
+func (r *UserRepository) FollowUser(ctx context.Context, followerID, followedID uint) error {
+	if followerID == followedID {
+		return errors.New("user cannot follow themselves")
+	}
+	follow := Follow{FollowerID: followerID, FollowedID: followedID}
+	// FirstOrCreate -> prevent duplicate entries if already following
+	result := r.db.WithContext(ctx).FirstOrCreate(&follow)
+	if result.Error != nil {
+		return fmt.Errorf("failed to follow user: %w", result.Error)
+	}
+	if result.RowsAffected > 0 {
+		log.Printf("User %d now follows User %d", followerID, followedID)
+	} else {
+		log.Printf("User %d already follows User %d", followerID, followedID)
+	}
+	return nil
+}
+
+func (r *UserRepository) UnfollowUser(ctx context.Context, followerID, followedID uint) error {
+	result := r.db.WithContext(ctx).Delete(&Follow{}, "follower_id = ? AND followed_id = ?", followerID, followedID)
+	if result.Error != nil {
+		return fmt.Errorf("failed to unfollow user: %w", result.Error)
+	}
+	if result.RowsAffected > 0 {
+		log.Printf("User %d unfollowed User %d", followerID, followedID)
+	} else {
+		log.Printf("User %d was not following User %d, or relationship already removed", followerID, followedID)
+	}
+	return nil
+}
+
+func (r *UserRepository) BlockUser(ctx context.Context, blockerID, blockedID uint) error {
+	if blockerID == blockedID {
+		return errors.New("user cannot block themselves")
+	}
+	return r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		// 1. Remove BlockerID -> BlockedID follow
+		if err := tx.Where("follower_id = ? AND followed_id = ?", blockerID, blockedID).Delete(&Follow{}).Error; err != nil {
+			log.Printf("Error removing follow (blocker->blocked) during block: %v", err)
+		}
+
+		// 2. Remove BlockedID -> BlockerID follow
+		if err := tx.Where("follower_id = ? AND followed_id = ?", blockedID, blockerID).Delete(&Follow{}).Error; err != nil {
+			log.Printf("Error removing follow (blocked->blocker) during block: %v", err)
+		}
+
+		// 3. Create the block record (or do nothing if it exists)
+		block := Block{BlockerID: blockerID, BlockedID: blockedID}
+		result := tx.FirstOrCreate(&block)
+		if result.Error != nil {
+			log.Printf("Error creating/finding block record: %v", result.Error)
+			return fmt.Errorf("failed to process block: %w", result.Error)
+		}
+		if result.RowsAffected > 0 {
+			log.Printf("User %d now blocks User %d", blockerID, blockedID)
+		} else {
+			log.Printf("User %d already blocks User %d", blockerID, blockedID)
+		}
+		return nil
+	})
+}
+
+func (r *UserRepository) UnblockUser(ctx context.Context, blockerID, blockedID uint) error {
+	result := r.db.WithContext(ctx).Delete(&Block{}, "blocker_id = ? AND blocked_id = ?", blockerID, blockedID)
+	if result.Error != nil { return fmt.Errorf("failed to unblock user: %w", result.Error) }
+	if result.RowsAffected > 0 {
+		log.Printf("User %d unblocked User %d", blockerID, blockedID)
+	} else {
+		log.Printf("User %d was not blocking User %d, or relationship already removed", blockerID, blockedID)
+	}
+	return nil
+}
+
+func (r *UserRepository) GetFollowerCount(ctx context.Context, userID uint) (int64, error) {
+	var count int64
+	err := r.db.WithContext(ctx).Model(&Follow{}).Where("followed_id = ?", userID).Count(&count).Error
+	return count, err
+}
+
+func (r *UserRepository) GetFollowingCount(ctx context.Context, userID uint) (int64, error) {
+	var count int64
+	err := r.db.WithContext(ctx).Model(&Follow{}).Where("follower_id = ?", userID).Count(&count).Error
+	return count, err
+}
+
+func (r *UserRepository) GetFollowers(ctx context.Context, userID uint, limit, offset int) ([]uint, error) {
+	var followerIDs []uint
+	err := r.db.WithContext(ctx).Model(&Follow{}).Where("followed_id = ?", userID).Order("created_at DESC").Limit(limit).Offset(offset).Pluck("follower_id", &followerIDs).Error
+	return followerIDs, err
+}
+
+func (r *UserRepository) GetFollowing(ctx context.Context, userID uint, limit, offset int) ([]uint, error) {
+	var followedIDs []uint
+	err := r.db.WithContext(ctx).Model(&Follow{}).Where("follower_id = ?", userID).Order("created_at DESC").Limit(limit).Offset(offset).Pluck("followed_id", &followedIDs).Error
+	return followedIDs, err
+}
+
+func (r *UserRepository) IsFollowing(ctx context.Context, requestUserID, targetUserID uint) (bool, error) {
+	if requestUserID == 0 { return false, nil }
+	var count int64
+	err := r.db.WithContext(ctx).Model(&Follow{}).Where("follower_id = ? AND followed_id = ?", requestUserID, targetUserID).Count(&count).Error
+	return count > 0, err
+}
+
+func (r *UserRepository) HasBlocked(ctx context.Context, requestUserID, targetUserID uint) (bool, error) {
+	if requestUserID == 0 { return false, nil }
+	var count int64
+	err := r.db.WithContext(ctx).Model(&Block{}).Where("blocker_id = ? AND blocked_id = ?", requestUserID, targetUserID).Count(&count).Error
+	return count > 0, err
+}
+
+func (r *UserRepository) IsBlockedBy(ctx context.Context, requestUserID, targetUserID uint) (bool, error) {
+	if requestUserID == 0 { return false, nil }
+	var count int64
+	err := r.db.WithContext(ctx).Model(&Block{}).Where("blocker_id = ? AND blocked_id = ?", targetUserID, requestUserID).Count(&count).Error
+	return count > 0, err
 }

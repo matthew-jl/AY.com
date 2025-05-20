@@ -89,9 +89,16 @@
 
 <article class="thread-card" aria-labelledby="thread-author-{thread.id}">
     <div class="thread-avatar">
-        <div class="avatar-placeholder-small">
-            {author?.name?.charAt(0)?.toUpperCase() ?? '?'}
-            <!-- TODO: <img src={author.profile_picture} alt=""> -->
+        <div class="avatar-img">
+            {#if author?.profile_picture}
+              <img src="{author.profile_picture}" alt="{author.name}'s avatar" class="avatar-img" />  
+            {:else if author}
+                <div class="avatar-initials-placeholder">
+                    {author.name?.charAt(0)?.toUpperCase() ?? '?'}
+                </div>
+            {:else}
+                <div class="avatar-initials-placeholder">?</div>
+            {/if}
         </div>
          <!-- TODO: Add line connecting replies later -->
     </div>
@@ -184,8 +191,18 @@
   .thread-avatar {
     margin-right: 12px;
     flex-shrink: 0;
-     .avatar-placeholder-small {
-          width: 40px; height: 40px; border-radius: 50%; background-color: var(--secondary-text-color);
+    width: 40px;
+    height: 40px;
+
+    .avatar-img {
+        width: 100%;
+        height: 100%;
+        border-radius: 50%;
+        object-fit: cover;
+        background-color: var(--border-color); /* Fallback bg while image loads */
+    }
+     .avatar-initials-placeholder {
+          width: 100%; height: 100%; border-radius: 50%; background-color: var(--secondary-text-color);
           color: var(--background); display: flex; align-items: center; justify-content: center;
           font-weight: bold; font-size: 1.1rem;
      }

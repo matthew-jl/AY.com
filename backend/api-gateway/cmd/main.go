@@ -37,6 +37,7 @@ func main() {
 	authHandler := gwHTTPHandler.NewAuthHandler(userClient)
 	threadHandler := gwHTTPHandler.NewThreadHandler(threadClient, mediaClient, userClient)
 	mediaHandler := gwHTTPHandler.NewMediaHandler(mediaClient)
+	profileHandler := gwHTTPHandler.NewProfileHandler(userClient)
 	wsHub := websocket.NewHub()
 
 	// JWT secret 
@@ -47,7 +48,7 @@ func main() {
 	}
 
 	// Set up router
-	r := route.SetupRouter(authHandler, threadHandler, mediaHandler, wsHub, jwtSecret)
+	r := route.SetupRouter(authHandler, threadHandler, mediaHandler, profileHandler, wsHub, jwtSecret)
 
 	// Start server
 	logrus.Info("API Gateway starting on :8080")

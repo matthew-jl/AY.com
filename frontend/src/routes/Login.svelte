@@ -131,11 +131,11 @@
 
       // 2. Fetch user profile using the new token
       try {
-          const userProfile = await api.getUserProfile();
-          setUser(userProfile); // Update user store
+          const userProfileApiResponse = await api.getOwnUserProfile();
+          setUser(userProfileApiResponse.user); // Update user store
       } catch (profileError) {
           console.error("Login successful, but failed to fetch profile:", profileError);
-          setUser(null); // Ensure user store is cleared if profile fetch fails
+          setUser(null);
       }
 
       // 3. Update global auth state

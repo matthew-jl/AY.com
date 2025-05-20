@@ -372,35 +372,69 @@ func (h *UserHandler) ResetPassword(ctx context.Context, req *userpb.ResetPasswo
 	return &emptypb.Empty{}, nil
 }
 
-func (h *UserHandler) GetUserProfile(ctx context.Context, req *userpb.GetUserProfileRequest) (*userpb.User, error) {
-	log.Printf("Received GetUserProfile request for User ID: %d", req.UserId)
+func (h *UserHandler) GetUserProfile(ctx context.Context, req *userpb.GetUserProfileRequest) (*userpb.UserProfileResponse, error) {
+	log.Printf("Received GetUserProfile request for UserToView: %d, Requester: %d", req.UserIdToView, req.GetRequesterUserId())
+	if req.UserIdToView == 0 { return nil, status.Errorf(codes.InvalidArgument, "User ID to view is required") }
 
-	if req.UserId == 0 {
-		return nil, status.Errorf(codes.InvalidArgument, "User ID is required")
-	}
-
-	user, err := h.repo.GetUserByID(ctx, uint(req.UserId))
+	targetUser, err := h.repo.GetUserByID(ctx, uint(req.UserIdToView))
 	if err != nil {
-		log.Printf("GetUserProfile failed for User ID %d: %v", req.UserId, err)
-		if err.Error() == "user not found by ID" {
-			return nil, status.Errorf(codes.NotFound, "User profile not found")
-		}
-		return nil, status.Errorf(codes.Internal, "Failed to retrieve user profile")
+		log.Printf("GetUserProfile failed for user ID %d: %v", req.UserIdToView, err)
 	}
 
-	return &userpb.User{
-		Id:             uint32(user.ID),
-		Name:           user.Name,
-		Username:       user.Username,
-		Email:          user.Email,
-		Gender:         user.Gender,
-		ProfilePicture: user.ProfilePicture,
-		Banner:         user.Banner,
-		DateOfBirth:    user.DateOfBirth,
-		AccountStatus:  user.AccountStatus,
-		AccountPrivacy: user.AccountPrivacy,
-		SubscribedToNewsletter: user.SubscribedToNewsletter,
-		CreatedAt:      timestamppb.New(user.CreatedAt),
+	// Privacy Check
+	requesterID := uint(req.GetRequesterUserId())
+	isOwner := requesterID != 0 && requesterID == targetUser.ID
+
+	isBlockedByTarget, _ := h.repo.IsBlockedBy(ctx, requesterID, targetUser.ID)
+	if isBlockedByTarget && !isOwner {
+		log.Printf("User %d blocked from viewing profile of user %d", requesterID, targetUser.ID)
+		return nil, status.Errorf(codes.PermissionDenied, "You are blocked by this user.")
+	}
+	hasRequesterBlockedTarget, _ := h.repo.HasBlocked(ctx, requesterID, targetUser.ID)
+
+
+	if targetUser.AccountPrivacy == "private" && !isOwner {
+		isFollowing, _ := h.repo.IsFollowing(ctx, requesterID, targetUser.ID)
+		if !isFollowing {
+			log.Printf("Access denied to private profile of user %d for requester %d", targetUser.ID, requesterID)
+			return nil, status.Errorf(codes.PermissionDenied, "This account is private.")
+		}
+	}
+
+	followerCount, _ := h.repo.GetFollowerCount(ctx, targetUser.ID)
+	followingCount, _ := h.repo.GetFollowingCount(ctx, targetUser.ID)
+
+	// Check relationship status if requester ID is provided
+	var isFollowedByReq, isBlockedByReq bool
+	if requesterID != 0 && requesterID != targetUser.ID {
+		isFollowedByReq, _ = h.repo.IsFollowing(ctx, requesterID, targetUser.ID)
+		isBlockedByReq = hasRequesterBlockedTarget
+	}
+
+
+	userProto := &userpb.User{
+		Id:             uint32(targetUser.ID),
+		Name:           targetUser.Name,
+		Username:       targetUser.Username,
+		Email:          targetUser.Email,
+		Gender:         targetUser.Gender,
+		ProfilePicture: targetUser.ProfilePicture,
+		Banner:         targetUser.Banner,
+		DateOfBirth:    targetUser.DateOfBirth,
+		AccountStatus:  targetUser.AccountStatus,
+		AccountPrivacy: targetUser.AccountPrivacy,
+		SubscribedToNewsletter: targetUser.SubscribedToNewsletter,
+		CreatedAt:      timestamppb.New(targetUser.CreatedAt),
+		Bio:            targetUser.Bio,
+	}
+
+	return &userpb.UserProfileResponse{
+		User:                   userProto,
+		FollowerCount:          int32(followerCount),
+		FollowingCount:         int32(followingCount),
+		IsFollowedByRequester:  isFollowedByReq,
+		IsBlockedByRequester:   isBlockedByReq,
+        IsBlockingRequester:    isBlockedByTarget,
 	}, nil
 }
 
@@ -433,4 +467,157 @@ func (h *UserHandler) GetUserProfilesByIds(ctx context.Context, req *userpb.GetU
 		}
 	}
 	return &userpb.GetUserProfilesByIdsResponse{Users: userMap}, nil
+}
+
+func (h *UserHandler) GetUserByUsername(ctx context.Context, req *userpb.GetUserByUsernameRequest) (*userpb.User, error) {
+    log.Printf("Received GetUserByUsername request for Username: %s", req.Username)
+    if req.Username == "" {
+        return nil, status.Errorf(codes.InvalidArgument, "Username is required")
+    }
+
+    user, err := h.repo.GetUserByUsername(ctx, req.Username)
+    if err != nil {
+        log.Printf("GetUserByUsername failed for %s: %v", req.Username, err)
+        if err.Error() == "user not found by username" {
+            return nil, status.Errorf(codes.NotFound, "User not found")
+        }
+        return nil, status.Errorf(codes.Internal, "Failed to retrieve user by username")
+    }
+
+    return &userpb.User{
+        Id:             uint32(user.ID),
+        Name:           user.Name,
+        Username:       user.Username,
+        Email:          user.Email,
+        ProfilePicture: user.ProfilePicture,
+        Banner:         user.Banner,
+        Bio:            user.Bio,
+        AccountPrivacy: user.AccountPrivacy,
+        CreatedAt:      timestamppb.New(user.CreatedAt),
+    }, nil
+}
+
+func (h *UserHandler) FollowUser(ctx context.Context, req *userpb.FollowRequest) (*emptypb.Empty, error) {
+	log.Printf("User %d attempts to follow user %d", req.FollowerId, req.FollowedId)
+	if req.FollowerId == 0 || req.FollowedId == 0 {
+		return nil, status.Errorf(codes.InvalidArgument, "Follower and Followed IDs are required")
+	}
+	if req.FollowerId == req.FollowedId {
+		return nil, status.Errorf(codes.InvalidArgument, "User cannot follow themselves")
+	}
+	// TODO: Check if Follower has blocked Followed, or if Followed has blocked Follower
+	err := h.repo.FollowUser(ctx, uint(req.FollowerId), uint(req.FollowedId))
+	if err != nil {
+		log.Printf("Error following user: %v", err)
+		if err.Error() == "user cannot follow themselves" {return nil, status.Errorf(codes.InvalidArgument, err.Error())}
+		return nil, status.Errorf(codes.Internal, "Could not process follow request")
+	}
+	return &emptypb.Empty{}, nil
+}
+
+func (h *UserHandler) UnfollowUser(ctx context.Context, req *userpb.FollowRequest) (*emptypb.Empty, error) {
+	log.Printf("User %d attempts to unfollow user %d", req.FollowerId, req.FollowedId)
+    if req.FollowerId == 0 || req.FollowedId == 0 { return nil, status.Errorf(codes.InvalidArgument, "IDs required")}
+	err := h.repo.UnfollowUser(ctx, uint(req.FollowerId), uint(req.FollowedId))
+	if err != nil {
+		log.Printf("Error unfollowing user: %v", err)
+		return nil, status.Errorf(codes.Internal, "Could not process unfollow request")
+	}
+	return &emptypb.Empty{}, nil
+}
+
+func (h *UserHandler) BlockUser(ctx context.Context, req *userpb.BlockRequest) (*emptypb.Empty, error) {
+	log.Printf("User %d attempts to block user %d", req.BlockerId, req.BlockedId)
+    if req.BlockerId == 0 || req.BlockedId == 0 { return nil, status.Errorf(codes.InvalidArgument, "IDs required")}
+    if req.BlockerId == req.BlockedId { return nil, status.Errorf(codes.InvalidArgument, "User cannot block themselves")}
+	// TODO: Transaction: remove existing follows (both ways) when blocking.
+	err := h.repo.BlockUser(ctx, uint(req.BlockerId), uint(req.BlockedId))
+	if err != nil {
+		log.Printf("Error blocking user: %v", err)
+		return nil, status.Errorf(codes.Internal, "Could not process block request")
+	}
+	return &emptypb.Empty{}, nil
+}
+
+func (h *UserHandler) UnblockUser(ctx context.Context, req *userpb.BlockRequest) (*emptypb.Empty, error) {
+	log.Printf("User %d attempts to unblock user %d", req.BlockerId, req.BlockedId)
+    if req.BlockerId == 0 || req.BlockedId == 0 { return nil, status.Errorf(codes.InvalidArgument, "IDs required")}
+	err := h.repo.UnblockUser(ctx, uint(req.BlockerId), uint(req.BlockedId))
+	if err != nil {
+		log.Printf("Error unblocking user: %v", err)
+		return nil, status.Errorf(codes.Internal, "Could not process unblock request")
+	}
+	return &emptypb.Empty{}, nil
+}
+
+func (h *UserHandler) GetFollowers(ctx context.Context, req *userpb.GetSocialListRequest) (*userpb.GetSocialListResponse, error) {
+	log.Printf("GetFollowers for UserID: %d, Requester: %d, Page: %d", req.UserId, req.GetRequesterUserId(), req.Page)
+    if req.UserId == 0 { return nil, status.Errorf(codes.InvalidArgument, "Target UserID is required")}
+	limit, offset := getLimitOffset(req.Page, req.Limit)
+
+	followerIDs, err := h.repo.GetFollowers(ctx, uint(req.UserId), limit, offset)
+	if err != nil {
+		log.Printf("Error retrieving followers: %v", err)
+		return nil, status.Errorf(codes.Internal, "Failed to retrieve followers")
+	}
+
+	return h.hydrateSocialList(ctx, followerIDs, req.GetRequesterUserId(), len(followerIDs) == limit)
+}
+
+func (h *UserHandler) GetFollowing(ctx context.Context, req *userpb.GetSocialListRequest) (*userpb.GetSocialListResponse, error) {
+	log.Printf("GetFollowing for UserID: %d, Requester: %d, Page: %d", req.UserId, req.GetRequesterUserId(), req.Page)
+    if req.UserId == 0 { return nil, status.Errorf(codes.InvalidArgument, "Target UserID is required")}
+	limit, offset := getLimitOffset(req.Page, req.Limit)
+
+	followingIDs, err := h.repo.GetFollowing(ctx, uint(req.UserId), limit, offset)
+	if err != nil {
+		log.Printf("Error retrieving following: %v", err)
+		return nil, status.Errorf(codes.Internal, "Failed to retrieve following")
+	}
+
+	return h.hydrateSocialList(ctx, followingIDs, req.GetRequesterUserId(), len(followingIDs) == limit)
+}
+
+// Helper for pagination
+func getLimitOffset(page, limit int32) (int, int) {
+	p := int(page); l := int(limit)
+	if l <= 0 || l > 50 { l = 20 }
+	if p <= 0 { p = 1 }
+	return l, (p - 1) * l
+}
+
+// Helper to hydrate a list of user IDs into SocialUser protos
+func (h *UserHandler) hydrateSocialList(ctx context.Context, userIDs []uint, requesterID uint32, hasMore bool) (*userpb.GetSocialListResponse, error) {
+	if len(userIDs) == 0 {
+		return &userpb.GetSocialListResponse{Users: []*userpb.SocialUser{}, HasMore: false}, nil
+	}
+
+	protoUserIDs := make([]uint32, len(userIDs))
+	for i, id := range userIDs { protoUserIDs[i] = uint32(id) }
+
+	profilesResp, err := h.GetUserProfilesByIds(ctx, &userpb.GetUserProfilesByIdsRequest{UserIds: protoUserIDs})
+	if err != nil {
+		log.Printf("Error hydrating social list (GetUserProfilesByIds): %v", err)
+		return nil, status.Errorf(codes.Internal, "Failed to retrieve user details for list")
+	}
+
+	socialUsers := make([]*userpb.SocialUser, 0, len(userIDs))
+	for _, userID := range userIDs {
+        profile, ok := profilesResp.Users[uint32(userID)]
+        if !ok || profile == nil {
+            log.Printf("Warning: Profile not found for userID %d during social list hydration", userID)
+            continue
+        }
+
+		isFollowedByReq := false
+		if requesterID != 0 && requesterID != uint32(userID) {
+			isFollowedByReq, _ = h.repo.IsFollowing(ctx, uint(requesterID), userID)
+		}
+		socialUsers = append(socialUsers, &userpb.SocialUser{
+			UserSummary:           profile,
+			IsFollowedByRequester: isFollowedByReq,
+		})
+	}
+
+	return &userpb.GetSocialListResponse{Users: socialUsers, HasMore: hasMore}, nil
 }

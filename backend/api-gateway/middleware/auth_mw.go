@@ -55,7 +55,7 @@ func AuthMiddleware(secret string) gin.HandlerFunc {
 				// Handle potential type assertion errors carefully
 				var userID uint
 				switch v := subject.(type) {
-				case float64: // Numeric claims are often parsed as float64
+				case float64:
 					userID = uint(v)
 				case uint:
 					userID = v
@@ -76,8 +76,8 @@ func AuthMiddleware(secret string) gin.HandlerFunc {
 				}
 
 				// --- Set UserID in Gin Context ---
-				c.Set("userID", userID) // Use a consistent key like "userID"
-				logrus.Infof("Authenticated User ID: %d", userID) // Log successful auth
+				c.Set("userID", userID)
+				logrus.Infof("Authenticated User ID: %d", userID)
 
 			} else {
 				logrus.Warn("Token missing 'sub' (subject) claim")
@@ -92,6 +92,56 @@ func AuthMiddleware(secret string) gin.HandlerFunc {
 			return
 		}
 
+		c.Next()
+	}
+}
+
+// For public routes where we want to attempt to authenticate but not block access
+func AttemptAuthMiddleware(secret string) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		authHeader := c.GetHeader("Authorization")
+		if authHeader == "" {
+			c.Next()
+			return
+		}
+
+		parts := strings.Split(authHeader, " ")
+		if len(parts) != 2 || parts[0] != "Bearer" {
+			c.Next()
+			return
+		}
+
+		tokenString := parts[1]
+		token, err := jwt.Parse(tokenString, func(token *jwt.Token) (interface{}, error) {
+			if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
+				return nil, jwt.ErrSignatureInvalid
+			}
+			return []byte(secret), nil
+		})
+
+		if err == nil && token.Valid {
+			if claims, ok := token.Claims.(jwt.MapClaims); ok {
+				if subject, ok := claims["sub"]; ok {
+					var userID uint
+					switch v := subject.(type) {
+					case float64: userID = uint(v)
+                    case uint: userID = v
+                    case int: userID = uint(v)
+					default:
+                        logrus.Warnf("AttemptAuth: Invalid userID type in token claim 'sub': %T for path %s", subject, c.FullPath())
+                        c.Next(); return
+					}
+                    if userID == 0 {
+                        logrus.Warnf("AttemptAuth: UserID claim 'sub' is zero in token for path %s", c.FullPath())
+                        c.Next(); return
+                    }
+					c.Set("userID", userID)
+					logrus.Infof("AttemptAuth: Authenticated User ID: %d for path %s", userID, c.FullPath())
+				}
+			}
+		} else if err != nil {
+            logrus.Warnf("AttemptAuth: Token parsing error or invalid token for path %s: %v", c.FullPath(), err)
+        }
 		c.Next()
 	}
 }

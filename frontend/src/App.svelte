@@ -16,16 +16,24 @@
   import CreateThreadModal from "./components/CreateThreadModal.svelte";
   import { api, clearTokens, getAccessToken } from "./lib/api";
   import { clearUser, setUser } from "./stores/userStore";
+  import ProfilePage from "./routes/ProfilePage.svelte";
 
   export let url = "";
 
   const sidebarLayoutRoutes = [
     '/home', '/explore', '/notifications', '/messages',
-    '/bookmarks', '/communities', '/premium', '/profile', '/settings',
-    '/'
+    '/bookmarks', '/communities', '/premium', '/settings', '/'
   ];
 
-   $: showSidebars = isAuth && pathFromStore !== null && sidebarLayoutRoutes.includes(pathFromStore);
+  function matchesSidebarRoute(path: string | null): boolean {
+    if (!path) return false;
+    if (sidebarLayoutRoutes.includes(path)) return true;
+    // Match /profile/:username
+    if (/^\/profile\/[^/]+$/.test(path)) return true;
+    return false;
+  }
+
+  $: showSidebars = isAuth && matchesSidebarRoute(pathFromStore);
   
   // --- State Management ---
   let isAuth = false;
@@ -42,17 +50,15 @@
     if (token) {
         console.log("Token found on mount, attempting to fetch profile...");
         try {
-            const userProfile = await api.getUserProfile();
-            setUser(userProfile); // Populate user store
-            setAuthState(true);   // Confirm auth state
-            console.log("User profile rehydrated:", userProfile);
+            const userProfileApiResponse = await api.getOwnUserProfile();
+            setUser(userProfileApiResponse.user);
+            setAuthState(true);
+            console.log("User profile rehydrated:", userProfileApiResponse.user);
         } catch (err) {
             console.error("Failed to rehydrate user profile on mount:", err);
-            // If profile fetch fails (e.g., token expired, server error), treat as logged out
             clearTokens();
             clearUser();
             setAuthState(false);
-            // Optionally navigate to login if not on a public page
             if (pathFromStore && !['/login', '/register', '/'].includes(pathFromStore)) {
                 navigate('/login', { replace: true });
             }
@@ -145,8 +151,8 @@
        <Route path="/premium">
          {#if isAuth} <Home /> <!-- Replace with Premium later --> {:else} <NoAccess /> {/if}
       </Route>
-       <Route path="/profile">
-         {#if isAuth} <Home /> <!-- Replace with Profile later --> {:else} <NoAccess /> {/if}
+       <Route path="/profile/:username">
+         {#if isAuth} <ProfilePage /> {:else} <NoAccess /> {/if}
       </Route>
        <Route path="/settings">
          {#if isAuth} <Home /> <!-- Replace with Settings later --> {:else} <NoAccess /> {/if}

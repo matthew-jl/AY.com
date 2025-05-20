@@ -12,7 +12,7 @@ export interface AuthResponse {
   refresh_token: string;
 }
 
-export interface UserProfileResponse {
+export interface UserProfileBasic {
   id: number;
   name: string;
   username: string;
@@ -25,6 +25,16 @@ export interface UserProfileResponse {
   account_privacy: string;
   created_at: string;
   subscribed_to_newsletter: boolean;
+  bio: string;
+}
+
+export interface UserProfileResponseData {
+  user: UserProfileBasic | null;
+  follower_count: number;
+  following_count: number;
+  is_followed_by_requester: boolean;
+  is_blocked_by_requester: boolean;
+  is_blocking_requester: boolean;
 }
 
 export interface MediaMetadata {
@@ -51,7 +61,7 @@ export interface ThreadData {
   media_ids: number[];
   created_at: string; // ISO String
   // --- Frontend-specific state ---
-  author?: UserProfileResponse | null; // Hydrated author info
+  author?: UserProfileBasic | null; // Hydrated author info
   media?: MediaMetadata[]; // Hydrated media info
   is_liked_by_current_user?: boolean;
   is_bookmarked_by_current_user?: boolean;
@@ -242,14 +252,14 @@ export interface ResendVerificationRequestData {
 export interface CreateThreadRequestData {
   content: string;
   parent_thread_id?: number;
-  reply_restriction?: string; // Map frontend choice to backend enum string
-  scheduled_at?: string | null; // ISO 8601 format string
+  reply_restriction?: string;
+  scheduled_at?: string | null;
   community_id?: number;
   media_ids?: number[];
 }
 
 export interface UploadMediaResponseData {
-  media: MediaMetadata; // Matches backend
+  media: MediaMetadata;
 }
 
 export interface GetMediaMetadataRequestData {
@@ -257,7 +267,17 @@ export interface GetMediaMetadataRequestData {
 }
 
 export interface InteractThreadRequestData {
-  thread_id: number; // User ID inferred from token on backend
+  thread_id: number;
+}
+
+export interface SocialUserListItem {
+  user_summary: UserProfileBasic;
+  is_followed_by_requester: boolean;
+}
+
+export interface SocialListResponseData {
+  users: SocialUserListItem[];
+  has_more: boolean;
 }
 
 // --- API Methods ---
@@ -308,10 +328,44 @@ export const api = {
       body: JSON.stringify(data),
     }),
 
-  getUserProfile: (): Promise<UserProfileResponse> =>
-    apiFetch<UserProfileResponse>("/users/profile", {
+  getOwnUserProfile: (): Promise<UserProfileResponseData> =>
+    apiFetch<UserProfileResponseData>("/users/me/profile", { method: "GET" }),
+
+  getUserProfileByUsername: (
+    username: string
+  ): Promise<UserProfileResponseData> =>
+    apiFetch<UserProfileResponseData>(`/profiles/${username}`, {
       method: "GET",
     }),
+  // TODO: Add UpdateUserProfile method later
+
+  followUser: (username: string): Promise<void> =>
+    apiFetch<void>(`/profiles/${username}/follow`, { method: "POST" }),
+  unfollowUser: (username: string): Promise<void> =>
+    apiFetch<void>(`/profiles/${username}/follow`, { method: "DELETE" }),
+  blockUser: (username: string): Promise<void> =>
+    apiFetch<void>(`/profiles/${username}/block`, { method: "POST" }),
+  unblockUser: (username: string): Promise<void> =>
+    apiFetch<void>(`/profiles/${username}/block`, { method: "DELETE" }),
+
+  getFollowers: (
+    username: string,
+    page: number = 1,
+    limit: number = 20
+  ): Promise<SocialListResponseData> =>
+    apiFetch<SocialListResponseData>(
+      `/profiles/${username}/followers?page=${page}&limit=${limit}`,
+      { method: "GET" }
+    ),
+  getFollowing: (
+    username: string,
+    page: number = 1,
+    limit: number = 20
+  ): Promise<SocialListResponseData> =>
+    apiFetch<SocialListResponseData>(
+      `/profiles/${username}/following?page=${page}&limit=${limit}`,
+      { method: "GET" }
+    ),
 
   // Upload: Takes FormData, returns parsed JSON response
   uploadMedia: (formData: FormData): Promise<UploadMediaResponseData> => {
@@ -399,4 +453,15 @@ export const api = {
       `/threads/feed?type=${type}&page=${page}&limit=${limit}`,
       { method: "GET" }
     ),
+
+  getUserThreads: (
+    username: string,
+    type: "posts" | "replies" | "likes" | "media",
+    page: number = 1,
+    limit: number = 10
+  ): Promise<FeedResponse> =>
+    apiFetch<FeedResponse>(
+      `/threads/user/${username}?type=${type}&page=${page}&limit=${limit}`,
+      { method: "GET" }
+    ), // TODO: Backend needs this route
 };

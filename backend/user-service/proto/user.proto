@@ -14,13 +14,37 @@ service UserService {
   rpc VerifyEmail(VerifyEmailRequest) returns (google.protobuf.Empty);
   rpc GetSecurityQuestion(GetSecurityQuestionRequest) returns (GetSecurityQuestionResponse);
   rpc ResetPassword(ResetPasswordRequest) returns (google.protobuf.Empty);
-  rpc GetUserProfile(GetUserProfileRequest) returns (User);
+  rpc GetUserProfile(GetUserProfileRequest) returns (UserProfileResponse);
   rpc GetUserProfilesByIds(GetUserProfilesByIdsRequest) returns (GetUserProfilesByIdsResponse);
   rpc ResendVerificationCode(ResendVerificationCodeRequest) returns (google.protobuf.Empty);
+  rpc FollowUser(FollowRequest) returns (google.protobuf.Empty);
+  rpc UnfollowUser(FollowRequest) returns (google.protobuf.Empty);
+  rpc BlockUser(BlockRequest) returns (google.protobuf.Empty);
+  rpc UnblockUser(BlockRequest) returns (google.protobuf.Empty);
+  rpc GetFollowers(GetSocialListRequest) returns (GetSocialListResponse);
+  rpc GetFollowing(GetSocialListRequest) returns (GetSocialListResponse);
+  rpc GetUserByUsername(GetUserByUsernameRequest) returns (User);
+  // rpc UpdateUserProfile(UpdateUserProfileRequest) returns (User); // For bio, etc. - add later
 }
 
 message HealthResponse {
   string status = 1;
+}
+
+message User {
+  uint32 id = 1;
+  string name = 2;
+  string username = 3;
+  string email = 4;
+  string gender = 5;
+  string profile_picture = 6; // URL or identifier
+  string banner = 7;          // URL or identifier
+  string date_of_birth = 8;
+  string account_status = 9;
+  string account_privacy = 10;
+  google.protobuf.Timestamp created_at = 11;
+  bool subscribed_to_newsletter = 12;
+  string bio = 13;
 }
 
 message RegisterRequest {
@@ -66,23 +90,8 @@ message ResetPasswordRequest {
   string new_password = 3;
 }
 
-message User {
-  uint32 id = 1;
-  string name = 2;
-  string username = 3;
-  string email = 4;
-  string gender = 5;
-  string profile_picture = 6; // URL or identifier
-  string banner = 7;          // URL or identifier
-  string date_of_birth = 8;
-  string account_status = 9;
-  string account_privacy = 10;
-  google.protobuf.Timestamp created_at = 11;
-  bool subscribed_to_newsletter = 12;
-}
-
-message GetUserProfileRequest {
-  uint32 user_id = 1;
+message GetUserByUsernameRequest {
+  string username = 1;
 }
 
 message GetUserProfilesByIdsRequest {
@@ -95,4 +104,45 @@ message GetUserProfilesByIdsResponse {
 
 message ResendVerificationCodeRequest {
   string email = 1;
+}
+
+message UserProfileResponse {
+  User user = 1;
+  int32 follower_count = 2;
+  int32 following_count = 3;
+  bool is_followed_by_requester = 4;
+  bool is_blocked_by_requester = 5;
+  bool is_blocking_requester = 6;
+}
+
+message GetUserProfileRequest {
+  uint32 user_id_to_view = 1;
+  optional uint32 requester_user_id = 2;
+}
+
+message FollowRequest {
+  uint32 follower_id = 1;
+  uint32 followed_id = 2;
+}
+
+message BlockRequest {
+  uint32 blocker_id = 1;
+  uint32 blocked_id = 2;
+}
+
+message GetSocialListRequest {
+  uint32 user_id = 1;
+  optional uint32 requester_user_id = 2;
+  int32 page = 3;
+  int32 limit = 4;
+}
+
+message SocialUser {
+    User user_summary = 1;
+    bool is_followed_by_requester = 2;
+}
+
+message GetSocialListResponse {
+  repeated SocialUser users = 1;
+  bool has_more = 2;
 }
