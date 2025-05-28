@@ -372,6 +372,97 @@ func (h *UserHandler) ResetPassword(ctx context.Context, req *userpb.ResetPasswo
 	return &emptypb.Empty{}, nil
 }
 
+func (h *UserHandler) UpdateUserProfile(ctx context.Context, req *userpb.UpdateUserProfileRequest) (*userpb.User, error) {
+	userID := uint(req.GetUserId())
+	log.Printf("Received UpdateUserProfile request for User ID: %d", userID)
+
+	if userID == 0 {
+		return nil, status.Errorf(codes.InvalidArgument, "User ID is required for update")
+	}
+
+	currentUser, err := h.repo.GetUserByID(ctx, userID)
+	if err != nil {
+		log.Printf("UpdateUserProfile: User %d not found: %v", userID, err)
+		if err.Error() == "user not found by ID" {
+			return nil, status.Errorf(codes.NotFound, "User not found")
+		}
+		return nil, status.Errorf(codes.Internal, "Failed to retrieve user for update")
+	}
+
+	updates := make(map[string]interface{})
+
+	if req.Name != nil {
+		if len(req.GetName()) <= 4 { return nil, status.Errorf(codes.InvalidArgument, "Name must be longer than 4 characters") }
+		if !nameRegex.MatchString(req.GetName()) { return nil, status.Errorf(codes.InvalidArgument, "Name must contain only letters and spaces")}
+		updates["name"] = req.GetName()
+	}
+	// if req.Username != nil { updates["username"] = req.GetUsername() }
+	// if req.Email != nil { updates["email"] = req.GetEmail() }
+
+	if req.NewPassword != nil && req.GetNewPassword() != "" {
+		if req.CurrentPassword == nil || req.GetCurrentPassword() == "" {
+			return nil, status.Errorf(codes.InvalidArgument, "Current password is required to set a new password")
+		}
+		err := bcrypt.CompareHashAndPassword([]byte(currentUser.PasswordHash), []byte(req.GetCurrentPassword()))
+		if err != nil {
+			log.Printf("UpdateUserProfile: Invalid current password for user %d", userID)
+			return nil, status.Errorf(codes.Unauthenticated, "Incorrect current password")
+		}
+		if err := validatePasswordComplexity(req.GetNewPassword()); err != nil {
+			return nil, status.Errorf(codes.InvalidArgument, "New password validation failed: %v", err)
+		}
+		if bcrypt.CompareHashAndPassword([]byte(currentUser.PasswordHash), []byte(req.GetNewPassword())) == nil {
+			return nil, status.Errorf(codes.InvalidArgument, "New password cannot be the same as the old password")
+		}
+		newPasswordHash, err := bcrypt.GenerateFromPassword([]byte(req.GetNewPassword()), bcrypt.DefaultCost)
+		if err != nil {
+			return nil, status.Errorf(codes.Internal, "Failed to hash new password")
+		}
+		updates["password_hash"] = string(newPasswordHash)
+	}
+
+	if req.Gender != nil {
+		if g := req.GetGender(); g != "" && g != "male" && g != "female" {
+			return nil, status.Errorf(codes.InvalidArgument, "Gender must be 'male', 'female', or empty")
+		}
+		updates["gender"] = req.GetGender()
+	}
+	if req.ProfilePictureUrl != nil { updates["profile_picture"] = req.GetProfilePictureUrl() }
+	if req.BannerUrl != nil { updates["banner"] = req.GetBannerUrl() }
+	if req.DateOfBirth != nil && req.GetDateOfBirth() != "" {
+		dob, err := time.Parse("2006-01-02", req.GetDateOfBirth())
+		if err != nil { return nil, status.Errorf(codes.InvalidArgument, "Invalid date of birth format") }
+        thirteenYearsAgo := time.Now().AddDate(-13, 0, 0)
+        if dob.After(thirteenYearsAgo) { return nil, status.Errorf(codes.InvalidArgument, "You must be at least 13 years old") }
+		updates["date_of_birth"] = dob
+	}
+	if req.Bio != nil { updates["bio"] = req.GetBio() }
+	if req.AccountPrivacy != nil {
+        privacy := req.GetAccountPrivacy()
+        if privacy != "public" && privacy != "private" {
+             return nil, status.Errorf(codes.InvalidArgument, "Account privacy must be 'public' or 'private'")
+        }
+		updates["account_privacy"] = privacy
+	}
+	if req.SubscribedToNewsletter != nil { updates["subscribed_to_newsletter"] = req.GetSubscribedToNewsletter() }
+
+
+	if len(updates) == 0 {
+		log.Printf("UpdateUserProfile: No update fields provided for user %d", userID)
+		return mapDBUserToProtoUser(currentUser), nil
+	}
+
+	updatedUser, err := h.repo.UpdateUser(ctx, userID, updates)
+	if err != nil {
+		log.Printf("UpdateUserProfile: Failed to update user %d: %v", userID, err)
+		return nil, status.Errorf(codes.Internal, "Failed to update profile")
+	}
+
+	log.Printf("User profile updated successfully for User ID: %d", userID)
+	return mapDBUserToProtoUser(updatedUser), nil
+}
+
+
 func (h *UserHandler) GetUserProfile(ctx context.Context, req *userpb.GetUserProfileRequest) (*userpb.UserProfileResponse, error) {
 	log.Printf("Received GetUserProfile request for UserToView: %d, Requester: %d", req.UserIdToView, req.GetRequesterUserId())
 	if req.UserIdToView == 0 { return nil, status.Errorf(codes.InvalidArgument, "User ID to view is required") }
@@ -397,7 +488,7 @@ func (h *UserHandler) GetUserProfile(ctx context.Context, req *userpb.GetUserPro
 		isFollowing, _ := h.repo.IsFollowing(ctx, requesterID, targetUser.ID)
 		if !isFollowing {
 			log.Printf("Access denied to private profile of user %d for requester %d", targetUser.ID, requesterID)
-			return nil, status.Errorf(codes.PermissionDenied, "This account is private.")
+			// return nil, status.Errorf(codes.PermissionDenied, "This account is private.")
 		}
 	}
 
@@ -578,6 +669,82 @@ func (h *UserHandler) GetFollowing(ctx context.Context, req *userpb.GetSocialLis
 	return h.hydrateSocialList(ctx, followingIDs, req.GetRequesterUserId(), len(followingIDs) == limit)
 }
 
+func (h *UserHandler) GetBlockedUserIDs(ctx context.Context, req *userpb.SocialListRequest) (*userpb.UserIDListResponse, error) {
+    if req.UserId == 0 { return nil, status.Errorf(codes.InvalidArgument, "User ID is required") }
+    limit, offset := getLimitOffset(req.Page, req.Limit) // Use your existing helper
+    ids, err := h.repo.GetBlockedUserIDs(ctx, uint(req.UserId), limit, offset)
+    if err != nil { return nil, status.Errorf(codes.Internal, "Failed to get blocked users: %v", err) }
+    return &userpb.UserIDListResponse{UserIds: uintSliceToUint32Slice(ids), HasMore: len(ids) == limit}, nil
+}
+
+func (h *UserHandler) GetBlockingUserIDs(ctx context.Context, req *userpb.SocialListRequest) (*userpb.UserIDListResponse, error) {
+    if req.UserId == 0 { return nil, status.Errorf(codes.InvalidArgument, "User ID is required") }
+    limit, offset := getLimitOffset(req.Page, req.Limit)
+    ids, err := h.repo.GetBlockingUserIDs(ctx, uint(req.UserId), limit, offset)
+    if err != nil { return nil, status.Errorf(codes.Internal, "Failed to get blocking users: %v", err) }
+    return &userpb.UserIDListResponse{UserIds: uintSliceToUint32Slice(ids), HasMore: len(ids) == limit}, nil
+}
+
+func (h *UserHandler) GetFollowingIDs(ctx context.Context, req *userpb.SocialListRequest) (*userpb.UserIDListResponse, error) {
+    if req.UserId == 0 { return nil, status.Errorf(codes.InvalidArgument, "User ID is required") }
+    limit, offset := getLimitOffset(req.Page, req.Limit)
+    ids, err := h.repo.GetFollowingIDs(ctx, uint(req.UserId), limit, offset)
+    if err != nil { return nil, status.Errorf(codes.Internal, "Failed to get following list: %v", err)}
+    return &userpb.UserIDListResponse{UserIds: uintSliceToUint32Slice(ids), HasMore: len(ids) == limit}, nil
+}
+
+func (h *UserHandler) HasBlocked(ctx context.Context, req *userpb.BlockCheckRequest) (*userpb.BlockStatusResponse, error) {
+	log.Printf("Received HasBlocked request: Actor %d, Subject %d", req.ActorId, req.SubjectId)
+	if req.ActorId == 0 || req.SubjectId == 0 {
+		return nil, status.Errorf(codes.InvalidArgument, "Actor ID and Subject ID are required")
+	}
+    if req.ActorId == req.SubjectId {
+        return &userpb.BlockStatusResponse{IsTrue: false}, nil
+    }
+
+	hasBlocked, err := h.repo.HasBlocked(ctx, uint(req.ActorId), uint(req.SubjectId))
+	if err != nil {
+		log.Printf("Error checking HasBlocked in repository: %v", err)
+		return nil, status.Errorf(codes.Internal, "Failed to check block status")
+	}
+	return &userpb.BlockStatusResponse{IsTrue: hasBlocked}, nil
+}
+
+func (h *UserHandler) IsBlockedBy(ctx context.Context, req *userpb.BlockCheckRequest) (*userpb.BlockStatusResponse, error) {
+	log.Printf("Received IsBlockedBy request: Actor %d, Subject %d", req.ActorId, req.SubjectId)
+	if req.ActorId == 0 || req.SubjectId == 0 {
+		return nil, status.Errorf(codes.InvalidArgument, "Actor ID and Subject ID are required")
+	}
+    if req.ActorId == req.SubjectId {
+        return &userpb.BlockStatusResponse{IsTrue: false}, nil
+    }
+
+	isBlockedBy, err := h.repo.IsBlockedBy(ctx, uint(req.ActorId), uint(req.SubjectId))
+	if err != nil {
+		log.Printf("Error checking IsBlockedBy in repository: %v", err)
+		return nil, status.Errorf(codes.Internal, "Failed to check block status")
+	}
+	return &userpb.BlockStatusResponse{IsTrue: isBlockedBy}, nil
+}
+
+func (h *UserHandler) IsFollowing(ctx context.Context, req *userpb.FollowCheckRequest) (*userpb.BlockStatusResponse, error) {
+	log.Printf("Received IsFollowing request: Follower %d, Followed %d", req.FollowerId, req.FollowedId)
+	if req.FollowerId == 0 || req.FollowedId == 0 {
+		return nil, status.Errorf(codes.InvalidArgument, "Follower ID and Followed ID are required")
+	}
+	if req.FollowerId == req.FollowedId {
+		return &userpb.BlockStatusResponse{IsTrue: false}, nil
+	}
+
+	isFollowing, err := h.repo.IsFollowing(ctx, uint(req.FollowerId), uint(req.FollowedId))
+	if err != nil {
+		log.Printf("Error checking IsFollowing in repository: %v", err)
+		return nil, status.Errorf(codes.Internal, "Failed to check follow status")
+	}
+	return &userpb.BlockStatusResponse{IsTrue: isFollowing}, nil
+}
+
+// --- Helpers ---
 // Helper for pagination
 func getLimitOffset(page, limit int32) (int, int) {
 	p := int(page); l := int(limit)
@@ -620,4 +787,30 @@ func (h *UserHandler) hydrateSocialList(ctx context.Context, userIDs []uint, req
 	}
 
 	return &userpb.GetSocialListResponse{Users: socialUsers, HasMore: hasMore}, nil
+}
+
+// Helper to map postgres.User to userpb.User
+func mapDBUserToProtoUser(dbUser *postgres.User) *userpb.User {
+    if dbUser == nil { return nil }
+    return &userpb.User{
+        Id:             uint32(dbUser.ID),
+        Name:           dbUser.Name,
+        Username:       dbUser.Username,
+        Email:          dbUser.Email,
+        Gender:         dbUser.Gender,
+        ProfilePicture: dbUser.ProfilePicture,
+        Banner:         dbUser.Banner,
+		DateOfBirth:    dbUser.DateOfBirth,
+        AccountStatus:  dbUser.AccountStatus,
+        AccountPrivacy: dbUser.AccountPrivacy,
+        SubscribedToNewsletter: dbUser.SubscribedToNewsletter,
+        Bio:            dbUser.Bio,
+        CreatedAt:      timestamppb.New(dbUser.CreatedAt),
+    }
+}
+
+func uintSliceToUint32Slice(u []uint) []uint32 {
+    u32 := make([]uint32, len(u))
+    for i, v := range u { u32[i] = uint32(v) }
+    return u32
 }

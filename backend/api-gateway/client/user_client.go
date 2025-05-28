@@ -57,6 +57,10 @@ func (c *UserClient) ResetPassword(ctx context.Context, req *userpb.ResetPasswor
 	return c.client.ResetPassword(ctx, req)
 }
 
+func (c *UserClient) UpdateUserProfile(ctx context.Context, req *userpb.UpdateUserProfileRequest) (*userpb.User, error) {
+	return c.client.UpdateUserProfile(ctx, req)
+}
+
 func (c *UserClient) GetUserByUsername(ctx context.Context, req *userpb.GetUserByUsernameRequest) (*userpb.User, error) {
 	return c.client.GetUserByUsername(ctx, req)
 }
@@ -95,4 +99,28 @@ func (c *UserClient) GetFollowers(ctx context.Context, req *userpb.GetSocialList
 
 func (c *UserClient) GetFollowing(ctx context.Context, req *userpb.GetSocialListRequest) (*userpb.GetSocialListResponse, error) {
 	return c.client.GetFollowing(ctx, req)
+}
+
+func (c *UserClient) GetBlockedUserIDs(ctx context.Context, req *userpb.SocialListRequest) (*userpb.UserIDListResponse, error) {
+	return c.client.GetBlockedUserIDs(ctx, req)
+}
+
+func (c *UserClient) GetBlockingUserIDs(ctx context.Context, req *userpb.SocialListRequest) (*userpb.UserIDListResponse, error) {
+	return c.client.GetBlockingUserIDs(ctx, req)
+}
+
+func (c *UserClient) GetFollowingIDs(ctx context.Context, req *userpb.SocialListRequest) (*userpb.UserIDListResponse, error) {
+	return c.client.GetFollowingIDs(ctx, req)
+}
+
+func (c *UserClient) HasBlocked(ctx context.Context, req *userpb.BlockCheckRequest) (*userpb.BlockStatusResponse, error) {
+	return c.client.HasBlocked(ctx, req)
+}
+
+func (c *UserClient) IsBlockedBy(ctx context.Context, req *userpb.BlockCheckRequest) (*userpb.BlockStatusResponse, error) {
+	return c.client.IsBlockedBy(ctx, req)
+}
+
+func (c *UserClient) IsFollowing(ctx context.Context, req *userpb.FollowCheckRequest) (*userpb.BlockStatusResponse, error) {
+	return c.client.IsFollowing(ctx, req)
 }

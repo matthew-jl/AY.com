@@ -293,13 +293,13 @@ func (x *Thread) GetIsBookmarkedByCurrentUser() bool {
 
 type CreateThreadRequest struct {
 	state            protoimpl.MessageState `protogen:"open.v1"`
-	UserId           uint32                 `protobuf:"varint,1,opt,name=user_id,json=userId,proto3" json:"user_id,omitempty"` // Provided by gateway (from JWT)
+	UserId           uint32                 `protobuf:"varint,1,opt,name=user_id,json=userId,proto3" json:"user_id,omitempty"`
 	Content          string                 `protobuf:"bytes,2,opt,name=content,proto3" json:"content,omitempty"`
 	ParentThreadId   *uint32                `protobuf:"varint,3,opt,name=parent_thread_id,json=parentThreadId,proto3,oneof" json:"parent_thread_id,omitempty"`
 	ReplyRestriction ReplyRestriction       `protobuf:"varint,4,opt,name=reply_restriction,json=replyRestriction,proto3,enum=thread.ReplyRestriction" json:"reply_restriction,omitempty"`
 	ScheduledAt      *timestamppb.Timestamp `protobuf:"bytes,5,opt,name=scheduled_at,json=scheduledAt,proto3" json:"scheduled_at,omitempty"`
 	CommunityId      *uint32                `protobuf:"varint,6,opt,name=community_id,json=communityId,proto3,oneof" json:"community_id,omitempty"`
-	MediaIds         []uint32               `protobuf:"varint,7,rep,packed,name=media_ids,json=mediaIds,proto3" json:"media_ids,omitempty"` // IDs obtained from Media service uploads
+	MediaIds         []uint32               `protobuf:"varint,7,rep,packed,name=media_ids,json=mediaIds,proto3" json:"media_ids,omitempty"` // is_advertisement
 	unknownFields    protoimpl.UnknownFields
 	sizeCache        protoimpl.SizeCache
 }
@@ -540,13 +540,15 @@ func (x *InteractThreadRequest) GetUserId() uint32 {
 }
 
 type GetFeedThreadsRequest struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	CurrentUserId *uint32                `protobuf:"varint,1,opt,name=current_user_id,json=currentUserId,proto3,oneof" json:"current_user_id,omitempty"` // ID of the user requesting the feed (for "Following" later)
-	Page          int32                  `protobuf:"varint,2,opt,name=page,proto3" json:"page,omitempty"`
-	Limit         int32                  `protobuf:"varint,3,opt,name=limit,proto3" json:"limit,omitempty"`
-	FeedType      string                 `protobuf:"bytes,4,opt,name=feed_type,json=feedType,proto3" json:"feed_type,omitempty"` // "foryou", "following" (optional for now)
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	state              protoimpl.MessageState `protogen:"open.v1"`
+	CurrentUserId      *uint32                `protobuf:"varint,1,opt,name=current_user_id,json=currentUserId,proto3,oneof" json:"current_user_id,omitempty"`
+	Page               int32                  `protobuf:"varint,2,opt,name=page,proto3" json:"page,omitempty"`
+	Limit              int32                  `protobuf:"varint,3,opt,name=limit,proto3" json:"limit,omitempty"`
+	FeedType           string                 `protobuf:"bytes,4,opt,name=feed_type,json=feedType,proto3" json:"feed_type,omitempty"`                                           // "foryou", "following"
+	ExcludeUserIds     []uint32               `protobuf:"varint,5,rep,packed,name=exclude_user_ids,json=excludeUserIds,proto3" json:"exclude_user_ids,omitempty"`               // for blocked or blocking
+	IncludeOnlyUserIds []uint32               `protobuf:"varint,6,rep,packed,name=include_only_user_ids,json=includeOnlyUserIds,proto3" json:"include_only_user_ids,omitempty"` // for "following"
+	unknownFields      protoimpl.UnknownFields
+	sizeCache          protoimpl.SizeCache
 }
 
 func (x *GetFeedThreadsRequest) Reset() {
@@ -607,6 +609,20 @@ func (x *GetFeedThreadsRequest) GetFeedType() string {
 	return ""
 }
 
+func (x *GetFeedThreadsRequest) GetExcludeUserIds() []uint32 {
+	if x != nil {
+		return x.ExcludeUserIds
+	}
+	return nil
+}
+
+func (x *GetFeedThreadsRequest) GetIncludeOnlyUserIds() []uint32 {
+	if x != nil {
+		return x.IncludeOnlyUserIds
+	}
+	return nil
+}
+
 type GetFeedThreadsResponse struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Threads       []*Thread              `protobuf:"bytes,1,rep,name=threads,proto3" json:"threads,omitempty"`
@@ -653,6 +669,142 @@ func (x *GetFeedThreadsResponse) GetThreads() []*Thread {
 }
 
 func (x *GetFeedThreadsResponse) GetHasMore() bool {
+	if x != nil {
+		return x.HasMore
+	}
+	return false
+}
+
+type GetUserThreadsRequest struct {
+	state           protoimpl.MessageState `protogen:"open.v1"`
+	TargetUserId    uint32                 `protobuf:"varint,1,opt,name=target_user_id,json=targetUserId,proto3" json:"target_user_id,omitempty"`
+	RequesterUserId *uint32                `protobuf:"varint,2,opt,name=requester_user_id,json=requesterUserId,proto3,oneof" json:"requester_user_id,omitempty"`
+	ThreadType      string                 `protobuf:"bytes,3,opt,name=thread_type,json=threadType,proto3" json:"thread_type,omitempty"` // "posts", "replies", "likes", "media"
+	Page            int32                  `protobuf:"varint,4,opt,name=page,proto3" json:"page,omitempty"`
+	Limit           int32                  `protobuf:"varint,5,opt,name=limit,proto3" json:"limit,omitempty"`
+	ExcludeUserIds  []uint32               `protobuf:"varint,6,rep,packed,name=exclude_user_ids,json=excludeUserIds,proto3" json:"exclude_user_ids,omitempty"`
+	unknownFields   protoimpl.UnknownFields
+	sizeCache       protoimpl.SizeCache
+}
+
+func (x *GetUserThreadsRequest) Reset() {
+	*x = GetUserThreadsRequest{}
+	mi := &file_proto_thread_proto_msgTypes[8]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GetUserThreadsRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GetUserThreadsRequest) ProtoMessage() {}
+
+func (x *GetUserThreadsRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_thread_proto_msgTypes[8]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GetUserThreadsRequest.ProtoReflect.Descriptor instead.
+func (*GetUserThreadsRequest) Descriptor() ([]byte, []int) {
+	return file_proto_thread_proto_rawDescGZIP(), []int{8}
+}
+
+func (x *GetUserThreadsRequest) GetTargetUserId() uint32 {
+	if x != nil {
+		return x.TargetUserId
+	}
+	return 0
+}
+
+func (x *GetUserThreadsRequest) GetRequesterUserId() uint32 {
+	if x != nil && x.RequesterUserId != nil {
+		return *x.RequesterUserId
+	}
+	return 0
+}
+
+func (x *GetUserThreadsRequest) GetThreadType() string {
+	if x != nil {
+		return x.ThreadType
+	}
+	return ""
+}
+
+func (x *GetUserThreadsRequest) GetPage() int32 {
+	if x != nil {
+		return x.Page
+	}
+	return 0
+}
+
+func (x *GetUserThreadsRequest) GetLimit() int32 {
+	if x != nil {
+		return x.Limit
+	}
+	return 0
+}
+
+func (x *GetUserThreadsRequest) GetExcludeUserIds() []uint32 {
+	if x != nil {
+		return x.ExcludeUserIds
+	}
+	return nil
+}
+
+type GetUserThreadsResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Threads       []*Thread              `protobuf:"bytes,1,rep,name=threads,proto3" json:"threads,omitempty"`
+	HasMore       bool                   `protobuf:"varint,2,opt,name=has_more,json=hasMore,proto3" json:"has_more,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *GetUserThreadsResponse) Reset() {
+	*x = GetUserThreadsResponse{}
+	mi := &file_proto_thread_proto_msgTypes[9]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GetUserThreadsResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GetUserThreadsResponse) ProtoMessage() {}
+
+func (x *GetUserThreadsResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_thread_proto_msgTypes[9]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GetUserThreadsResponse.ProtoReflect.Descriptor instead.
+func (*GetUserThreadsResponse) Descriptor() ([]byte, []int) {
+	return file_proto_thread_proto_rawDescGZIP(), []int{9}
+}
+
+func (x *GetUserThreadsResponse) GetThreads() []*Thread {
+	if x != nil {
+		return x.Threads
+	}
+	return nil
+}
+
+func (x *GetUserThreadsResponse) GetHasMore() bool {
 	if x != nil {
 		return x.HasMore
 	}
@@ -709,21 +861,35 @@ const file_proto_thread_proto_rawDesc = "" +
 	"\auser_id\x18\x02 \x01(\rR\x06userId\"M\n" +
 	"\x15InteractThreadRequest\x12\x1b\n" +
 	"\tthread_id\x18\x01 \x01(\rR\bthreadId\x12\x17\n" +
-	"\auser_id\x18\x02 \x01(\rR\x06userId\"\x9f\x01\n" +
+	"\auser_id\x18\x02 \x01(\rR\x06userId\"\xfc\x01\n" +
 	"\x15GetFeedThreadsRequest\x12+\n" +
 	"\x0fcurrent_user_id\x18\x01 \x01(\rH\x00R\rcurrentUserId\x88\x01\x01\x12\x12\n" +
 	"\x04page\x18\x02 \x01(\x05R\x04page\x12\x14\n" +
 	"\x05limit\x18\x03 \x01(\x05R\x05limit\x12\x1b\n" +
-	"\tfeed_type\x18\x04 \x01(\tR\bfeedTypeB\x12\n" +
+	"\tfeed_type\x18\x04 \x01(\tR\bfeedType\x12(\n" +
+	"\x10exclude_user_ids\x18\x05 \x03(\rR\x0eexcludeUserIds\x121\n" +
+	"\x15include_only_user_ids\x18\x06 \x03(\rR\x12includeOnlyUserIdsB\x12\n" +
 	"\x10_current_user_id\"]\n" +
 	"\x16GetFeedThreadsResponse\x12(\n" +
+	"\athreads\x18\x01 \x03(\v2\x0e.thread.ThreadR\athreads\x12\x19\n" +
+	"\bhas_more\x18\x02 \x01(\bR\ahasMore\"\xf9\x01\n" +
+	"\x15GetUserThreadsRequest\x12$\n" +
+	"\x0etarget_user_id\x18\x01 \x01(\rR\ftargetUserId\x12/\n" +
+	"\x11requester_user_id\x18\x02 \x01(\rH\x00R\x0frequesterUserId\x88\x01\x01\x12\x1f\n" +
+	"\vthread_type\x18\x03 \x01(\tR\n" +
+	"threadType\x12\x12\n" +
+	"\x04page\x18\x04 \x01(\x05R\x04page\x12\x14\n" +
+	"\x05limit\x18\x05 \x01(\x05R\x05limit\x12(\n" +
+	"\x10exclude_user_ids\x18\x06 \x03(\rR\x0eexcludeUserIdsB\x14\n" +
+	"\x12_requester_user_id\"]\n" +
+	"\x16GetUserThreadsResponse\x12(\n" +
 	"\athreads\x18\x01 \x03(\v2\x0e.thread.ThreadR\athreads\x12\x19\n" +
 	"\bhas_more\x18\x02 \x01(\bR\ahasMore*`\n" +
 	"\x10ReplyRestriction\x12!\n" +
 	"\x1dREPLY_RESTRICTION_UNSPECIFIED\x10\x00\x12\f\n" +
 	"\bEVERYONE\x10\x01\x12\r\n" +
 	"\tFOLLOWING\x10\x02\x12\f\n" +
-	"\bVERIFIED\x10\x032\xf8\x04\n" +
+	"\bVERIFIED\x10\x032\xc9\x05\n" +
 	"\rThreadService\x12=\n" +
 	"\vHealthCheck\x12\x16.google.protobuf.Empty\x1a\x16.thread.HealthResponse\x12;\n" +
 	"\fCreateThread\x12\x1b.thread.CreateThreadRequest\x1a\x0e.thread.Thread\x125\n" +
@@ -734,7 +900,8 @@ const file_proto_thread_proto_rawDesc = "" +
 	"\fUnlikeThread\x12\x1d.thread.InteractThreadRequest\x1a\x16.google.protobuf.Empty\x12G\n" +
 	"\x0eBookmarkThread\x12\x1d.thread.InteractThreadRequest\x1a\x16.google.protobuf.Empty\x12I\n" +
 	"\x10UnbookmarkThread\x12\x1d.thread.InteractThreadRequest\x1a\x16.google.protobuf.Empty\x12O\n" +
-	"\x0eGetFeedThreads\x12\x1d.thread.GetFeedThreadsRequest\x1a\x1e.thread.GetFeedThreadsResponseBCZAgithub.com/Acad600-TPA/WEB-MJ-242/backend/thread-service/genprotob\x06proto3"
+	"\x0eGetFeedThreads\x12\x1d.thread.GetFeedThreadsRequest\x1a\x1e.thread.GetFeedThreadsResponse\x12O\n" +
+	"\x0eGetUserThreads\x12\x1d.thread.GetUserThreadsRequest\x1a\x1e.thread.GetUserThreadsResponseBCZAgithub.com/Acad600-TPA/WEB-MJ-242/backend/thread-service/genprotob\x06proto3"
 
 var (
 	file_proto_thread_proto_rawDescOnce sync.Once
@@ -749,7 +916,7 @@ func file_proto_thread_proto_rawDescGZIP() []byte {
 }
 
 var file_proto_thread_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
-var file_proto_thread_proto_msgTypes = make([]protoimpl.MessageInfo, 8)
+var file_proto_thread_proto_msgTypes = make([]protoimpl.MessageInfo, 10)
 var file_proto_thread_proto_goTypes = []any{
 	(ReplyRestriction)(0),          // 0: thread.ReplyRestriction
 	(*HealthResponse)(nil),         // 1: thread.HealthResponse
@@ -760,40 +927,45 @@ var file_proto_thread_proto_goTypes = []any{
 	(*InteractThreadRequest)(nil),  // 6: thread.InteractThreadRequest
 	(*GetFeedThreadsRequest)(nil),  // 7: thread.GetFeedThreadsRequest
 	(*GetFeedThreadsResponse)(nil), // 8: thread.GetFeedThreadsResponse
-	(*timestamppb.Timestamp)(nil),  // 9: google.protobuf.Timestamp
-	(*emptypb.Empty)(nil),          // 10: google.protobuf.Empty
+	(*GetUserThreadsRequest)(nil),  // 9: thread.GetUserThreadsRequest
+	(*GetUserThreadsResponse)(nil), // 10: thread.GetUserThreadsResponse
+	(*timestamppb.Timestamp)(nil),  // 11: google.protobuf.Timestamp
+	(*emptypb.Empty)(nil),          // 12: google.protobuf.Empty
 }
 var file_proto_thread_proto_depIdxs = []int32{
 	0,  // 0: thread.Thread.reply_restriction:type_name -> thread.ReplyRestriction
-	9,  // 1: thread.Thread.scheduled_at:type_name -> google.protobuf.Timestamp
-	9,  // 2: thread.Thread.posted_at:type_name -> google.protobuf.Timestamp
-	9,  // 3: thread.Thread.created_at:type_name -> google.protobuf.Timestamp
+	11, // 1: thread.Thread.scheduled_at:type_name -> google.protobuf.Timestamp
+	11, // 2: thread.Thread.posted_at:type_name -> google.protobuf.Timestamp
+	11, // 3: thread.Thread.created_at:type_name -> google.protobuf.Timestamp
 	0,  // 4: thread.CreateThreadRequest.reply_restriction:type_name -> thread.ReplyRestriction
-	9,  // 5: thread.CreateThreadRequest.scheduled_at:type_name -> google.protobuf.Timestamp
+	11, // 5: thread.CreateThreadRequest.scheduled_at:type_name -> google.protobuf.Timestamp
 	2,  // 6: thread.GetFeedThreadsResponse.threads:type_name -> thread.Thread
-	10, // 7: thread.ThreadService.HealthCheck:input_type -> google.protobuf.Empty
-	3,  // 8: thread.ThreadService.CreateThread:input_type -> thread.CreateThreadRequest
-	4,  // 9: thread.ThreadService.GetThread:input_type -> thread.GetThreadRequest
-	5,  // 10: thread.ThreadService.DeleteThread:input_type -> thread.DeleteThreadRequest
-	6,  // 11: thread.ThreadService.LikeThread:input_type -> thread.InteractThreadRequest
-	6,  // 12: thread.ThreadService.UnlikeThread:input_type -> thread.InteractThreadRequest
-	6,  // 13: thread.ThreadService.BookmarkThread:input_type -> thread.InteractThreadRequest
-	6,  // 14: thread.ThreadService.UnbookmarkThread:input_type -> thread.InteractThreadRequest
-	7,  // 15: thread.ThreadService.GetFeedThreads:input_type -> thread.GetFeedThreadsRequest
-	1,  // 16: thread.ThreadService.HealthCheck:output_type -> thread.HealthResponse
-	2,  // 17: thread.ThreadService.CreateThread:output_type -> thread.Thread
-	2,  // 18: thread.ThreadService.GetThread:output_type -> thread.Thread
-	10, // 19: thread.ThreadService.DeleteThread:output_type -> google.protobuf.Empty
-	10, // 20: thread.ThreadService.LikeThread:output_type -> google.protobuf.Empty
-	10, // 21: thread.ThreadService.UnlikeThread:output_type -> google.protobuf.Empty
-	10, // 22: thread.ThreadService.BookmarkThread:output_type -> google.protobuf.Empty
-	10, // 23: thread.ThreadService.UnbookmarkThread:output_type -> google.protobuf.Empty
-	8,  // 24: thread.ThreadService.GetFeedThreads:output_type -> thread.GetFeedThreadsResponse
-	16, // [16:25] is the sub-list for method output_type
-	7,  // [7:16] is the sub-list for method input_type
-	7,  // [7:7] is the sub-list for extension type_name
-	7,  // [7:7] is the sub-list for extension extendee
-	0,  // [0:7] is the sub-list for field type_name
+	2,  // 7: thread.GetUserThreadsResponse.threads:type_name -> thread.Thread
+	12, // 8: thread.ThreadService.HealthCheck:input_type -> google.protobuf.Empty
+	3,  // 9: thread.ThreadService.CreateThread:input_type -> thread.CreateThreadRequest
+	4,  // 10: thread.ThreadService.GetThread:input_type -> thread.GetThreadRequest
+	5,  // 11: thread.ThreadService.DeleteThread:input_type -> thread.DeleteThreadRequest
+	6,  // 12: thread.ThreadService.LikeThread:input_type -> thread.InteractThreadRequest
+	6,  // 13: thread.ThreadService.UnlikeThread:input_type -> thread.InteractThreadRequest
+	6,  // 14: thread.ThreadService.BookmarkThread:input_type -> thread.InteractThreadRequest
+	6,  // 15: thread.ThreadService.UnbookmarkThread:input_type -> thread.InteractThreadRequest
+	7,  // 16: thread.ThreadService.GetFeedThreads:input_type -> thread.GetFeedThreadsRequest
+	9,  // 17: thread.ThreadService.GetUserThreads:input_type -> thread.GetUserThreadsRequest
+	1,  // 18: thread.ThreadService.HealthCheck:output_type -> thread.HealthResponse
+	2,  // 19: thread.ThreadService.CreateThread:output_type -> thread.Thread
+	2,  // 20: thread.ThreadService.GetThread:output_type -> thread.Thread
+	12, // 21: thread.ThreadService.DeleteThread:output_type -> google.protobuf.Empty
+	12, // 22: thread.ThreadService.LikeThread:output_type -> google.protobuf.Empty
+	12, // 23: thread.ThreadService.UnlikeThread:output_type -> google.protobuf.Empty
+	12, // 24: thread.ThreadService.BookmarkThread:output_type -> google.protobuf.Empty
+	12, // 25: thread.ThreadService.UnbookmarkThread:output_type -> google.protobuf.Empty
+	8,  // 26: thread.ThreadService.GetFeedThreads:output_type -> thread.GetFeedThreadsResponse
+	10, // 27: thread.ThreadService.GetUserThreads:output_type -> thread.GetUserThreadsResponse
+	18, // [18:28] is the sub-list for method output_type
+	8,  // [8:18] is the sub-list for method input_type
+	8,  // [8:8] is the sub-list for extension type_name
+	8,  // [8:8] is the sub-list for extension extendee
+	0,  // [0:8] is the sub-list for field type_name
 }
 
 func init() { file_proto_thread_proto_init() }
@@ -805,13 +977,14 @@ func file_proto_thread_proto_init() {
 	file_proto_thread_proto_msgTypes[2].OneofWrappers = []any{}
 	file_proto_thread_proto_msgTypes[3].OneofWrappers = []any{}
 	file_proto_thread_proto_msgTypes[6].OneofWrappers = []any{}
+	file_proto_thread_proto_msgTypes[8].OneofWrappers = []any{}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_proto_thread_proto_rawDesc), len(file_proto_thread_proto_rawDesc)),
 			NumEnums:      1,
-			NumMessages:   8,
+			NumMessages:   10,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

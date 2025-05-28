@@ -36,6 +36,13 @@ const (
 	UserService_GetFollowers_FullMethodName           = "/user.UserService/GetFollowers"
 	UserService_GetFollowing_FullMethodName           = "/user.UserService/GetFollowing"
 	UserService_GetUserByUsername_FullMethodName      = "/user.UserService/GetUserByUsername"
+	UserService_UpdateUserProfile_FullMethodName      = "/user.UserService/UpdateUserProfile"
+	UserService_GetBlockedUserIDs_FullMethodName      = "/user.UserService/GetBlockedUserIDs"
+	UserService_GetBlockingUserIDs_FullMethodName     = "/user.UserService/GetBlockingUserIDs"
+	UserService_GetFollowingIDs_FullMethodName        = "/user.UserService/GetFollowingIDs"
+	UserService_IsBlockedBy_FullMethodName            = "/user.UserService/IsBlockedBy"
+	UserService_HasBlocked_FullMethodName             = "/user.UserService/HasBlocked"
+	UserService_IsFollowing_FullMethodName            = "/user.UserService/IsFollowing"
 )
 
 // UserServiceClient is the client API for UserService service.
@@ -58,6 +65,13 @@ type UserServiceClient interface {
 	GetFollowers(ctx context.Context, in *GetSocialListRequest, opts ...grpc.CallOption) (*GetSocialListResponse, error)
 	GetFollowing(ctx context.Context, in *GetSocialListRequest, opts ...grpc.CallOption) (*GetSocialListResponse, error)
 	GetUserByUsername(ctx context.Context, in *GetUserByUsernameRequest, opts ...grpc.CallOption) (*User, error)
+	UpdateUserProfile(ctx context.Context, in *UpdateUserProfileRequest, opts ...grpc.CallOption) (*User, error)
+	GetBlockedUserIDs(ctx context.Context, in *SocialListRequest, opts ...grpc.CallOption) (*UserIDListResponse, error)
+	GetBlockingUserIDs(ctx context.Context, in *SocialListRequest, opts ...grpc.CallOption) (*UserIDListResponse, error)
+	GetFollowingIDs(ctx context.Context, in *SocialListRequest, opts ...grpc.CallOption) (*UserIDListResponse, error)
+	IsBlockedBy(ctx context.Context, in *BlockCheckRequest, opts ...grpc.CallOption) (*BlockStatusResponse, error)
+	HasBlocked(ctx context.Context, in *BlockCheckRequest, opts ...grpc.CallOption) (*BlockStatusResponse, error)
+	IsFollowing(ctx context.Context, in *FollowCheckRequest, opts ...grpc.CallOption) (*BlockStatusResponse, error)
 }
 
 type userServiceClient struct {
@@ -228,6 +242,76 @@ func (c *userServiceClient) GetUserByUsername(ctx context.Context, in *GetUserBy
 	return out, nil
 }
 
+func (c *userServiceClient) UpdateUserProfile(ctx context.Context, in *UpdateUserProfileRequest, opts ...grpc.CallOption) (*User, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(User)
+	err := c.cc.Invoke(ctx, UserService_UpdateUserProfile_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *userServiceClient) GetBlockedUserIDs(ctx context.Context, in *SocialListRequest, opts ...grpc.CallOption) (*UserIDListResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(UserIDListResponse)
+	err := c.cc.Invoke(ctx, UserService_GetBlockedUserIDs_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *userServiceClient) GetBlockingUserIDs(ctx context.Context, in *SocialListRequest, opts ...grpc.CallOption) (*UserIDListResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(UserIDListResponse)
+	err := c.cc.Invoke(ctx, UserService_GetBlockingUserIDs_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *userServiceClient) GetFollowingIDs(ctx context.Context, in *SocialListRequest, opts ...grpc.CallOption) (*UserIDListResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(UserIDListResponse)
+	err := c.cc.Invoke(ctx, UserService_GetFollowingIDs_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *userServiceClient) IsBlockedBy(ctx context.Context, in *BlockCheckRequest, opts ...grpc.CallOption) (*BlockStatusResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(BlockStatusResponse)
+	err := c.cc.Invoke(ctx, UserService_IsBlockedBy_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *userServiceClient) HasBlocked(ctx context.Context, in *BlockCheckRequest, opts ...grpc.CallOption) (*BlockStatusResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(BlockStatusResponse)
+	err := c.cc.Invoke(ctx, UserService_HasBlocked_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *userServiceClient) IsFollowing(ctx context.Context, in *FollowCheckRequest, opts ...grpc.CallOption) (*BlockStatusResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(BlockStatusResponse)
+	err := c.cc.Invoke(ctx, UserService_IsFollowing_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // UserServiceServer is the server API for UserService service.
 // All implementations must embed UnimplementedUserServiceServer
 // for forward compatibility.
@@ -248,6 +332,13 @@ type UserServiceServer interface {
 	GetFollowers(context.Context, *GetSocialListRequest) (*GetSocialListResponse, error)
 	GetFollowing(context.Context, *GetSocialListRequest) (*GetSocialListResponse, error)
 	GetUserByUsername(context.Context, *GetUserByUsernameRequest) (*User, error)
+	UpdateUserProfile(context.Context, *UpdateUserProfileRequest) (*User, error)
+	GetBlockedUserIDs(context.Context, *SocialListRequest) (*UserIDListResponse, error)
+	GetBlockingUserIDs(context.Context, *SocialListRequest) (*UserIDListResponse, error)
+	GetFollowingIDs(context.Context, *SocialListRequest) (*UserIDListResponse, error)
+	IsBlockedBy(context.Context, *BlockCheckRequest) (*BlockStatusResponse, error)
+	HasBlocked(context.Context, *BlockCheckRequest) (*BlockStatusResponse, error)
+	IsFollowing(context.Context, *FollowCheckRequest) (*BlockStatusResponse, error)
 	mustEmbedUnimplementedUserServiceServer()
 }
 
@@ -305,6 +396,27 @@ func (UnimplementedUserServiceServer) GetFollowing(context.Context, *GetSocialLi
 }
 func (UnimplementedUserServiceServer) GetUserByUsername(context.Context, *GetUserByUsernameRequest) (*User, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method GetUserByUsername not implemented")
+}
+func (UnimplementedUserServiceServer) UpdateUserProfile(context.Context, *UpdateUserProfileRequest) (*User, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method UpdateUserProfile not implemented")
+}
+func (UnimplementedUserServiceServer) GetBlockedUserIDs(context.Context, *SocialListRequest) (*UserIDListResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetBlockedUserIDs not implemented")
+}
+func (UnimplementedUserServiceServer) GetBlockingUserIDs(context.Context, *SocialListRequest) (*UserIDListResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetBlockingUserIDs not implemented")
+}
+func (UnimplementedUserServiceServer) GetFollowingIDs(context.Context, *SocialListRequest) (*UserIDListResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetFollowingIDs not implemented")
+}
+func (UnimplementedUserServiceServer) IsBlockedBy(context.Context, *BlockCheckRequest) (*BlockStatusResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method IsBlockedBy not implemented")
+}
+func (UnimplementedUserServiceServer) HasBlocked(context.Context, *BlockCheckRequest) (*BlockStatusResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method HasBlocked not implemented")
+}
+func (UnimplementedUserServiceServer) IsFollowing(context.Context, *FollowCheckRequest) (*BlockStatusResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method IsFollowing not implemented")
 }
 func (UnimplementedUserServiceServer) mustEmbedUnimplementedUserServiceServer() {}
 func (UnimplementedUserServiceServer) testEmbeddedByValue()                     {}
@@ -615,6 +727,132 @@ func _UserService_GetUserByUsername_Handler(srv interface{}, ctx context.Context
 	return interceptor(ctx, in, info, handler)
 }
 
+func _UserService_UpdateUserProfile_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(UpdateUserProfileRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(UserServiceServer).UpdateUserProfile(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: UserService_UpdateUserProfile_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(UserServiceServer).UpdateUserProfile(ctx, req.(*UpdateUserProfileRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _UserService_GetBlockedUserIDs_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(SocialListRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(UserServiceServer).GetBlockedUserIDs(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: UserService_GetBlockedUserIDs_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(UserServiceServer).GetBlockedUserIDs(ctx, req.(*SocialListRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _UserService_GetBlockingUserIDs_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(SocialListRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(UserServiceServer).GetBlockingUserIDs(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: UserService_GetBlockingUserIDs_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(UserServiceServer).GetBlockingUserIDs(ctx, req.(*SocialListRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _UserService_GetFollowingIDs_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(SocialListRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(UserServiceServer).GetFollowingIDs(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: UserService_GetFollowingIDs_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(UserServiceServer).GetFollowingIDs(ctx, req.(*SocialListRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _UserService_IsBlockedBy_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(BlockCheckRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(UserServiceServer).IsBlockedBy(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: UserService_IsBlockedBy_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(UserServiceServer).IsBlockedBy(ctx, req.(*BlockCheckRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _UserService_HasBlocked_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(BlockCheckRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(UserServiceServer).HasBlocked(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: UserService_HasBlocked_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(UserServiceServer).HasBlocked(ctx, req.(*BlockCheckRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _UserService_IsFollowing_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(FollowCheckRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(UserServiceServer).IsFollowing(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: UserService_IsFollowing_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(UserServiceServer).IsFollowing(ctx, req.(*FollowCheckRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // UserService_ServiceDesc is the grpc.ServiceDesc for UserService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -685,6 +923,34 @@ var UserService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "GetUserByUsername",
 			Handler:    _UserService_GetUserByUsername_Handler,
+		},
+		{
+			MethodName: "UpdateUserProfile",
+			Handler:    _UserService_UpdateUserProfile_Handler,
+		},
+		{
+			MethodName: "GetBlockedUserIDs",
+			Handler:    _UserService_GetBlockedUserIDs_Handler,
+		},
+		{
+			MethodName: "GetBlockingUserIDs",
+			Handler:    _UserService_GetBlockingUserIDs_Handler,
+		},
+		{
+			MethodName: "GetFollowingIDs",
+			Handler:    _UserService_GetFollowingIDs_Handler,
+		},
+		{
+			MethodName: "IsBlockedBy",
+			Handler:    _UserService_IsBlockedBy_Handler,
+		},
+		{
+			MethodName: "HasBlocked",
+			Handler:    _UserService_HasBlocked_Handler,
+		},
+		{
+			MethodName: "IsFollowing",
+			Handler:    _UserService_IsFollowing_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

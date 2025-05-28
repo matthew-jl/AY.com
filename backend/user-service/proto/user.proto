@@ -24,7 +24,13 @@ service UserService {
   rpc GetFollowers(GetSocialListRequest) returns (GetSocialListResponse);
   rpc GetFollowing(GetSocialListRequest) returns (GetSocialListResponse);
   rpc GetUserByUsername(GetUserByUsernameRequest) returns (User);
-  // rpc UpdateUserProfile(UpdateUserProfileRequest) returns (User); // For bio, etc. - add later
+  rpc UpdateUserProfile(UpdateUserProfileRequest) returns (User);
+  rpc GetBlockedUserIDs(SocialListRequest) returns (UserIDListResponse); 
+  rpc GetBlockingUserIDs(SocialListRequest) returns (UserIDListResponse);
+  rpc GetFollowingIDs(SocialListRequest) returns (UserIDListResponse);
+  rpc IsBlockedBy(BlockCheckRequest) returns (BlockStatusResponse);
+  rpc HasBlocked(BlockCheckRequest) returns (BlockStatusResponse);
+  rpc IsFollowing(FollowCheckRequest) returns (BlockStatusResponse);
 }
 
 message HealthResponse {
@@ -120,6 +126,22 @@ message GetUserProfileRequest {
   optional uint32 requester_user_id = 2;
 }
 
+message UpdateUserProfileRequest {
+  uint32 user_id = 1;
+  optional string name = 2;
+  // optional string username = 3;
+  // optional string email = 4;
+  optional string current_password = 5;
+  optional string new_password = 6;
+  optional string gender = 7;
+  optional string profile_picture_url = 8;
+  optional string banner_url = 9;
+  optional string date_of_birth = 10;
+  optional string bio = 11;
+  optional string account_privacy = 12;
+  optional bool subscribed_to_newsletter = 13;
+}
+
 message FollowRequest {
   uint32 follower_id = 1;
   uint32 followed_id = 2;
@@ -137,12 +159,38 @@ message GetSocialListRequest {
   int32 limit = 4;
 }
 
+
 message SocialUser {
-    User user_summary = 1;
-    bool is_followed_by_requester = 2;
+  User user_summary = 1;
+  bool is_followed_by_requester = 2;
 }
 
 message GetSocialListResponse {
   repeated SocialUser users = 1;
   bool has_more = 2;
+}
+
+// for getting the user's own social list (blocked, blocking, following)
+message SocialListRequest {
+  uint32 user_id = 1;
+  int32 page = 2;
+  int32 limit = 3;
+}
+
+message UserIDListResponse {
+  repeated uint32 user_ids = 1;
+  bool has_more = 2;
+}
+
+message BlockCheckRequest {
+  uint32 actor_id = 1;  
+  uint32 subject_id = 2;
+}
+message BlockStatusResponse {
+  bool is_true = 1;
+}
+
+message FollowCheckRequest {
+  uint32 follower_id = 1;
+  uint32 followed_id = 2;
 }

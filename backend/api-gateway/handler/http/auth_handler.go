@@ -3,6 +3,7 @@ package http
 import (
 	"log"
 	"net/http"
+	"time"
 
 	"github.com/Acad600-TPA/WEB-MJ-242/backend/api-gateway/client"
 	// gwUtils "github.com/Acad600-TPA/WEB-MJ-242/backend/api-gateway/utils"
@@ -59,6 +60,20 @@ type ResetPasswordPayload struct {
 type ResendVerificationPayload struct {
     Email string `json:"email" binding:"required,email"`
 }
+
+type UpdateProfilePayload struct {
+	Name                   *string `json:"name,omitempty"`
+	Bio                    *string `json:"bio,omitempty"`
+	CurrentPassword        *string `json:"current_password,omitempty"` 
+	NewPassword            *string `json:"new_password,omitempty"`     
+	Gender                 *string `json:"gender,omitempty"`
+	ProfilePictureURL      *string `json:"profile_picture_url,omitempty"`
+	BannerURL              *string `json:"banner_url,omitempty"`         
+	DateOfBirth            *string `json:"date_of_birth,omitempty"`      
+	AccountPrivacy         *string `json:"account_privacy,omitempty"`    
+	SubscribedToNewsletter *bool   `json:"subscribed_to_newsletter,omitempty"`
+}
+
 
 func (h *AuthHandler) HealthCheck(c *gin.Context) {
 	resp, err := h.userClient.HealthCheck(c.Request.Context())
@@ -280,8 +295,10 @@ func (h *AuthHandler) GetProfile(c *gin.Context) {
 	}
 
 	// Prepare gRPC request
+	reqUserID := uint32(userID)
 	grpcReq := &userpb.GetUserProfileRequest{
-		UserIdToView: uint32(userID),
+		UserIdToView:    reqUserID,
+		RequesterUserId: &reqUserID,
 	}
 
 	// Call User Service
@@ -302,6 +319,41 @@ func (h *AuthHandler) GetProfile(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, resp)
+}
+
+func (h *AuthHandler) UpdateOwnUserProfile(c *gin.Context) {
+    userID, ok := getUserIDFromContext(c)
+    if !ok { return }
+
+    var payload UpdateProfilePayload
+    if err := c.ShouldBindJSON(&payload); err != nil {
+        c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request data: " + err.Error()})
+        return
+    }
+
+    grpcReq := &userpb.UpdateUserProfileRequest{UserId: userID}
+
+    if payload.Name != nil { grpcReq.Name = payload.Name }
+    if payload.Bio != nil { grpcReq.Bio = payload.Bio }
+    if payload.CurrentPassword != nil { grpcReq.CurrentPassword = payload.CurrentPassword }
+    if payload.NewPassword != nil { grpcReq.NewPassword = payload.NewPassword }
+    if payload.Gender != nil { grpcReq.Gender = payload.Gender }
+    if payload.ProfilePictureURL != nil { grpcReq.ProfilePictureUrl = payload.ProfilePictureURL }
+    if payload.BannerURL != nil { grpcReq.BannerUrl = payload.BannerURL }
+    if payload.DateOfBirth != nil { grpcReq.DateOfBirth = payload.DateOfBirth }
+    if payload.AccountPrivacy != nil { grpcReq.AccountPrivacy = payload.AccountPrivacy }
+    if payload.SubscribedToNewsletter != nil { grpcReq.SubscribedToNewsletter = payload.SubscribedToNewsletter }
+
+
+    updatedUserPb, err := h.userClient.UpdateUserProfile(c.Request.Context(), grpcReq)
+    if err != nil {
+        handleGRPCError(c, "update user profile", err)
+        return
+    }
+
+    feUser := mapPbUserToFrontendUser(updatedUserPb)
+
+    c.JSON(http.StatusOK, feUser)
 }
 
 // Helper function to map gRPC status codes to HTTP status codes
@@ -326,4 +378,23 @@ func grpcStatusCodeToHTTP(code codes.Code) int {
 	default:
 		return http.StatusInternalServerError
 	}
+}
+
+func mapPbUserToFrontendUser(pbUser *userpb.User) interface{} {
+    if pbUser == nil { return nil }
+    return gin.H{
+        "id":                       pbUser.GetId(),
+        "name":                     pbUser.GetName(),
+        "username":                 pbUser.GetUsername(),
+        "email":                    pbUser.GetEmail(),
+        "gender":                   pbUser.GetGender(),
+        "profile_picture":          pbUser.GetProfilePicture(),
+        "banner":                   pbUser.GetBanner(),
+        "date_of_birth":            pbUser.GetDateOfBirth(),
+        "account_status":           pbUser.GetAccountStatus(),
+        "account_privacy":          pbUser.GetAccountPrivacy(),
+        "subscribed_to_newsletter": pbUser.GetSubscribedToNewsletter(),
+        "bio":                      pbUser.GetBio(),
+        "created_at":               pbUser.GetCreatedAt().AsTime().Format(time.RFC3339),
+    }
 }

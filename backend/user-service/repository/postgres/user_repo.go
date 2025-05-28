@@ -186,6 +186,30 @@ func (r *UserRepository) UpdatePassword(ctx context.Context, userID uint, newPas
     return nil
 }
 
+func (r *UserRepository) UpdateUser(ctx context.Context, userID uint, updates map[string]interface{}) (*User, error) {
+	var user User
+	if err := r.db.WithContext(ctx).First(&user, userID).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, errors.New("user not found for update")
+		}
+		return nil, fmt.Errorf("error finding user %d for update: %w", userID, err)
+	}
+
+	result := r.db.WithContext(ctx).Model(&user).Updates(updates)
+	if result.Error != nil {
+		var pgErr *pgconn.PgError
+		if errors.As(result.Error, &pgErr) && pgErr.Code == "23505" {
+			return nil, errors.New("username or email already exists")
+		}
+		return nil, fmt.Errorf("failed to update user %d: %w", userID, result.Error)
+	}
+	if result.RowsAffected == 0 {
+		log.Printf("No rows affected for user update (ID: %d), possibly no change in data.", userID)
+	}
+
+	return &user, nil
+}
+
 func (r *UserRepository) GetUserByID(ctx context.Context, userID uint) (*User, error) {
 	var user User
 	result := r.db.WithContext(ctx).Where("id = ?", userID).First(&user)
@@ -326,4 +350,22 @@ func (r *UserRepository) IsBlockedBy(ctx context.Context, requestUserID, targetU
 	var count int64
 	err := r.db.WithContext(ctx).Model(&Block{}).Where("blocker_id = ? AND blocked_id = ?", targetUserID, requestUserID).Count(&count).Error
 	return count > 0, err
+}
+
+func (r *UserRepository) GetBlockedUserIDs(ctx context.Context, userID uint, limit, offset int) ([]uint, error) {
+	var blockedIDs []uint
+	err := r.db.WithContext(ctx).Model(&Block{}).Where("blocker_id = ?", userID).Order("created_at DESC").Limit(limit).Offset(offset).Pluck("blocked_id", &blockedIDs).Error
+	return blockedIDs, err
+}
+
+func (r *UserRepository) GetBlockingUserIDs(ctx context.Context, userID uint, limit, offset int) ([]uint, error) {
+	var blockerIDs []uint
+	err := r.db.WithContext(ctx).Model(&Block{}).Where("blocked_id = ?", userID).Order("created_at DESC").Limit(limit).Offset(offset).Pluck("blocker_id", &blockerIDs).Error
+	return blockerIDs, err
+}
+
+func (r *UserRepository) GetFollowingIDs(ctx context.Context, userID uint, limit, offset int) ([]uint, error) {
+    var followedIDs []uint
+    err := r.db.WithContext(ctx).Model(&Follow{}).Where("follower_id = ?", userID).Order("created_at DESC").Limit(limit).Offset(offset).Pluck("followed_id", &followedIDs).Error
+    return followedIDs, err
 }

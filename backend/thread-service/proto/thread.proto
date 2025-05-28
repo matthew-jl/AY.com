@@ -17,6 +17,7 @@ service ThreadService {
   rpc BookmarkThread(InteractThreadRequest) returns (google.protobuf.Empty);
   rpc UnbookmarkThread(InteractThreadRequest) returns (google.protobuf.Empty);
   rpc GetFeedThreads(GetFeedThreadsRequest) returns (GetFeedThreadsResponse);
+  rpc GetUserThreads(GetUserThreadsRequest) returns (GetUserThreadsResponse);
   // Add Repost later if needed (might be slightly different)
 }
 
@@ -52,14 +53,14 @@ message Thread {
 }
 
 message CreateThreadRequest {
-  uint32 user_id = 1; // Provided by gateway (from JWT)
+  uint32 user_id = 1;
   string content = 2;
   optional uint32 parent_thread_id = 3;
   ReplyRestriction reply_restriction = 4;
   google.protobuf.Timestamp scheduled_at = 5;
   optional uint32 community_id = 6;
-  repeated uint32 media_ids = 7; // IDs obtained from Media service uploads
-  // is_advertisement set by backend logic based on user role if needed
+  repeated uint32 media_ids = 7;
+  // is_advertisement
 }
 
 message GetThreadRequest {
@@ -78,13 +79,29 @@ message InteractThreadRequest {
 }
 
 message GetFeedThreadsRequest {
-  optional uint32 current_user_id = 1; // ID of the user requesting the feed (for "Following" later)
+  optional uint32 current_user_id = 1;
   int32 page = 2;
   int32 limit = 3;
-  string feed_type = 4; // "foryou", "following" (optional for now)
+  string feed_type = 4; // "foryou", "following"
+  repeated uint32 exclude_user_ids = 5; // for blocked or blocking
+  repeated uint32 include_only_user_ids = 6;  // for "following"
 }
 
 message GetFeedThreadsResponse {
+  repeated Thread threads = 1;
+  bool has_more = 2;
+}
+
+message GetUserThreadsRequest {
+  uint32 target_user_id = 1;
+  optional uint32 requester_user_id = 2;
+  string thread_type = 3; // "posts", "replies", "likes", "media"
+  int32 page = 4;
+  int32 limit = 5;
+  repeated uint32 exclude_user_ids = 6;
+}
+
+message GetUserThreadsResponse {
   repeated Thread threads = 1;
   bool has_more = 2;
 }

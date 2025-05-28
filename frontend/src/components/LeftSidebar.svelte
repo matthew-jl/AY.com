@@ -40,7 +40,7 @@
     { label: 'Bookmarks', path: '/bookmarks', icon: '🔖' },
     { label: 'Communities', path: '/communities', icon: '👥' },
     { label: 'Premium', path: '/premium', icon: '⭐' },
-    { label: 'Profile', path: '/profile', icon: '👤' },
+    { label: 'Profile', path: $user ? `/profile/${$user.username}` : '/profile', icon: '👤' },
     { label: 'Settings', path: '/settings', icon: '⚙' },
   ];
 
@@ -85,9 +85,6 @@
         <div class="user-details">
             <span class="user-name">{$user.name}</span>
             <span class="user-handle">@{$user.username}</span>
-        </div>
-        <div class="user-logout-icon">
-            <svg viewBox="0 0 24 24" aria-hidden="true"><g><path d="M3 12c0-1.1.9-2 2-2s2 .9 2 2-.9 2-2 2-2-.9-2-2zm9 2c1.1 0 2-.9 2-2s-.9-2-2-2-2 .9-2 2 .9 2 2 2zm7 0c1.1 0 2-.9 2-2s-.9-2-2-2-2 .9-2 2 .9 2 2 2z"></path></g></svg>
         </div>
     </div>
     {#if showLogout}

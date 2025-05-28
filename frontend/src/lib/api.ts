@@ -245,6 +245,19 @@ export interface ResetPasswordRequestData {
   new_password: string;
 }
 
+export interface UpdateUserProfileRequestData {
+  name?: string | null;
+  bio?: string | null;
+  current_password?: string | null;
+  new_password?: string | null;
+  gender?: string | null;
+  profile_picture_url?: string | null;
+  banner_url?: string | null;
+  date_of_birth?: string | null;
+  account_privacy?: "public" | "private" | null;
+  subscribed_to_newsletter?: boolean | null;
+}
+
 export interface ResendVerificationRequestData {
   email: string;
 }
@@ -337,7 +350,13 @@ export const api = {
     apiFetch<UserProfileResponseData>(`/profiles/${username}`, {
       method: "GET",
     }),
-  // TODO: Add UpdateUserProfile method later
+  updateUserProfile: (
+    data: UpdateUserProfileRequestData
+  ): Promise<UserProfileBasic> =>
+    apiFetch<UserProfileBasic>("/users/me/profile", {
+      method: "PUT",
+      body: JSON.stringify(data),
+    }),
 
   followUser: (username: string): Promise<void> =>
     apiFetch<void>(`/profiles/${username}/follow`, { method: "POST" }),
@@ -461,7 +480,7 @@ export const api = {
     limit: number = 10
   ): Promise<FeedResponse> =>
     apiFetch<FeedResponse>(
-      `/threads/user/${username}?type=${type}&page=${page}&limit=${limit}`,
+      `/profiles/${username}/threads?type=${type}&page=${page}&limit=${limit}`,
       { method: "GET" }
-    ), // TODO: Backend needs this route
+    ),
 };

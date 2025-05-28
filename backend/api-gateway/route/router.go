@@ -72,7 +72,7 @@ func SetupRouter(
 	{
 		users.GET("/health", authHandler.HealthCheck)
 		users.GET("/me/profile", authHandler.GetProfile)
-            // TODO: users.PUT("/me/profile", profileHandler.UpdateUserProfile)
+		users.PUT("/me/profile", authHandler.UpdateOwnUserProfile)
 	}
 
 	userProfiles := v1.Group("/profiles")
@@ -81,6 +81,7 @@ func SetupRouter(
 		userProfiles.GET("/:username", profileHandler.GetUserProfileByUsername)
 		userProfiles.GET("/:username/followers", profileHandler.GetFollowers)
 		userProfiles.GET("/:username/following", profileHandler.GetFollowing)
+		userProfiles.GET("/:username/threads", threadHandler.GetUserSpecificThreads)
 
 		// Actions requiring auth
 		userProfiles.POST("/:username/follow", authMiddleware, profileHandler.FollowUser)

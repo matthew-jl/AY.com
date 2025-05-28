@@ -212,14 +212,18 @@ func (h *ThreadHandler) UnlikeThread(ctx context.Context, req *threadpb.Interact
  }
 
  func (h *ThreadHandler) GetFeedThreads(ctx context.Context, req *threadpb.GetFeedThreadsRequest) (*threadpb.GetFeedThreadsResponse, error) {
-	log.Printf("Received GetFeedThreads request. Page: %d, Limit: %d, Type: %s, CurrentUser: %d", req.Page, req.Limit, req.FeedType, req.GetCurrentUserId())
+	log.Printf("ThreadSvc: GetFeedThreads. Requester: %d, Type: %s, Exclude: %v, Include: %v",
+		req.GetCurrentUserId(), req.GetFeedType(), req.GetExcludeUserIds(), req.GetIncludeOnlyUserIds())
 
-	limit := int(req.Limit); if limit <= 0 || limit > 50 { limit = 20 }
-	page := int(req.Page); if page <= 0 { page = 1 }
-	offset := (page - 1) * limit
 
-	params := postgres.GetThreadsParams{Limit: limit, Offset: offset}
-	// TODO: Add logic for "following" feed type using req.GetCurrentUserId()
+	limit, offset := getLimitOffset(req.Page, req.Limit)
+
+	params := postgres.GetThreadsParams{
+		Limit:              limit,
+		Offset:             offset,
+		ExcludeUserIDs:     uint32SliceToUint(req.GetExcludeUserIds()),
+		IncludeOnlyUserIDs: uint32SliceToUint(req.GetIncludeOnlyUserIds()),
+	}
 
 	dbThreads, err := h.repo.GetThreads(ctx, params)
 	if err != nil {
@@ -272,6 +276,76 @@ func (h *ThreadHandler) UnlikeThread(ctx context.Context, req *threadpb.Interact
 		HasMore: hasMore,
 	}, nil
 }
+
+func (h *ThreadHandler) GetUserThreads(ctx context.Context, req *threadpb.GetUserThreadsRequest) (*threadpb.GetUserThreadsResponse, error) {
+	log.Printf("ThreadSvc: GetUserThreads. Target: %d, Requester: %d, Type: %s, Exclude: %v",
+		req.TargetUserId, req.GetRequesterUserId(), req.ThreadType, req.GetExcludeUserIds())
+	
+	if req.TargetUserId == 0 {
+		return nil, status.Errorf(codes.InvalidArgument, "Target User ID is required")
+	}
+
+	limit, offset := getLimitOffset(req.Page, req.Limit)
+	var dbThreads []postgres.Thread
+	var err error
+
+	// Fetch threads based on type
+	if req.ThreadType == "likes" {
+		dbThreads, err = h.repo.GetLikedThreadsByUser(ctx, uint(req.TargetUserId), limit, offset)
+	} else {
+		// For posts, replies, media
+		params := postgres.GetThreadsParams{
+			Limit:       limit,
+			Offset:      offset,
+			ByUserID:    pointToUint(uint(req.TargetUserId)),
+			FeedTabType: req.ThreadType,
+			ExcludeUserIDs: uint32SliceToUint(req.GetExcludeUserIds()),
+		}
+		dbThreads, err = h.repo.GetThreads(ctx, params)
+	}
+
+	if err != nil {
+		log.Printf("Failed to get user threads from repo (type: %s, user: %d): %v", req.ThreadType, req.TargetUserId, err)
+		return nil, status.Errorf(codes.Internal, "Could not retrieve user threads")
+	}
+
+	protoThreads := make([]*threadpb.Thread, 0, len(dbThreads))
+	if len(dbThreads) > 0 {
+		threadIDs := make([]uint, len(dbThreads))
+		for i, t := range dbThreads { threadIDs[i] = t.ID }
+
+		countsMap, errCounts := h.repo.GetInteractionCountsForMultipleThreads(ctx, threadIDs)
+		if errCounts != nil { log.Printf("Error fetching batch interaction counts for user threads: %v", errCounts) }
+
+		userInteractionsMap := make(map[uint]map[string]bool)
+		if req.GetRequesterUserId() != 0 {
+			userInteractionsMap, err = h.repo.CheckUserInteractionsForMultipleThreads(ctx, uint(req.GetRequesterUserId()), threadIDs)
+			if err != nil { log.Printf("Error fetching batch user interactions for user threads: %v", err) }
+		}
+
+		for i := range dbThreads {
+			tProto := mapThreadToProto(&dbThreads[i])
+			if threadCounts, ok := countsMap[dbThreads[i].ID]; ok {
+				tProto.LikeCount = int32(threadCounts["like"])
+				tProto.BookmarkCount = int32(threadCounts["bookmark"])
+			}
+			if userThreadInteractions, ok := userInteractionsMap[dbThreads[i].ID]; ok {
+				tProto.IsLikedByCurrentUser = userThreadInteractions["like"]
+				tProto.IsBookmarkedByCurrentUser = userThreadInteractions["bookmark"]
+			}
+			protoThreads = append(protoThreads, tProto)
+		}
+	}
+
+	hasMore := len(dbThreads) == limit
+	log.Printf("Returning %d hydrated threads for GetUserThreads request.", len(protoThreads))
+
+	return &threadpb.GetUserThreadsResponse{
+		Threads: protoThreads,
+		HasMore: hasMore,
+	}, nil
+}
+
 
 // --- Helper Functions ---
 
@@ -327,4 +401,26 @@ func uint32SliceToInt64Array(slice []uint32) pq.Int64Array {
         res[i] = int64(v)
     }
     return res
+}
+
+func pointToUint(val uint) *uint {
+	return &val
+}
+
+func getLimitOffset(page, limit int32) (int, int) {
+	p := int(page); l := int(limit)
+	if l <= 0 || l > 50 { l = 20 }
+	if p <= 0 { p = 1 }
+	return l, (p - 1) * l
+}
+
+func uint32SliceToUint(slice []uint32) []uint {
+	if slice == nil {
+		return nil
+	}
+	res := make([]uint, len(slice))
+	for i, v := range slice {
+		res[i] = uint(v)
+	}
+	return res
 }

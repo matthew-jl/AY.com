@@ -1,11 +1,13 @@
 <script lang="ts">
     import { onDestroy, onMount } from 'svelte';
     import { link, navigate } from 'svelte-routing';
-    import { api, ApiError, type UserProfileResponseData, type ThreadData, type FeedResponse } from '../lib/api';
+    import { api, ApiError, type UserProfileResponseData, type ThreadData, type FeedResponse, type UserProfileBasic } from '../lib/api';
     import { user as currentUserStore } from '../stores/userStore';
     import ThreadComponent from '../components/ThreadComponent.svelte';
-  import { currentPathname } from '../stores/locationStore';
-  import { timeAgo, timeAgoProfile } from '../lib/utils/timeAgo';
+    import { currentPathname } from '../stores/locationStore';
+    import { timeAgo, timeAgoProfile } from '../lib/utils/timeAgo';
+  import EditProfileModal from '../components/EditProfileModal.svelte';
+  import ProfilePicturePreviewModal from '../components/ProfilePicturePreviewModal.svelte';
   
     let profileUser: UserProfileResponseData | null = null;
     let profileThreads: ThreadData[] = [];
@@ -20,6 +22,9 @@
     let threadsSentinel: Element;
     let threadsObserver: IntersectionObserver;
   
+    let showEditProfileModal = false;
+    let showProfilePicPreviewModal = false;
+    let previewImageUrl: string | null = null;
   
     let isOwnProfile = false;
     let usernameFromUrl: string | null = null;
@@ -146,9 +151,33 @@
     } catch (err) { console.error("Block/Unblock error:", err);}
     finally { socialActionLoading = false; }
   }
-  function openEditProfileModal() { console.log("Open Edit Profile Modal"); }
-  function openReportModal() { console.log("Open Report Modal"); }
 
+  function openEditProfileModal() {
+    if (profileUser?.user) {
+        showEditProfileModal = true;
+    }
+  }
+
+  function openReportModal() {
+     console.log("Open Report Modal"); 
+  }
+
+  function handleProfileUpdated(event: CustomEvent<UserProfileBasic>) {
+      if (profileUser && profileUser.user) {
+          profileUser = {
+              ...profileUser,
+              user: event.detail
+          };
+      }
+      console.log("ProfilePage: Profile updated from modal", event.detail);
+  }
+
+  function openProfilePicPreview(imageUrl: string | null) {
+      if (imageUrl) {
+          previewImageUrl = imageUrl;
+          showProfilePicPreviewModal = true;
+      }
+  }
 
   onMount(() => {
     const initialUsername = getUsernameFromPath(window.location.pathname);
@@ -206,11 +235,30 @@
   
   <div class="profile-page-container">
     {#if isLoadingProfile && !profileUser}
-      <p>Loading profile...</p> <!-- TODO: Skeleton Loader for profile header -->
+    <div class="profile-header-skeleton">
+      <div class="banner-skeleton"></div>
+      <div class="profile-info-bar-skeleton">
+          <div class="avatar-skeleton large"></div>
+          <div class="actions-skeleton">
+              <div class="button-skeleton"></div>
+          </div>
+      </div>
+      <div class="details-skeleton">
+          <div class="line-skeleton name"></div>
+          <div class="line-skeleton handle"></div>
+          <div class="line-skeleton bio short"></div>
+          <div class="line-skeleton bio long"></div>
+          <div class="line-skeleton meta"></div>
+          <div class="stats-skeleton">
+              <div class="line-skeleton stat"></div>
+              <div class="line-skeleton stat"></div>
+          </div>
+      </div>
+  </div>
     {:else if profileError}
-      <div class="error-fullpage">{profileError} <a href="/" use:link>Go Home</a></div>
+    <div class="error-fullpage">{profileError} <a href="/" use:link>Go Home</a></div>
     {:else if profileUser && profileUser.user}
-      {@const pUser = profileUser.user} <!-- Alias for easier access -->
+      {@const pUser = profileUser.user}
       <header class="profile-header">
           <div class="banner-container">
               {#if pUser.banner}
@@ -220,7 +268,7 @@
               {/if}
           </div>
           <div class="profile-info-bar">
-              <div class="avatar-container">
+              <div class="avatar-container" on:click={() => openProfilePicPreview(pUser.profile_picture)} on:keydown={(e) => e.key === 'Enter' && openProfilePicPreview(pUser.profile_picture)} role="button" tabindex="0">
                   {#if pUser.profile_picture}
                       <img src={pUser.profile_picture} alt="{pUser.username}'s profile" class="profile-avatar-large" />
                   {:else}
@@ -306,9 +354,13 @@
   </div>
   
   
-  <!-- Modals to be implemented -->
-  <!-- {#if showEditProfileModal} <EditProfileModal on:close ... /> {/if} -->
-  <!-- {#if showReportModal} <ReportModal on:close ... /> {/if} -->
+  {#if showEditProfileModal && profileUser?.user}
+    <EditProfileModal initialUser={profileUser.user} on:close={() => showEditProfileModal = false} on:updated={handleProfileUpdated} />
+  {/if}
+
+  {#if showProfilePicPreviewModal && previewImageUrl}
+    <ProfilePicturePreviewModal imageUrl={previewImageUrl} altText="{profileUser?.user?.name || 'User'}'s Profile Picture" on:close={() => showProfilePicPreviewModal = false} />
+  {/if}
   
   
   <style lang="scss">
@@ -449,7 +501,7 @@
       display: flex;
       border-bottom: 1px solid var(--border-color);
       position: sticky;
-      top: 57px;
+      top: 0px;
       background-color: rgba(var(--background-rgb), 0.85);
       backdrop-filter: blur(12px);
       z-index: 9;
@@ -480,6 +532,35 @@
     .feed-status, .empty-feed, .error-text.api-error {
         text-align: center; padding: 20px; color: var(--secondary-text-color); font-size: 14px;
     }
-    .skeleton-thread {}
+
+    .profile-header-skeleton {
+      border-bottom: 1px solid var(--border-color);
+      .banner-skeleton { height: 200px; background-color: var(--section-hover-bg); animation: pulse 1.5s infinite ease-in-out; }
+      .profile-info-bar-skeleton { display: flex; justify-content: space-between; align-items: flex-start; padding: 12px 16px; margin-top: -60px;
+          .avatar-skeleton.large { width: 120px; height: 120px; border-radius: 50%; background-color: var(--section-hover-bg); animation: pulse 1.5s infinite ease-in-out; border: 4px solid var(--background); }
+          .actions-skeleton { display: flex; gap: 10px; margin-top: 70px;
+              .button-skeleton { width: 100px; height: 36px; border-radius: 9999px; background-color: var(--section-hover-bg); animation: pulse 1.5s infinite ease-in-out; }
+          }
+      }
+      .details-skeleton { padding: 16px; display: flex; flex-direction: column; gap: 10px;
+          .line-skeleton { height: 12px; border-radius: 4px; background-color: var(--section-hover-bg); animation: pulse 1.5s infinite ease-in-out;
+              &.name { width: 40%; height: 20px; margin-bottom: 4px; }
+              &.handle { width: 30%; height: 14px; }
+              &.bio.short { width: 70%; }
+              &.bio.long { width: 90%; }
+              &.meta { width: 50%; }
+              &.stat { width: 25%; }
+          }
+          .stats-skeleton { display: flex; gap: 20px; margin-top: 8px; }
+      }
+    }
+
+    @keyframes pulse { 0% { background-color: var(--section-hover-bg); } 50% { background-color: var(--border-color); } 100% { background-color: var(--section-hover-bg); } }
+    .skeleton-thread { display: flex; padding: 12px 16px; border-bottom: 1px solid var(--border-color); gap: 12px; }
+    .skeleton-avatar { width: 40px; height: 40px; border-radius: 50%; background-color: var(--section-hover-bg); animation: pulse 1.5s infinite ease-in-out; flex-shrink: 0; }
+    .skeleton-content { flex-grow: 1; display: flex; flex-direction: column; gap: 8px; padding-top: 4px; }
+    .skeleton-line { height: 10px; border-radius: 4px; background-color: var(--section-hover-bg); animation: pulse 1.5s infinite ease-in-out;
+      &.short { width: 30%; } &.medium { width: 60%; } &.long { width: 90%; }
+    }
   
   </style>

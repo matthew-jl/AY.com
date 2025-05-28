@@ -61,4 +61,6 @@ func (c *ThreadClient) GetFeedThreads(ctx context.Context, req *threadpb.GetFeed
 	return c.client.GetFeedThreads(ctx, req)
 }
 
-// Add other methods like GetUserThreads, GetFeed etc. later
+func (c *ThreadClient) GetUserThreads(ctx context.Context, req *threadpb.GetUserThreadsRequest) (*threadpb.GetUserThreadsResponse, error) {
+	return c.client.GetUserThreads(ctx, req)
+}
