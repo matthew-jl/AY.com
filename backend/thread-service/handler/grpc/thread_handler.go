@@ -3,24 +3,32 @@ package grpc
 import (
 	"context"
 	"errors"
+	"fmt"
 	"log"
 
 	threadpb "github.com/Acad600-TPA/WEB-MJ-242/backend/thread-service/genproto/proto"
 	"github.com/Acad600-TPA/WEB-MJ-242/backend/thread-service/repository/postgres"
+	"github.com/Acad600-TPA/WEB-MJ-242/backend/thread-service/utils"
+	userpb "github.com/Acad600-TPA/WEB-MJ-242/backend/user-service/genproto/proto"
 	"github.com/lib/pq"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/emptypb"
 	"google.golang.org/protobuf/types/known/timestamppb"
+	"gorm.io/gorm"
 )
 
 type ThreadHandler struct {
 	threadpb.UnimplementedThreadServiceServer
 	repo *postgres.ThreadRepository
+	userClient userpb.UserServiceClient
 }
 
-func NewThreadHandler(repo *postgres.ThreadRepository) *ThreadHandler {
-	return &ThreadHandler{repo: repo}
+func NewThreadHandler(repo *postgres.ThreadRepository, userClient userpb.UserServiceClient) *ThreadHandler {
+	return &ThreadHandler{
+		repo: repo,
+		userClient: userClient,
+	}
 }
 
 func (h *ThreadHandler) HealthCheck(ctx context.Context, in *emptypb.Empty) (*threadpb.HealthResponse, error) {
@@ -62,13 +70,64 @@ func (h *ThreadHandler) CreateThread(ctx context.Context, req *threadpb.CreateTh
     }
      // IsAdvertisement would be set based on user role check, likely done in gateway or here if user info passed
 
-	err := h.repo.CreateThread(ctx, thread)
+	extractedHashtags := utils.ExtractHashtags(req.Content)
+	extractedMentionUsernames := utils.ExtractMentions(req.Content)
+
+	// Resolve mentioned usernames to IDs by calling User Service
+	var mentionedUserIDs []uint32
+	if len(extractedMentionUsernames) > 0 && h.userClient != nil { // Check if userClient is available
+		// This could be a batch "GetUsersByUsernames" RPC in User Service for efficiency
+		for _, username := range extractedMentionUsernames {
+			userResp, err := h.userClient.GetUserByUsername(ctx, &userpb.GetUserByUsernameRequest{Username: username})
+			if err == nil && userResp != nil {
+				mentionedUserIDs = append(mentionedUserIDs, userResp.GetId())
+			} else {
+				log.Printf("CreateThread: Could not resolve mention for username @%s: %v", username, err)
+			}
+		}
+	}
+
+	// Create thread in a transaction to also save hashtags/mentions
+	err := h.repo.DB().WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		// Use tx for all operations within the transaction
+		tempRepo := postgres.NewThreadRepositoryWithTx(tx)
+		if err := tempRepo.CreateThread(ctx, thread); err != nil {
+			return err
+		}
+		// After thread is created and has an ID:
+		if len(extractedHashtags) > 0 {
+			if err := tempRepo.AddHashtags(ctx, thread.ID, extractedHashtags); err != nil {
+				return fmt.Errorf("failed to add hashtags: %w", err)
+			}
+		}
+		if len(mentionedUserIDs) > 0 {
+			if err := tempRepo.AddMentions(ctx, thread.ID, uint(req.UserId), uint32SliceToUint(mentionedUserIDs)); err != nil {
+				return fmt.Errorf("failed to add mentions: %w", err)
+			}
+		}
+		return nil
+	})
+
 	if err != nil {
-		log.Printf("Failed to create thread for user %d: %v", req.UserId, err)
+		log.Printf("Failed to create thread with hashtags/mentions for user %d: %v", req.UserId, err)
 		return nil, status.Errorf(codes.Internal, "Could not create thread")
 	}
 
-    log.Printf("Thread created successfully. ID: %d", thread.ID)
+    // Increment hashtag counts for trending (after successful thread creation)
+    // This could be an async call to Search Service or direct Redis interaction.
+    // For simplicity, let's assume Search Service will have an RPC to increment them
+    // OR ThreadService connects to Redis directly.
+    // If ThreadService has its own Redis client:
+    // if h.redisClient != nil && len(extractedHashtags) > 0 {
+    // go h.incrementTrendingHashtagsInBackground(extractedHashtags)
+    // }
+    // For now, let's log and assume Search Service will pick up hashtags for trending.
+    if len(extractedHashtags) > 0 {
+        log.Printf("Thread %d created with hashtags: %v. Search service should process these.", thread.ID, extractedHashtags)
+        // TODO: If search service has an IncrementHashtags RPC:
+        // _, errSearch := h.searchClient.IncrementHashtags(ctx, &searchpb.IncrementHashtagsRequest{Hashtags: extractedHashtags})
+        // if errSearch != nil { log.Printf("Error calling SearchService to increment hashtags: %v", errSearch)}
+    }
 
 	// Map DB model back to proto response
 	return mapThreadToProto(thread), nil
@@ -346,6 +405,61 @@ func (h *ThreadHandler) GetUserThreads(ctx context.Context, req *threadpb.GetUse
 	}, nil
 }
 
+func (h *ThreadHandler) GetBookmarkedThreads(ctx context.Context, req *threadpb.GetBookmarkedThreadsRequest) (*threadpb.GetBookmarkedThreadsResponse, error) {
+	log.Printf("ThreadSvc: GetBookmarkedThreads. UserID: %d, Requester: %d, Page: %d",
+		req.UserId, req.GetRequesterUserId(), req.Page)
+
+	if req.UserId == 0 {
+		return nil, status.Errorf(codes.InvalidArgument, "User ID for bookmarks is required")
+	}
+	limit, offset := getLimitOffset(req.Page, req.Limit)
+
+	dbThreads, err := h.repo.GetBookmarkedThreadsByUser(ctx, uint(req.UserId), limit, offset)
+	if err != nil {
+		log.Printf("ThreadSvc: Failed to get bookmarked threads from repo for user %d: %v", req.UserId, err)
+		return nil, status.Errorf(codes.Internal, "Could not retrieve bookmarked threads")
+	}
+
+	protoThreads := make([]*threadpb.Thread, 0, len(dbThreads))
+	if len(dbThreads) > 0 {
+		threadIDs := make([]uint, len(dbThreads))
+		for i, t := range dbThreads {
+			threadIDs[i] = t.ID
+		}
+
+		countsMap, errCounts := h.repo.GetInteractionCountsForMultipleThreads(ctx, threadIDs)
+		if errCounts != nil {
+			log.Printf("Error fetching batch interaction counts: %v", errCounts)
+		}
+
+		userInteractionsMap := make(map[uint]map[string]bool)
+		if req.GetRequesterUserId() != 0 {
+			userInteractionsMap, err = h.repo.CheckUserInteractionsForMultipleThreads(ctx, uint(req.GetRequesterUserId()), threadIDs)
+			if err != nil {
+				log.Printf("Error fetching batch user interactions: %v", err)
+			}
+		}
+
+		for i := range dbThreads {
+			tProto := mapThreadToProto(&dbThreads[i])
+
+			if threadCounts, ok := countsMap[dbThreads[i].ID]; ok {
+				tProto.LikeCount = int32(threadCounts["like"])
+				tProto.BookmarkCount = int32(threadCounts["bookmark"])
+			}
+
+			if userThreadInteractions, ok := userInteractionsMap[dbThreads[i].ID]; ok {
+				tProto.IsLikedByCurrentUser = userThreadInteractions["like"]
+				tProto.IsBookmarkedByCurrentUser = userThreadInteractions["bookmark"]
+			}
+			protoThreads = append(protoThreads, tProto)
+		}
+	}
+
+	hasMore := len(dbThreads) == limit
+	log.Printf("ThreadSvc: Returning %d hydrated bookmarked threads.", len(protoThreads))
+	return &threadpb.GetBookmarkedThreadsResponse{Threads: protoThreads, HasMore: hasMore}, nil
+}
 
 // --- Helper Functions ---
 

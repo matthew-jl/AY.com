@@ -17,6 +17,7 @@ func SetupRouter(
 	threadHandler *gwHTTPHandler.ThreadHandler, 
 	mediaHandler *gwHTTPHandler.MediaHandler, 
 	profileHandler *gwHTTPHandler.ProfileHandler,
+	searchHandler *gwHTTPHandler.SearchHandler,
 	wsHub *websocket.Hub, 
 	jwtSecret string) *gin.Engine {
 	r := gin.New()
@@ -95,6 +96,7 @@ func SetupRouter(
 	{
 		threads.POST("", threadHandler.CreateThread)
 		threads.GET("/feed", threadHandler.GetFeed)
+		threads.GET("/bookmarked", threadHandler.GetBookmarkedThreadsHTTP)
 		threads.GET("/:threadId", threadHandler.GetThread)
 		threads.DELETE("/:threadId", threadHandler.DeleteThread)
 
@@ -111,6 +113,20 @@ func SetupRouter(
 		media.POST("/upload", mediaHandler.UploadMedia)
 	}
         // Maybe GET /media/:mediaId/metadata later if needed by frontend directly
+
+		search := v1.Group("/search")
+		search.Use(attemptAuthMiddleware)
+		{
+			search.GET("/users", searchHandler.SearchUsersHTTP)
+			search.GET("/threads", searchHandler.SearchThreadsHTTP)
+			// search.GET("/communities", searchHandler.SearchCommunitiesHTTP) // Add later
+		}
+
+		trending := v1.Group("/trending")
+		trending.Use(attemptAuthMiddleware)
+		{
+			trending.GET("/hashtags", searchHandler.GetTrendingHashtagsHTTP)
+		}
 
 	// --- WebSocket routes (Auth handled potentially within the handler) ---
 	ws := v1.Group("/ws")

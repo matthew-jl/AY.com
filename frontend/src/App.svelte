@@ -17,6 +17,8 @@
   import { api, clearTokens, getAccessToken } from "./lib/api";
   import { clearUser, setUser } from "./stores/userStore";
   import ProfilePage from "./routes/ProfilePage.svelte";
+  import ExplorePage from "./routes/ExplorePage.svelte";
+  import BookmarksPage from "./routes/BookmarksPage.svelte";
 
   export let url = "";
 
@@ -134,7 +136,7 @@
         {#if isAuth} <Home /> {:else} <NoAccess /> {/if}
       </Route>
       <Route path="/explore">
-         {#if isAuth} <Home /> <!-- Replace with Explore later --> {:else} <NoAccess /> {/if}
+         {#if isAuth} <ExplorePage /> {:else} <NoAccess /> {/if}
       </Route>
        <Route path="/notifications">
          {#if isAuth} <Home /> <!-- Replace with Notifications later --> {:else} <NoAccess /> {/if}
@@ -143,7 +145,7 @@
          {#if isAuth} <Home /> <!-- Replace with Messages later --> {:else} <NoAccess /> {/if}
       </Route>
        <Route path="/bookmarks">
-         {#if isAuth} <Home /> <!-- Replace with Bookmarks later --> {:else} <NoAccess /> {/if}
+         {#if isAuth} <BookmarksPage /> {:else} <NoAccess /> {/if}
       </Route>
        <Route path="/communities">
          {#if isAuth} <Home /> <!-- Replace with Communities later --> {:else} <NoAccess /> {/if}

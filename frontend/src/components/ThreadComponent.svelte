@@ -6,6 +6,7 @@
   import { link } from 'svelte-routing';
   import { timeAgo } from '../lib/utils/timeAgo';
   import { MessageSquare, Repeat2, Heart, Bookmark, Share2, MoreHorizontal } from 'lucide-svelte';
+  import { linkifyContent } from '../lib/utils/richText';
 
   export let thread: ThreadData;
 
@@ -21,6 +22,8 @@
 
   $: isOwnThread = $user?.id === thread.user_id;
   $: author = thread.author;
+
+  $: linkifiedThreadContent = linkifyContent(thread.content);
 
   // --- Interaction Handlers ---
   async function handleLike() {
@@ -125,7 +128,7 @@
         </div>
 
         {#if thread.content}
-            <p class="thread-text">{thread.content}</p>
+            <p class="thread-text">{@html linkifiedThreadContent}</p>
         {/if}
 
         <!-- Media Grid -->
@@ -268,6 +271,15 @@
     white-space: pre-wrap;
     word-wrap: break-word;
     margin-bottom: 12px;
+
+    :global(a.hashtag-link), :global(a.mention-link) {
+      color: var(--primary-color);
+      text-decoration: none;
+      font-weight: 500;
+      &:hover {
+        text-decoration: underline;
+      }
+    }
   }
 
   .media-grid {

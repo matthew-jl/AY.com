@@ -20,16 +20,17 @@ import (
 const _ = grpc.SupportPackageIsVersion9
 
 const (
-	ThreadService_HealthCheck_FullMethodName      = "/thread.ThreadService/HealthCheck"
-	ThreadService_CreateThread_FullMethodName     = "/thread.ThreadService/CreateThread"
-	ThreadService_GetThread_FullMethodName        = "/thread.ThreadService/GetThread"
-	ThreadService_DeleteThread_FullMethodName     = "/thread.ThreadService/DeleteThread"
-	ThreadService_LikeThread_FullMethodName       = "/thread.ThreadService/LikeThread"
-	ThreadService_UnlikeThread_FullMethodName     = "/thread.ThreadService/UnlikeThread"
-	ThreadService_BookmarkThread_FullMethodName   = "/thread.ThreadService/BookmarkThread"
-	ThreadService_UnbookmarkThread_FullMethodName = "/thread.ThreadService/UnbookmarkThread"
-	ThreadService_GetFeedThreads_FullMethodName   = "/thread.ThreadService/GetFeedThreads"
-	ThreadService_GetUserThreads_FullMethodName   = "/thread.ThreadService/GetUserThreads"
+	ThreadService_HealthCheck_FullMethodName          = "/thread.ThreadService/HealthCheck"
+	ThreadService_CreateThread_FullMethodName         = "/thread.ThreadService/CreateThread"
+	ThreadService_GetThread_FullMethodName            = "/thread.ThreadService/GetThread"
+	ThreadService_DeleteThread_FullMethodName         = "/thread.ThreadService/DeleteThread"
+	ThreadService_LikeThread_FullMethodName           = "/thread.ThreadService/LikeThread"
+	ThreadService_UnlikeThread_FullMethodName         = "/thread.ThreadService/UnlikeThread"
+	ThreadService_BookmarkThread_FullMethodName       = "/thread.ThreadService/BookmarkThread"
+	ThreadService_UnbookmarkThread_FullMethodName     = "/thread.ThreadService/UnbookmarkThread"
+	ThreadService_GetFeedThreads_FullMethodName       = "/thread.ThreadService/GetFeedThreads"
+	ThreadService_GetUserThreads_FullMethodName       = "/thread.ThreadService/GetUserThreads"
+	ThreadService_GetBookmarkedThreads_FullMethodName = "/thread.ThreadService/GetBookmarkedThreads"
 )
 
 // ThreadServiceClient is the client API for ThreadService service.
@@ -46,6 +47,7 @@ type ThreadServiceClient interface {
 	UnbookmarkThread(ctx context.Context, in *InteractThreadRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
 	GetFeedThreads(ctx context.Context, in *GetFeedThreadsRequest, opts ...grpc.CallOption) (*GetFeedThreadsResponse, error)
 	GetUserThreads(ctx context.Context, in *GetUserThreadsRequest, opts ...grpc.CallOption) (*GetUserThreadsResponse, error)
+	GetBookmarkedThreads(ctx context.Context, in *GetBookmarkedThreadsRequest, opts ...grpc.CallOption) (*GetBookmarkedThreadsResponse, error)
 }
 
 type threadServiceClient struct {
@@ -156,6 +158,16 @@ func (c *threadServiceClient) GetUserThreads(ctx context.Context, in *GetUserThr
 	return out, nil
 }
 
+func (c *threadServiceClient) GetBookmarkedThreads(ctx context.Context, in *GetBookmarkedThreadsRequest, opts ...grpc.CallOption) (*GetBookmarkedThreadsResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(GetBookmarkedThreadsResponse)
+	err := c.cc.Invoke(ctx, ThreadService_GetBookmarkedThreads_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // ThreadServiceServer is the server API for ThreadService service.
 // All implementations must embed UnimplementedThreadServiceServer
 // for forward compatibility.
@@ -170,6 +182,7 @@ type ThreadServiceServer interface {
 	UnbookmarkThread(context.Context, *InteractThreadRequest) (*emptypb.Empty, error)
 	GetFeedThreads(context.Context, *GetFeedThreadsRequest) (*GetFeedThreadsResponse, error)
 	GetUserThreads(context.Context, *GetUserThreadsRequest) (*GetUserThreadsResponse, error)
+	GetBookmarkedThreads(context.Context, *GetBookmarkedThreadsRequest) (*GetBookmarkedThreadsResponse, error)
 	mustEmbedUnimplementedThreadServiceServer()
 }
 
@@ -209,6 +222,9 @@ func (UnimplementedThreadServiceServer) GetFeedThreads(context.Context, *GetFeed
 }
 func (UnimplementedThreadServiceServer) GetUserThreads(context.Context, *GetUserThreadsRequest) (*GetUserThreadsResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method GetUserThreads not implemented")
+}
+func (UnimplementedThreadServiceServer) GetBookmarkedThreads(context.Context, *GetBookmarkedThreadsRequest) (*GetBookmarkedThreadsResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetBookmarkedThreads not implemented")
 }
 func (UnimplementedThreadServiceServer) mustEmbedUnimplementedThreadServiceServer() {}
 func (UnimplementedThreadServiceServer) testEmbeddedByValue()                       {}
@@ -411,6 +427,24 @@ func _ThreadService_GetUserThreads_Handler(srv interface{}, ctx context.Context,
 	return interceptor(ctx, in, info, handler)
 }
 
+func _ThreadService_GetBookmarkedThreads_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetBookmarkedThreadsRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ThreadServiceServer).GetBookmarkedThreads(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: ThreadService_GetBookmarkedThreads_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ThreadServiceServer).GetBookmarkedThreads(ctx, req.(*GetBookmarkedThreadsRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // ThreadService_ServiceDesc is the grpc.ServiceDesc for ThreadService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -457,6 +491,10 @@ var ThreadService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "GetUserThreads",
 			Handler:    _ThreadService_GetUserThreads_Handler,
+		},
+		{
+			MethodName: "GetBookmarkedThreads",
+			Handler:    _ThreadService_GetBookmarkedThreads_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

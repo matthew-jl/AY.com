@@ -63,6 +63,24 @@ services:
       postgres:
         condition: service_healthy
 
+  search-service:
+    build:
+      context: ./backend
+      dockerfile: search-service/Dockerfile
+    container_name: search-service
+    ports:
+      - "50054:50054"
+    environment:
+      PORT: 50054
+      USER_DB_DSN: "postgres://user:password@postgres:5432/ay_user_db?sslmode=disable"
+      THREAD_DB_DSN: "postgres://user:password@postgres:5432/ay_thread_db?sslmode=disable"
+      REDIS_ADDR: "redis:6379"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
   api-gateway:
     build:
       context: ./backend
@@ -76,5 +94,19 @@ services:
       - thread-service
       - media-service
 
+  redis:
+    image: redis:7-alpine
+    container_name: ay-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
 volumes:
   postgres_main_data:
+  redis_data:

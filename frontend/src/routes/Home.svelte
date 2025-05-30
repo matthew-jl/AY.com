@@ -29,9 +29,7 @@
               console.log("Fetched Threads Array:", fetchedThreads);
               console.log("First fetched thread (if exists):", fetchedThreads[0]); // Log first item
               if (fetchedThreads.length > 0) {
-                   // TODO: Hydrate author and media data here if not done by backend/gateway
-                  // For now, just append or replace
-                  console.log('Appending/Replacing threads...'); // Will print now
+                  console.log('Appending/Replacing threads...');
                   threads = page === 1 ? fetchedThreads : [...threads, ...fetchedThreads];
                   currentPage = page;
                   // Use has_more from the response if available, otherwise estimate
@@ -127,7 +125,15 @@
 
   <!-- Simplified Create Thread Area -->
   <div class="create-thread-prompt">
-       <div class="avatar-placeholder-small">{$user?.name?.charAt(0)?.toUpperCase() ?? '?'}</div>
+       <div class="avatar-placeholder-small">
+            {#if $user}
+                {#if $user.profile_picture}
+                <img src="{$user.profile_picture}" alt="{$user.name}" style="width:100%;height:100%;border-radius:50%;" />
+                {:else}
+                {$user.name.charAt(0).toUpperCase()}
+                {/if}
+            {/if}
+       </div>
        <button class="prompt-button" on:click={openCreateThreadModal}>What's happening?!</button>
        <button class="btn btn-primary post-btn-inline" on:click={openCreateThreadModal} disabled={!$user}>Post</button>
   </div>

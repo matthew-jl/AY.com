@@ -4,6 +4,7 @@ go 1.23.3
 
 require (
 	github.com/Acad600-TPA/WEB-MJ-242/backend/media-service v0.0.0
+	github.com/Acad600-TPA/WEB-MJ-242/backend/search-service v0.0.0
 	github.com/Acad600-TPA/WEB-MJ-242/backend/thread-service v0.0.0
 	github.com/Acad600-TPA/WEB-MJ-242/backend/user-service v0.0.0
 	github.com/gin-contrib/cors v1.7.5
@@ -11,7 +12,7 @@ require (
 	github.com/golang-jwt/jwt/v5 v5.2.2
 	github.com/gorilla/websocket v1.5.3
 	github.com/sirupsen/logrus v1.9.3
-	google.golang.org/grpc v1.72.0
+	google.golang.org/grpc v1.72.2
 	google.golang.org/protobuf v1.36.6
 )
 
@@ -49,3 +50,5 @@ replace github.com/Acad600-TPA/WEB-MJ-242/backend/user-service => ../user-servic
 replace github.com/Acad600-TPA/WEB-MJ-242/backend/media-service => ../media-service
 
 replace github.com/Acad600-TPA/WEB-MJ-242/backend/thread-service => ../thread-service
+
+replace github.com/Acad600-TPA/WEB-MJ-242/backend/search-service => ../search-service

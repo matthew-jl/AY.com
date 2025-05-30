@@ -23,6 +23,10 @@
     "vite": "^6.3.1"
   },
   "dependencies": {
+    "linkify-html": "^4.3.1",
+    "linkify-plugin-hashtag": "^4.3.1",
+    "linkify-plugin-mention": "^4.3.1",
+    "linkifyjs": "^4.3.1",
     "lucide-svelte": "^0.509.0",
     "svelte-routing": "^2.13.0"
   }

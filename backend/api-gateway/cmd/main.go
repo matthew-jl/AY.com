@@ -31,6 +31,12 @@ func main() {
 	if err != nil { logrus.Fatalf("failed to connect to media-service: %v", err) }
 	defer mediaClient.Close()
 
+	searchServiceAddr := os.Getenv("SEARCH_SERVICE_ADDR")
+	if searchServiceAddr == "" { searchServiceAddr = "search-service:50054" }
+	searchClient, err := client.NewSearchClient(searchServiceAddr)
+	if err != nil { logrus.Fatalf("failed to connect to search-service: %v", err) }
+	defer searchClient.Close()
+
 	logrus.Info("gRPC Clients initialized")
 
 	// Initialize handlers
@@ -38,6 +44,7 @@ func main() {
 	threadHandler := gwHTTPHandler.NewThreadHandler(threadClient, mediaClient, userClient)
 	mediaHandler := gwHTTPHandler.NewMediaHandler(mediaClient)
 	profileHandler := gwHTTPHandler.NewProfileHandler(userClient)
+	searchHandler := gwHTTPHandler.NewSearchHandler(searchClient, userClient, threadClient, mediaClient)
 	wsHub := websocket.NewHub()
 
 	// JWT secret 
@@ -48,7 +55,7 @@ func main() {
 	}
 
 	// Set up router
-	r := route.SetupRouter(authHandler, threadHandler, mediaHandler, profileHandler, wsHub, jwtSecret)
+	r := route.SetupRouter(authHandler, threadHandler, mediaHandler, profileHandler, searchHandler, wsHub, jwtSecret)
 
 	// Start server
 	logrus.Info("API Gateway starting on :8080")

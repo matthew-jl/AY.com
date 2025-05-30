@@ -6,15 +6,16 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"strings"
 	"time"
 
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/lib/pq"
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
 )
 
-// Thread model
 type Thread struct {
     ID               uint           `gorm:"primaryKey"`
     UserID           uint           `gorm:"not null;index"`
@@ -31,7 +32,6 @@ type Thread struct {
     DeletedAt        gorm.DeletedAt `gorm:"index"`
 }
 
-// Interaction model
 type ThreadInteraction struct {
     ID              uint      `gorm:"primaryKey"`
     UserID          uint      `gorm:"not null;uniqueIndex:idx_user_thread_interaction"`
@@ -52,8 +52,26 @@ type GetThreadsParams struct {
 	OnlyPublicOrFollowedByUserID *uint // filter: only threads public or by users followed by this user
 }
 
+type Hashtag struct {
+	TagName  string `gorm:"primaryKey;type:varchar(100)"`
+	ThreadID uint   `gorm:"primaryKey;autoIncrement:false"`
+	// Thread   Thread `gorm:"foreignKey:ThreadID"` // Optional GORM relation
+	CreatedAt time.Time `gorm:"default:current_timestamp"`
+}
+
+type Mention struct {
+	MentionedUserID   uint   `gorm:"primaryKey;autoIncrement:false"`
+	ThreadID          uint   `gorm:"primaryKey;autoIncrement:false"`
+	MentioningUserID  uint   // The author of the thread
+	// Thread            Thread `gorm:"foreignKey:ThreadID"`
+	// MentionedUser   User   `gorm:"foreignKey:MentionedUserID"` // If User model existed here
+	CreatedAt time.Time `gorm:"default:current_timestamp"`
+}
+
 func (Thread) TableName() string { return "threads" }
 func (ThreadInteraction) TableName() string { return "thread_interactions" }
+func (Hashtag) TableName() string { return "hashtags" }
+func (Mention) TableName() string { return "mentions" }
 
 type ThreadRepository struct { db *gorm.DB }
 
@@ -62,11 +80,18 @@ func NewThreadRepository() (*ThreadRepository, error) {
      if dsn == "" { log.Fatalln("DATABASE_URL not set for thread service") }
      db, err := gorm.Open(postgres.Open(dsn), &gorm.Config{})
      if err != nil { return nil, fmt.Errorf("failed to connect thread database: %w", err) }
-     // Migrate both models
-     if err := db.AutoMigrate(&Thread{}, &ThreadInteraction{}); err != nil {
+     if err := db.AutoMigrate(&Thread{}, &ThreadInteraction{}, &Hashtag{}, &Mention{}); err != nil {
          return nil, fmt.Errorf("failed to migrate thread database: %w", err)
      }
      return &ThreadRepository{db: db}, nil
+}
+
+func (r *ThreadRepository) DB() *gorm.DB {
+    return r.db
+}
+
+func NewThreadRepositoryWithTx(tx *gorm.DB) *ThreadRepository {
+	return &ThreadRepository{db: tx}
 }
 
 func (r *ThreadRepository) CreateThread(ctx context.Context, thread *Thread) error {
@@ -285,6 +310,55 @@ func (r *ThreadRepository) GetLikedThreadsByUser(ctx context.Context, userID uin
 
 	if result.Error != nil {
 		return nil, fmt.Errorf("failed to get liked threads for user %d: %w", userID, result.Error)
+	}
+	return threads, nil
+}
+
+func (r *ThreadRepository) AddHashtags(ctx context.Context, threadID uint, tags []string) error {
+    if len(tags) == 0 { return nil }
+    var hashtags []Hashtag
+    tagSet := make(map[string]bool) // To ensure unique tags for this thread
+    for _, tag := range tags {
+        if tag != "" && !tagSet[tag] {
+            hashtags = append(hashtags, Hashtag{TagName: strings.ToLower(tag), ThreadID: threadID})
+            tagSet[tag] = true
+        }
+    }
+    if len(hashtags) > 0 {
+        // Use Clauses(clause.OnConflict{DoNothing: true}) to ignore duplicates
+        return r.db.WithContext(ctx).Clauses(clause.OnConflict{DoNothing: true}).Create(&hashtags).Error
+    }
+    return nil
+}
+
+func (r *ThreadRepository) AddMentions(ctx context.Context, threadID uint, mentioningUserID uint, mentionedUserIDs []uint) error {
+    if len(mentionedUserIDs) == 0 { return nil }
+    var mentions []Mention
+    mentionSet := make(map[uint]bool)
+    for _, userID := range mentionedUserIDs {
+        if userID != 0 && !mentionSet[userID] { // User can't mention self in this context usually
+            mentions = append(mentions, Mention{MentionedUserID: userID, ThreadID: threadID, MentioningUserID: mentioningUserID})
+            mentionSet[userID] = true
+        }
+    }
+    if len(mentions) > 0 {
+         return r.db.WithContext(ctx).Clauses(clause.OnConflict{DoNothing: true}).Create(&mentions).Error
+    }
+    return nil
+}
+
+func (r *ThreadRepository) GetBookmarkedThreadsByUser(ctx context.Context, userID uint, limit, offset int) ([]Thread, error) {
+	var threads []Thread
+	result := r.db.WithContext(ctx).
+		Joins("JOIN thread_interactions ON thread_interactions.thread_id = threads.id").
+		Where("thread_interactions.user_id = ? AND thread_interactions.interaction_type = ?", userID, "bookmark").
+		Order("thread_interactions.created_at DESC").
+		Limit(limit).
+		Offset(offset).
+		Find(&threads)
+
+	if result.Error != nil {
+		return nil, fmt.Errorf("failed to get bookmarked threads for user %d: %w", userID, result.Error)
 	}
 	return threads, nil
 }

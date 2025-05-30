@@ -142,8 +142,13 @@
 
     <div class="compose-area">
         <div class="avatar-placeholder-small">
-             {$user?.name?.charAt(0)?.toUpperCase() ?? '?'}
-             <!-- TODO: Replace with actual <img src={$user.profile_picture}> -->
+            {#if $user}
+                {#if $user.profile_picture}
+                    <img src="{$user.profile_picture}" alt="{$user.name}" style="width:100%;height:100%;border-radius:50%;" />
+                {:else}
+                    {$user.name.charAt(0).toUpperCase()}
+                {/if}
+            {/if}
         </div>
         <textarea
             bind:value={content}

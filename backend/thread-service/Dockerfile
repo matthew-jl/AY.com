@@ -1,4 +1,6 @@
 FROM golang:1.23 AS builder
+WORKDIR /app
+COPY user-service/ user-service/
 WORKDIR /app/thread-service
 COPY thread-service/go.mod thread-service/go.sum ./
 RUN go mod download

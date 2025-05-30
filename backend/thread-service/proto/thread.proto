@@ -18,6 +18,7 @@ service ThreadService {
   rpc UnbookmarkThread(InteractThreadRequest) returns (google.protobuf.Empty);
   rpc GetFeedThreads(GetFeedThreadsRequest) returns (GetFeedThreadsResponse);
   rpc GetUserThreads(GetUserThreadsRequest) returns (GetUserThreadsResponse);
+  rpc GetBookmarkedThreads(GetBookmarkedThreadsRequest) returns (GetBookmarkedThreadsResponse); 
   // Add Repost later if needed (might be slightly different)
 }
 
@@ -102,6 +103,18 @@ message GetUserThreadsRequest {
 }
 
 message GetUserThreadsResponse {
+  repeated Thread threads = 1;
+  bool has_more = 2;
+}
+
+message GetBookmarkedThreadsRequest {
+  uint32 user_id = 1;
+  optional uint32 requester_user_id = 2;
+  int32 page = 3;
+  int32 limit = 4;
+}
+
+message GetBookmarkedThreadsResponse {
   repeated Thread threads = 1;
   bool has_more = 2;
 }

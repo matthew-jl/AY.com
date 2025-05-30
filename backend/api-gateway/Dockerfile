@@ -3,6 +3,7 @@ WORKDIR /app
 COPY user-service/ user-service/
 COPY media-service/ media-service/
 COPY thread-service/ thread-service/
+COPY search-service/ search-service/
 WORKDIR /app/api-gateway
 COPY api-gateway/go.mod api-gateway/go.sum ./
 RUN go mod download

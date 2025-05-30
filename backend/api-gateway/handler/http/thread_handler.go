@@ -633,6 +633,89 @@ func (h *ThreadHandler) GetUserSpecificThreads(c *gin.Context) {
 	})
 }
 
+func (h *ThreadHandler) GetBookmarkedThreadsHTTP(c *gin.Context) {
+	requesterUserID, ok := getUserIDFromContext(c)
+	if !ok {
+		return
+	}
+	if requesterUserID == 0 {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "User authentication required to view bookmarks"})
+		return
+	}
+
+	page, limit := parsePagination(c)
+
+	grpcReq := &threadpb.GetBookmarkedThreadsRequest{
+		UserId:         requesterUserID,
+		RequesterUserId: &requesterUserID,
+		Page:           page,
+		Limit:          limit,
+	}
+
+	threadServiceResp, err := h.threadClient.GetBookmarkedThreads(c.Request.Context(), grpcReq)
+	if err != nil {
+		handleGRPCError(c, "get bookmarked threads", err)
+		return
+	}
+
+	// --- Hydrate Author and Media for the fetched bookmarked threads ---
+    if len(threadServiceResp.GetThreads()) == 0 {
+        c.JSON(http.StatusOK, FrontendFeedResponse{Threads: []FrontendThreadData{}, HasMore: false})
+        return
+    }
+	authorIDsSet := make(map[uint32]bool)
+	mediaIDsSet := make(map[uint32]bool)
+	for _, t := range threadServiceResp.GetThreads() {
+		if t.GetUserId() != 0 {
+			authorIDsSet[t.GetUserId()] = true
+		}
+		for _, mediaID := range t.GetMediaIds() {
+			if mediaID != 0 {
+				mediaIDsSet[mediaID] = true
+			}
+		}
+	}
+	var authorIDs []uint32
+	for id := range authorIDsSet {
+		authorIDs = append(authorIDs, id)
+	}
+	var mediaIDs []uint32
+	for id := range mediaIDsSet {
+		mediaIDs = append(mediaIDs, id)
+	}
+	var wg sync.WaitGroup
+	var authorsMap map[uint32]*userpb.User
+	var mediaMap map[uint32]*mediapb.Media
+	var userErr, mediaErr error
+    if len(authorIDs) > 0 {
+        wg.Add(1); go func() { defer wg.Done()
+            resp, err := h.userClient.GetUserProfilesByIds(c.Request.Context(), &userpb.GetUserProfilesByIdsRequest{UserIds: authorIDs})
+            if err != nil { userErr = err; return }; authorsMap = resp.GetUsers()
+        }()
+    }
+    if len(mediaIDs) > 0 {
+        wg.Add(1); go func() { defer wg.Done()
+            resp, err := h.mediaClient.GetMultipleMediaMetadata(c.Request.Context(), &mediapb.GetMultipleMediaMetadataRequest{MediaIds: mediaIDs})
+            if err != nil { mediaErr = err; return }; mediaMap = resp.GetMediaItems()
+        }()
+    }
+    wg.Wait()
+    if userErr != nil { log.Printf("Error fetching authors for bookmarks: %v", userErr) }
+    if mediaErr != nil { log.Printf("Error fetching media for bookmarks: %v", mediaErr) }
+    hydratedThreads := make([]FrontendThreadData, 0, len(threadServiceResp.GetThreads()))
+    for _, tProto := range threadServiceResp.GetThreads() {
+        feThread := mapProtoThreadToFrontend(tProto, authorsMap, mediaMap)
+        hydratedThreads = append(hydratedThreads, feThread)
+    }
+
+
+	c.JSON(http.StatusOK, FrontendFeedResponse{
+		Threads: hydratedThreads,
+		HasMore: threadServiceResp.GetHasMore(),
+	})
+}
+
+// --- Helper Functions ---
 // Helper to get combined list of users to exclude (blocked by me + blocking me)
 func (h *ThreadHandler) getFeedExclusionIDs(ctx context.Context, requesterID uint32) ([]uint32, error) {
 	if requesterID == 0 { return nil, nil } // No exclusions for unauthenticated
@@ -666,10 +749,6 @@ func (h *ThreadHandler) getFeedExclusionIDs(ctx context.Context, requesterID uin
 	for id := range tempSet { excludeIDs = append(excludeIDs, id) }
 	return excludeIDs, nil
 }
-
-
-
-// --- Helper Functions ---
 
 func getUserIDFromContext(c *gin.Context) (uint32, bool) {
 	userIDAny, exists := c.Get("userID")
@@ -731,7 +810,7 @@ func mapProtoThreadToFrontend(tProto *threadpb.Thread, authorsMap map[uint32]*us
 		LikeCount:                   tProto.GetLikeCount(),
 		ReplyCount:                  tProto.GetReplyCount(),
 		RepostCount:                 tProto.GetRepostCount(),
-		BookmarkCount:               tProto.GetBookmarkCount(), // Added
+		BookmarkCount:               tProto.GetBookmarkCount(),
 		IsLikedByCurrentUser:        tProto.GetIsLikedByCurrentUser(),
 		IsBookmarkedByCurrentUser:   tProto.GetIsBookmarkedByCurrentUser(),
 	}

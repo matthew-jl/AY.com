@@ -77,6 +77,37 @@ export interface FeedResponse {
   has_more: boolean;
 }
 
+// export interface UserSearchResult {
+//   id: number;
+//   name: string;
+//   username: string;
+//   profile_picture: string | null;
+//   bio: string | null;
+// }
+
+// export interface ThreadSearchResult {
+//   id: number;
+//   content_snippet: string;
+//   user_id: number;
+//   author_username: string;
+//   author_name: string;
+//   author_profile_picture: string | null;
+// }
+
+export interface SearchUsersApiResponse {
+  users: UserProfileBasic[];
+  has_more: boolean;
+}
+
+export interface SearchThreadsApiResponse {
+  threads: ThreadData[];
+  has_more: boolean;
+}
+
+export interface GetTrendingHashtagsApiResponse {
+  hashtags: string[];
+}
+
 export interface ErrorResponse {
   error?: string;
   message?: string;
@@ -483,4 +514,44 @@ export const api = {
       `/profiles/${username}/threads?type=${type}&page=${page}&limit=${limit}`,
       { method: "GET" }
     ),
+
+  searchUsers: (
+    query: string,
+    page: number = 1,
+    limit: number = 10
+  ): Promise<SearchUsersApiResponse> =>
+    apiFetch<SearchUsersApiResponse>(
+      `/search/users?q=${encodeURIComponent(
+        query
+      )}&page=${page}&limit=${limit}`,
+      { method: "GET" }
+    ),
+
+  searchThreads: (
+    query: string,
+    page: number = 1,
+    limit: number = 10
+  ): Promise<SearchThreadsApiResponse> =>
+    apiFetch<SearchThreadsApiResponse>(
+      `/search/threads?q=${encodeURIComponent(
+        query
+      )}&page=${page}&limit=${limit}`,
+      { method: "GET" }
+    ),
+
+  getTrendingHashtags: (
+    limit: number = 10
+  ): Promise<GetTrendingHashtagsApiResponse> =>
+    apiFetch<GetTrendingHashtagsApiResponse>(
+      `/trending/hashtags?limit=${limit}`,
+      { method: "GET" }
+    ),
+
+  getBookmarkedThreads: (
+    page: number = 1,
+    limit: number = 20
+  ): Promise<FeedResponse> =>
+    apiFetch<FeedResponse>(`/threads/bookmarked?page=${page}&limit=${limit}`, {
+      method: "GET",
+    }),
 };

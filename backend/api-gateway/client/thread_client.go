@@ -64,3 +64,7 @@ func (c *ThreadClient) GetFeedThreads(ctx context.Context, req *threadpb.GetFeed
 func (c *ThreadClient) GetUserThreads(ctx context.Context, req *threadpb.GetUserThreadsRequest) (*threadpb.GetUserThreadsResponse, error) {
 	return c.client.GetUserThreads(ctx, req)
 }
+
+func (c *ThreadClient) GetBookmarkedThreads(ctx context.Context, req *threadpb.GetBookmarkedThreadsRequest) (*threadpb.GetBookmarkedThreadsResponse, error) {
+	return c.client.GetBookmarkedThreads(ctx, req)
+}

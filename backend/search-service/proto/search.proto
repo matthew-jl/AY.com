@@ -1,0 +1,52 @@
+syntax = "proto3";
+
+package search;
+
+option go_package = "github.com/Acad600-TPA/WEB-MJ-242/backend/search-service/genproto/search;searchpb";
+
+import "google/protobuf/empty.proto";
+
+service SearchService {
+  rpc HealthCheck(google.protobuf.Empty) returns (HealthResponse);
+  rpc SearchUsers(SearchRequest) returns (SearchUserIDsResponse);
+  rpc SearchThreads(SearchRequest) returns (SearchThreadIDsResponse);
+  rpc GetTrendingHashtags(GetTrendingHashtagsRequest) returns (GetTrendingHashtagsResponse);
+}
+
+message HealthResponse { string status = 1; }
+
+message SearchRequest {
+  string query = 1;
+  int32 page = 2;
+  int32 limit = 3;
+}
+
+message UserIDResult {
+  uint32 id = 1;
+}
+
+
+message ThreadIDResult {
+  uint32 id = 1;
+  string content_snippet = 2;
+  uint32 user_id = 3;
+}
+
+
+message SearchUserIDsResponse {
+  repeated UserIDResult user_results = 1;
+  bool has_more = 2;
+}
+
+message SearchThreadIDsResponse {
+  repeated ThreadIDResult thread_results = 1;
+  bool has_more = 2;
+}
+
+message GetTrendingHashtagsRequest {
+  int32 limit = 1;
+}
+
+message GetTrendingHashtagsResponse {
+  repeated string hashtags = 1;
+}
