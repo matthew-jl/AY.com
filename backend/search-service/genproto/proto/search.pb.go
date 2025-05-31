@@ -422,6 +422,94 @@ func (x *GetTrendingHashtagsResponse) GetHashtags() []string {
 	return nil
 }
 
+type IncrementHashtagCountsRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Hashtags      []string               `protobuf:"bytes,1,rep,name=hashtags,proto3" json:"hashtags,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *IncrementHashtagCountsRequest) Reset() {
+	*x = IncrementHashtagCountsRequest{}
+	mi := &file_proto_search_proto_msgTypes[8]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *IncrementHashtagCountsRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*IncrementHashtagCountsRequest) ProtoMessage() {}
+
+func (x *IncrementHashtagCountsRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_search_proto_msgTypes[8]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use IncrementHashtagCountsRequest.ProtoReflect.Descriptor instead.
+func (*IncrementHashtagCountsRequest) Descriptor() ([]byte, []int) {
+	return file_proto_search_proto_rawDescGZIP(), []int{8}
+}
+
+func (x *IncrementHashtagCountsRequest) GetHashtags() []string {
+	if x != nil {
+		return x.Hashtags
+	}
+	return nil
+}
+
+type IncrementHashtagCountsResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Success       bool                   `protobuf:"varint,1,opt,name=success,proto3" json:"success,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *IncrementHashtagCountsResponse) Reset() {
+	*x = IncrementHashtagCountsResponse{}
+	mi := &file_proto_search_proto_msgTypes[9]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *IncrementHashtagCountsResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*IncrementHashtagCountsResponse) ProtoMessage() {}
+
+func (x *IncrementHashtagCountsResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_search_proto_msgTypes[9]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use IncrementHashtagCountsResponse.ProtoReflect.Descriptor instead.
+func (*IncrementHashtagCountsResponse) Descriptor() ([]byte, []int) {
+	return file_proto_search_proto_rawDescGZIP(), []int{9}
+}
+
+func (x *IncrementHashtagCountsResponse) GetSuccess() bool {
+	if x != nil {
+		return x.Success
+	}
+	return false
+}
+
 var File_proto_search_proto protoreflect.FileDescriptor
 
 const file_proto_search_proto_rawDesc = "" +
@@ -448,12 +536,17 @@ const file_proto_search_proto_rawDesc = "" +
 	"\x1aGetTrendingHashtagsRequest\x12\x14\n" +
 	"\x05limit\x18\x01 \x01(\x05R\x05limit\"9\n" +
 	"\x1bGetTrendingHashtagsResponse\x12\x1a\n" +
-	"\bhashtags\x18\x01 \x03(\tR\bhashtags2\xbc\x02\n" +
+	"\bhashtags\x18\x01 \x03(\tR\bhashtags\";\n" +
+	"\x1dIncrementHashtagCountsRequest\x12\x1a\n" +
+	"\bhashtags\x18\x01 \x03(\tR\bhashtags\":\n" +
+	"\x1eIncrementHashtagCountsResponse\x12\x18\n" +
+	"\asuccess\x18\x01 \x01(\bR\asuccess2\xa5\x03\n" +
 	"\rSearchService\x12=\n" +
 	"\vHealthCheck\x12\x16.google.protobuf.Empty\x1a\x16.search.HealthResponse\x12C\n" +
 	"\vSearchUsers\x12\x15.search.SearchRequest\x1a\x1d.search.SearchUserIDsResponse\x12G\n" +
 	"\rSearchThreads\x12\x15.search.SearchRequest\x1a\x1f.search.SearchThreadIDsResponse\x12^\n" +
-	"\x13GetTrendingHashtags\x12\".search.GetTrendingHashtagsRequest\x1a#.search.GetTrendingHashtagsResponseBSZQgithub.com/Acad600-TPA/WEB-MJ-242/backend/search-service/genproto/search;searchpbb\x06proto3"
+	"\x13GetTrendingHashtags\x12\".search.GetTrendingHashtagsRequest\x1a#.search.GetTrendingHashtagsResponse\x12g\n" +
+	"\x16IncrementHashtagCounts\x12%.search.IncrementHashtagCountsRequest\x1a&.search.IncrementHashtagCountsResponseBSZQgithub.com/Acad600-TPA/WEB-MJ-242/backend/search-service/genproto/search;searchpbb\x06proto3"
 
 var (
 	file_proto_search_proto_rawDescOnce sync.Once
@@ -467,34 +560,38 @@ func file_proto_search_proto_rawDescGZIP() []byte {
 	return file_proto_search_proto_rawDescData
 }
 
-var file_proto_search_proto_msgTypes = make([]protoimpl.MessageInfo, 8)
+var file_proto_search_proto_msgTypes = make([]protoimpl.MessageInfo, 10)
 var file_proto_search_proto_goTypes = []any{
-	(*HealthResponse)(nil),              // 0: search.HealthResponse
-	(*SearchRequest)(nil),               // 1: search.SearchRequest
-	(*UserIDResult)(nil),                // 2: search.UserIDResult
-	(*ThreadIDResult)(nil),              // 3: search.ThreadIDResult
-	(*SearchUserIDsResponse)(nil),       // 4: search.SearchUserIDsResponse
-	(*SearchThreadIDsResponse)(nil),     // 5: search.SearchThreadIDsResponse
-	(*GetTrendingHashtagsRequest)(nil),  // 6: search.GetTrendingHashtagsRequest
-	(*GetTrendingHashtagsResponse)(nil), // 7: search.GetTrendingHashtagsResponse
-	(*emptypb.Empty)(nil),               // 8: google.protobuf.Empty
+	(*HealthResponse)(nil),                 // 0: search.HealthResponse
+	(*SearchRequest)(nil),                  // 1: search.SearchRequest
+	(*UserIDResult)(nil),                   // 2: search.UserIDResult
+	(*ThreadIDResult)(nil),                 // 3: search.ThreadIDResult
+	(*SearchUserIDsResponse)(nil),          // 4: search.SearchUserIDsResponse
+	(*SearchThreadIDsResponse)(nil),        // 5: search.SearchThreadIDsResponse
+	(*GetTrendingHashtagsRequest)(nil),     // 6: search.GetTrendingHashtagsRequest
+	(*GetTrendingHashtagsResponse)(nil),    // 7: search.GetTrendingHashtagsResponse
+	(*IncrementHashtagCountsRequest)(nil),  // 8: search.IncrementHashtagCountsRequest
+	(*IncrementHashtagCountsResponse)(nil), // 9: search.IncrementHashtagCountsResponse
+	(*emptypb.Empty)(nil),                  // 10: google.protobuf.Empty
 }
 var file_proto_search_proto_depIdxs = []int32{
-	2, // 0: search.SearchUserIDsResponse.user_results:type_name -> search.UserIDResult
-	3, // 1: search.SearchThreadIDsResponse.thread_results:type_name -> search.ThreadIDResult
-	8, // 2: search.SearchService.HealthCheck:input_type -> google.protobuf.Empty
-	1, // 3: search.SearchService.SearchUsers:input_type -> search.SearchRequest
-	1, // 4: search.SearchService.SearchThreads:input_type -> search.SearchRequest
-	6, // 5: search.SearchService.GetTrendingHashtags:input_type -> search.GetTrendingHashtagsRequest
-	0, // 6: search.SearchService.HealthCheck:output_type -> search.HealthResponse
-	4, // 7: search.SearchService.SearchUsers:output_type -> search.SearchUserIDsResponse
-	5, // 8: search.SearchService.SearchThreads:output_type -> search.SearchThreadIDsResponse
-	7, // 9: search.SearchService.GetTrendingHashtags:output_type -> search.GetTrendingHashtagsResponse
-	6, // [6:10] is the sub-list for method output_type
-	2, // [2:6] is the sub-list for method input_type
-	2, // [2:2] is the sub-list for extension type_name
-	2, // [2:2] is the sub-list for extension extendee
-	0, // [0:2] is the sub-list for field type_name
+	2,  // 0: search.SearchUserIDsResponse.user_results:type_name -> search.UserIDResult
+	3,  // 1: search.SearchThreadIDsResponse.thread_results:type_name -> search.ThreadIDResult
+	10, // 2: search.SearchService.HealthCheck:input_type -> google.protobuf.Empty
+	1,  // 3: search.SearchService.SearchUsers:input_type -> search.SearchRequest
+	1,  // 4: search.SearchService.SearchThreads:input_type -> search.SearchRequest
+	6,  // 5: search.SearchService.GetTrendingHashtags:input_type -> search.GetTrendingHashtagsRequest
+	8,  // 6: search.SearchService.IncrementHashtagCounts:input_type -> search.IncrementHashtagCountsRequest
+	0,  // 7: search.SearchService.HealthCheck:output_type -> search.HealthResponse
+	4,  // 8: search.SearchService.SearchUsers:output_type -> search.SearchUserIDsResponse
+	5,  // 9: search.SearchService.SearchThreads:output_type -> search.SearchThreadIDsResponse
+	7,  // 10: search.SearchService.GetTrendingHashtags:output_type -> search.GetTrendingHashtagsResponse
+	9,  // 11: search.SearchService.IncrementHashtagCounts:output_type -> search.IncrementHashtagCountsResponse
+	7,  // [7:12] is the sub-list for method output_type
+	2,  // [2:7] is the sub-list for method input_type
+	2,  // [2:2] is the sub-list for extension type_name
+	2,  // [2:2] is the sub-list for extension extendee
+	0,  // [0:2] is the sub-list for field type_name
 }
 
 func init() { file_proto_search_proto_init() }
@@ -508,7 +605,7 @@ func file_proto_search_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_proto_search_proto_rawDesc), len(file_proto_search_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   8,
+			NumMessages:   10,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

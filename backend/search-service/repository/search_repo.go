@@ -67,7 +67,6 @@ func NewSearchRepository() (*SearchRepository, error) {
         }
     }
 
-
 	// Enable pg_trgm extension and create trigram indexes if they don't exist.
 	// User DB
 	if err := userDB.Exec("CREATE EXTENSION IF NOT EXISTS pg_trgm;").Error; err != nil {
@@ -88,38 +87,42 @@ func NewSearchRepository() (*SearchRepository, error) {
 		log.Printf("Warning: Failed to create trigram index on threads.content: %v", err)
 	}
 
-
 	return &SearchRepository{userDB: userDB, threadDB: threadDB, redisClient: rdb}, nil
 }
 
-// SearchUsers performs a simple ILIKE search and can be augmented with trigram for fuzzy.
 func (r *SearchRepository) SearchUsers(ctx context.Context, query string, limit, offset int) ([]UserSearchIndex, error) {
 	var users []UserSearchIndex
-	searchQuery := "%" + strings.ToLower(query) + "%" // For ILIKE
+	normalizedQuery := strings.ToLower(query)
 
-	// Example using ILIKE. For trigram, you'd use similarity() or % operator.
-	// GORM with raw SQL for similarity:
-	// err := r.userDB.WithContext(ctx).
-	//  Raw("SELECT id, name, username, bio FROM users WHERE similarity(username, ?) > 0.3 OR similarity(name, ?) > 0.3 ORDER BY similarity(username, ?) DESC, similarity(name, ?) DESC LIMIT ? OFFSET ?",
-	//      query, query, query, query, limit, offset).
-	//  Scan(&users).Error
-	// For now, simple ILIKE:
+	// trigram similarity with threshold of 0.3
 	err := r.userDB.WithContext(ctx).
-		Where("LOWER(username) ILIKE ? OR LOWER(name) ILIKE ? OR LOWER(bio) ILIKE ?", searchQuery, searchQuery, searchQuery).
-		Order("username asc"). // Add more sophisticated ordering later
+		Where("word_similarity(name, ?) > 0.3 OR word_similarity(username, ?) > 0.3 OR word_similarity(bio, ?) > 0.3",
+			normalizedQuery, normalizedQuery, normalizedQuery).
+		Order(fmt.Sprintf("GREATEST(word_similarity(name, '%s'), word_similarity(username, '%s'), word_similarity(bio, '%s')) DESC", normalizedQuery, normalizedQuery, normalizedQuery)).
 		Limit(limit).Offset(offset).Find(&users).Error
-	return users, err
+
+	if err != nil {
+		log.Printf("Error searching users with trigram similarity: %v", err)
+		return nil, err
+	}
+	return users, nil
 }
 
-// SearchThreads performs a simple ILIKE search.
 func (r *SearchRepository) SearchThreads(ctx context.Context, query string, limit, offset int) ([]ThreadSearchIndex, error) {
 	var threads []ThreadSearchIndex
-	searchQuery := "%" + strings.ToLower(query) + "%"
+	normalizedQuery := strings.ToLower(query)
+
 	err := r.threadDB.WithContext(ctx).
-		Where("LOWER(content) ILIKE ?", searchQuery).
-		Order("id DESC"). // Example: newest first
-		Limit(limit).Offset(offset).Find(&threads).Error
-	return threads, err
+		Where("word_similarity(content, ?) > 0.3 AND deleted_at IS NULL", normalizedQuery).
+		Order(fmt.Sprintf("word_similarity(content, '%s') DESC", normalizedQuery)).
+		Limit(limit).
+		Offset(offset).Find(&threads).Error
+
+	if err != nil {
+		log.Printf("Error searching threads with trigram similarity: %v", err)
+		return nil, err
+	}
+	return threads, nil
 }
 
 // --- Trending Hashtags (Redis) ---

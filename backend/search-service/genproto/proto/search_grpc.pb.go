@@ -20,10 +20,11 @@ import (
 const _ = grpc.SupportPackageIsVersion9
 
 const (
-	SearchService_HealthCheck_FullMethodName         = "/search.SearchService/HealthCheck"
-	SearchService_SearchUsers_FullMethodName         = "/search.SearchService/SearchUsers"
-	SearchService_SearchThreads_FullMethodName       = "/search.SearchService/SearchThreads"
-	SearchService_GetTrendingHashtags_FullMethodName = "/search.SearchService/GetTrendingHashtags"
+	SearchService_HealthCheck_FullMethodName            = "/search.SearchService/HealthCheck"
+	SearchService_SearchUsers_FullMethodName            = "/search.SearchService/SearchUsers"
+	SearchService_SearchThreads_FullMethodName          = "/search.SearchService/SearchThreads"
+	SearchService_GetTrendingHashtags_FullMethodName    = "/search.SearchService/GetTrendingHashtags"
+	SearchService_IncrementHashtagCounts_FullMethodName = "/search.SearchService/IncrementHashtagCounts"
 )
 
 // SearchServiceClient is the client API for SearchService service.
@@ -34,6 +35,7 @@ type SearchServiceClient interface {
 	SearchUsers(ctx context.Context, in *SearchRequest, opts ...grpc.CallOption) (*SearchUserIDsResponse, error)
 	SearchThreads(ctx context.Context, in *SearchRequest, opts ...grpc.CallOption) (*SearchThreadIDsResponse, error)
 	GetTrendingHashtags(ctx context.Context, in *GetTrendingHashtagsRequest, opts ...grpc.CallOption) (*GetTrendingHashtagsResponse, error)
+	IncrementHashtagCounts(ctx context.Context, in *IncrementHashtagCountsRequest, opts ...grpc.CallOption) (*IncrementHashtagCountsResponse, error)
 }
 
 type searchServiceClient struct {
@@ -84,6 +86,16 @@ func (c *searchServiceClient) GetTrendingHashtags(ctx context.Context, in *GetTr
 	return out, nil
 }
 
+func (c *searchServiceClient) IncrementHashtagCounts(ctx context.Context, in *IncrementHashtagCountsRequest, opts ...grpc.CallOption) (*IncrementHashtagCountsResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(IncrementHashtagCountsResponse)
+	err := c.cc.Invoke(ctx, SearchService_IncrementHashtagCounts_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // SearchServiceServer is the server API for SearchService service.
 // All implementations must embed UnimplementedSearchServiceServer
 // for forward compatibility.
@@ -92,6 +104,7 @@ type SearchServiceServer interface {
 	SearchUsers(context.Context, *SearchRequest) (*SearchUserIDsResponse, error)
 	SearchThreads(context.Context, *SearchRequest) (*SearchThreadIDsResponse, error)
 	GetTrendingHashtags(context.Context, *GetTrendingHashtagsRequest) (*GetTrendingHashtagsResponse, error)
+	IncrementHashtagCounts(context.Context, *IncrementHashtagCountsRequest) (*IncrementHashtagCountsResponse, error)
 	mustEmbedUnimplementedSearchServiceServer()
 }
 
@@ -113,6 +126,9 @@ func (UnimplementedSearchServiceServer) SearchThreads(context.Context, *SearchRe
 }
 func (UnimplementedSearchServiceServer) GetTrendingHashtags(context.Context, *GetTrendingHashtagsRequest) (*GetTrendingHashtagsResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method GetTrendingHashtags not implemented")
+}
+func (UnimplementedSearchServiceServer) IncrementHashtagCounts(context.Context, *IncrementHashtagCountsRequest) (*IncrementHashtagCountsResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method IncrementHashtagCounts not implemented")
 }
 func (UnimplementedSearchServiceServer) mustEmbedUnimplementedSearchServiceServer() {}
 func (UnimplementedSearchServiceServer) testEmbeddedByValue()                       {}
@@ -207,6 +223,24 @@ func _SearchService_GetTrendingHashtags_Handler(srv interface{}, ctx context.Con
 	return interceptor(ctx, in, info, handler)
 }
 
+func _SearchService_IncrementHashtagCounts_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(IncrementHashtagCountsRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(SearchServiceServer).IncrementHashtagCounts(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: SearchService_IncrementHashtagCounts_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(SearchServiceServer).IncrementHashtagCounts(ctx, req.(*IncrementHashtagCountsRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // SearchService_ServiceDesc is the grpc.ServiceDesc for SearchService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -229,6 +263,10 @@ var SearchService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "GetTrendingHashtags",
 			Handler:    _SearchService_GetTrendingHashtags_Handler,
+		},
+		{
+			MethodName: "IncrementHashtagCounts",
+			Handler:    _SearchService_IncrementHashtagCounts_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

@@ -18,14 +18,13 @@ import (
 type SearchHandler struct {
 	searchpb.UnimplementedSearchServiceServer
 	repo *repository.SearchRepository
-	// userClient userpb.UserServiceClient // Needed if search results need more user data
 }
 
-const fuzzySearchSimilarityThreshold = 0.6 // 0.0 to 1.0
+const fuzzySearchSimilarityThreshold = 0.4 // 0.0 to 1.0
 const initialDbFetchLimitMultiplier = 5
 
-func NewSearchHandler(repo *repository.SearchRepository /*, userClient userpb.UserServiceClient */) *SearchHandler {
-	return &SearchHandler{repo: repo /*, userClient: userClient */}
+func NewSearchHandler(repo *repository.SearchRepository) *SearchHandler {
+	return &SearchHandler{repo: repo}
 }
 
 func (h *SearchHandler) HealthCheck(ctx context.Context, in *emptypb.Empty) (*searchpb.HealthResponse, error) {
@@ -45,7 +44,7 @@ func (h *SearchHandler) SearchUsers(ctx context.Context, req *searchpb.SearchReq
 	
 	// Desired final limit and page
 	finalLimit := int(req.Limit)
-	if finalLimit <= 0 || finalLimit > 50 { finalLimit = 10 } // Default final limit
+	if finalLimit <= 0 || finalLimit > 50 { finalLimit = 10 }
 	
 	// the 'page' and 'limit' in the request are for the final, fuzzy-matched result set
     initialDbFetchLimit := finalLimit * initialDbFetchLimitMultiplier 
@@ -149,7 +148,7 @@ func (h *SearchHandler) SearchThreads(ctx context.Context, req *searchpb.SearchR
 	normalizedQuery := strings.ToLower(req.Query)
 
 	for _, t := range dbThreads {
-		similarity := utils.CalculateSimilarityNormalized(t.Content, normalizedQuery)
+		similarity := utils.CalculateSimilarityPerWord(t.Content, normalizedQuery)
 		if similarity >= fuzzySearchSimilarityThreshold {
 			candidates = append(candidates, scoredThread{
 				idResult: &searchpb.ThreadIDResult{
@@ -165,6 +164,10 @@ func (h *SearchHandler) SearchThreads(ctx context.Context, req *searchpb.SearchR
 	sort.Slice(candidates, func(i, j int) bool {
 		return candidates[i].similarity > candidates[j].similarity
 	})
+
+	for _, c := range candidates {
+		log.Printf("Candidate: ID=%d, Similarity=%.2f, Content=%s", c.idResult.Id, c.similarity, c.idResult.ContentSnippet)
+	}
 
     // Apply pagination
     page := int(req.Page)
@@ -189,7 +192,7 @@ func (h *SearchHandler) SearchThreads(ctx context.Context, req *searchpb.SearchR
 func (h *SearchHandler) GetTrendingHashtags(ctx context.Context, req *searchpb.GetTrendingHashtagsRequest) (*searchpb.GetTrendingHashtagsResponse, error) {
     log.Printf("GetTrendingHashtags request: Limit=%d", req.Limit)
     limit := req.Limit
-    if limit <= 0 || limit > 20 { // Max 20 trending tags
+    if limit <= 0 || limit > 20 {
         limit = 10
     }
     tags, err := h.repo.GetTrendingHashtags(ctx, int64(limit))
@@ -198,6 +201,14 @@ func (h *SearchHandler) GetTrendingHashtags(ctx context.Context, req *searchpb.G
         return nil, status.Errorf(codes.Internal, "Failed to retrieve trending hashtags")
     }
     return &searchpb.GetTrendingHashtagsResponse{Hashtags: tags}, nil
+}
+
+func (h *SearchHandler) IncrementHashtagCounts(ctx context.Context, req *searchpb.IncrementHashtagCountsRequest) (*searchpb.IncrementHashtagCountsResponse, error) {
+	if len(req.Hashtags) == 0 {
+		return &searchpb.IncrementHashtagCountsResponse{Success: false}, nil
+	}
+	h.repo.IncrementHashtagCounts(ctx, req.Hashtags)
+	return &searchpb.IncrementHashtagCountsResponse{Success: true}, nil
 }
 
 // Helper for pagination

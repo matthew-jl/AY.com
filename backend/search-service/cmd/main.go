@@ -21,19 +21,13 @@ func main() {
 	repo, err := repository.NewSearchRepository()
 	if err != nil { log.Fatalf("failed to initialize search repository: %v", err) }
 
-	// userSvcClient for hydrating search results with user details (optional here, can be done in gateway)
-	// userSvcAddr := os.Getenv("USER_SERVICE_ADDR")
-	// userClient, userConn, err := NewUserServiceClientForSearchSvc(userSvcAddr) // Create this helper
-	// if err != nil { log.Fatalf("search-service failed to connect to user-service: %v", err) }
-	// defer userConn.Close()
-
 	port := os.Getenv("PORT")
 	if port == "" { port = "50054" }
 	lis, err := net.Listen("tcp", ":"+port)
 	if err != nil { log.Fatalf("failed to listen on port %s: %v", port, err) }
 
 	s := grpc.NewServer()
-	searchServer := searchhandler.NewSearchHandler(repo /*, userClient */)
+	searchServer := searchhandler.NewSearchHandler(repo)
 	searchpb.RegisterSearchServiceServer(s, searchServer)
 	reflection.Register(s)
 

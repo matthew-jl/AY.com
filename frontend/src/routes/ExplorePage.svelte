@@ -4,7 +4,7 @@
     import { currentPathname } from '../stores/locationStore';
     import { navigate, link } from 'svelte-routing';
     import ThreadComponent from '../components/ThreadComponent.svelte';
-    // import UserCard from '../components/UserCard.svelte'; // TODO: Create this component
+    import UserCard from '../components/UserCard.svelte';
   
     type SearchTab = 'top' | 'latest' | 'people' | 'media'; // No communities for now
     const DEFAULT_TAB: SearchTab = 'top';
@@ -42,7 +42,7 @@
       const initialQuery = urlParams.get('q');
       if (initialQuery) {
         searchQuery = initialQuery;
-        debouncedSearchQuery = initialQuery; // Trigger immediate search
+        debouncedSearchQuery = initialQuery;
         performSearch(initialQuery, activeTab);
       }
   
@@ -78,20 +78,18 @@
     // --- Debounce & Search Logic ---
     function handleSearchInput() {
       clearTimeout(debounceTimer);
-      currentError = null; // Clear error on new input
+      currentError = null;
       debounceTimer = window.setTimeout(() => {
         debouncedSearchQuery = searchQuery.trim();
         if (debouncedSearchQuery) {
           addRecentSearch(debouncedSearchQuery);
           performSearch(debouncedSearchQuery, activeTab);
-          // Update URL query parameter
           navigate(`/explore?q=${encodeURIComponent(debouncedSearchQuery)}`, { replace: true });
         } else {
-          // Clear results if search query is empty, show trending
           clearResults();
-          navigate('/explore', { replace: true }); // Clear query from URL
+          navigate('/explore', { replace: true });
         }
-      }, 500); // 500ms debounce
+      }, 500);
     }
   
     function clearSearch() {
@@ -111,25 +109,19 @@
       if (!query) return;
       isLoading = true;
       currentError = null;
-      clearResults(); // Clear previous results before new search
+      clearResults();
   
       console.log(`Performing search for "${query}" in tab "${tab}"`);
       try {
-        // For "Top" and "Latest", we might search both users and threads.
-        // Search Service needs to support this or we make multiple calls.
-        // For simplicity, let's assume separate calls for now.
         if (tab === 'top' || tab === 'people') {
-          const userResp = await api.searchUsers(query, 1, tab === 'top' ? 3 : 10); // Page 1, limit 3 for top, 10 for people
+          const userResp = await api.searchUsers(query, 1, tab === 'top' ? 3 : 10);
           if(tab === 'people') peopleResults = userResp.users || []; else topUsers = userResp.users || [];
         }
         if (tab === 'top' || tab === 'latest' || tab === 'media') {
-          // Assuming 'latest' is the default sort from searchThreads if no specific sort param
-          // and 'media' tab would filter threads that have media_ids
-          // Thread Service search needs to support filtering by 'has_media' if possible,
-          // or gateway filters, or frontend filters. For now, just general thread search.
           const threadResp = await api.searchThreads(query, 1, 10);
+          console.log("Thread search response:", threadResp.threads);
           if(tab === 'latest') latestThreads = threadResp.threads || [];
-          else if(tab === 'media') mediaThreads = (threadResp.threads || []).filter(t => t.media_ids && t.media_ids.length > 0); // Basic client filter
+          else if(tab === 'media') mediaThreads = (threadResp.threads || []).filter(t => t.media_ids && t.media_ids.length > 0);
           else if(tab === 'top') topThreads = threadResp.threads || [];
         }
       } catch (err) {
@@ -143,11 +135,10 @@
     async function fetchTrendingHashtags() {
       isLoadingTrending = true;
       try {
-        const response = await api.getTrendingHashtags(10); // Fetch top 10
+        const response = await api.getTrendingHashtags(10);
         trendingHashtags = response.hashtags || [];
       } catch (err) {
         console.error("Error fetching trending hashtags:", err);
-        // Handle error silently or show a message
       } finally {
         isLoadingTrending = false;
       }
@@ -156,11 +147,9 @@
     function switchTab(newTab: SearchTab) {
       if (activeTab === newTab) return;
       activeTab = newTab;
-      // If there's an active search query, re-run search for the new tab
       if (debouncedSearchQuery) {
         performSearch(debouncedSearchQuery, activeTab);
       }
-      // Otherwise, the tab switch will just change the view (e.g. from trending to empty search state)
     }
   
     function handleThreadDelete(event: CustomEvent<{ id: number }>) {
@@ -192,7 +181,7 @@
   
     {#if debouncedSearchQuery}
       <!-- Search Results View -->
-      <nav class="profile-tabs explore-tabs"> <!-- Re-use profile-tabs styling -->
+      <nav class="profile-tabs explore-tabs">
           <button class:active={activeTab === 'top'} on:click={() => switchTab('top')}>Top</button>
           <button class:active={activeTab === 'latest'} on:click={() => switchTab('latest')}>Latest</button>
           <button class:active={activeTab === 'people'} on:click={() => switchTab('people')}>People</button>
@@ -208,22 +197,18 @@
               <!-- Top Tab -->
               {#if activeTab === 'top'}
                   {#if topUsers.length > 0}
+                    <div class="top-people-section">
                       <h4>People</h4>
-                      <div class="user-results-list">
+                      <div class="user-results-list compact">
                           {#each topUsers as user (user.id)}
-                             <!-- TODO: <UserCard {user} /> -->
-                             <div class="simple-user-card">
-                                  <div class="avatar-placeholder-small">{user.name.charAt(0)}</div>
-                                  <div>
-                                      <strong>{user.name}</strong> @{user.username}
-                                      {#if user.bio}<p class="user-bio-snippet">{user.bio.substring(0,50)}...</p>{/if}
-                                  </div>
-                             </div>
+                             <UserCard {user} showFollowButton={true} />
                           {/each}
                       </div>
+                      <button class="view-all-btn" on:click={() => switchTab('people')}>View all</button>
+                    </div>
                   {/if}
                   {#if topThreads.length > 0}
-                      <h4>Threads</h4>
+                      <!-- <h4>Threads</h4> -->
                       {#each topThreads as thread (thread.id)}
                           <ThreadComponent {thread} on:delete={handleThreadDelete} />
                       {/each}
@@ -249,16 +234,7 @@
                   {#if peopleResults.length > 0}
                        <div class="user-results-list full">
                           {#each peopleResults as user (user.id)}
-                              <!-- TODO: <UserCard {user} showFollowButton={true} /> -->
-                               <div class="simple-user-card large">
-                                  <div class="avatar-placeholder-small">{user.name.charAt(0)}</div>
-                                  <div class="user-info">
-                                      <strong>{user.name}</strong>
-                                      <span>@{user.username}</span>
-                                       {#if user.bio}<p class="user-bio-snippet">{user.bio.substring(0,100)}...</p>{/if}
-                                  </div>
-                                  <button class="btn btn-secondary follow-btn-explore">Follow</button>
-                             </div>
+                              <UserCard {user} showFollowButton={true} />
                           {/each}
                       </div>
                   {:else}
@@ -476,7 +452,7 @@
   
     .explore-media-grid {
         display: grid;
-        grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); /* Adjust size */
+        grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
         gap: 4px;
         .media-grid-item {
             aspect-ratio: 1 / 1; background-color: var(--section-bg);
@@ -488,4 +464,41 @@
   
     .error-text { color: var(--error-color); font-size: 0.85rem; margin-top: 4px; }
    .api-error { margin-top: 1rem; text-align: center; font-weight: bold; }
+
+   .top-people-section {
+      border-bottom: 1px solid var(--border-color);
+      margin-bottom: 16px;
+      padding-bottom: 12px;
+      h4 { margin-top: 0; }
+  }
+  .user-results-list.compact .user-card {
+      border-bottom: none;
+  }
+  .view-all-btn {
+      display: block;
+      width: 100%;
+      padding: 12px;
+      text-align: left;
+      color: var(--primary-color);
+      background: none;
+      border: none;
+      border-top: 1px solid var(--border-color);
+      margin-top: 8px;
+      cursor: pointer;
+      font-size: 15px;
+      border-radius: 0 0 16px 16px;
+      &:hover {
+          background-color: var(--section-hover-bg);
+      }
+  }
+  .threads-header-top {
+      margin-top: 1.5rem;
+  }
+
+  .user-results-list.full .user-card {
+      border-bottom: 1px solid var(--border-color);
+      &:last-child {
+          border-bottom: none;
+      }
+  }
   </style>

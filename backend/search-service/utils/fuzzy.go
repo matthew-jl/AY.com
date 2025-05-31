@@ -91,3 +91,30 @@ func CalculateSimilarityNormalized(s1, s2 string) float64 {
 	distance := DamerauLevenshteinDistance(s1, s2)
 	return 1.0 - (float64(distance) / float64(maxLen))
 }
+
+func CalculateSimilarityPerWord(target, query string) float64 {
+	if target == "" || query == "" {
+		return 0.0
+	}
+
+	words := strings.Fields(strings.ToLower(target))
+	if len(words) == 0 {
+		return 0.0
+	}
+
+	normalizedQuery := strings.ToLower(query)
+	maxSimilarity := 0.0
+
+	for _, word := range words {
+		word = strings.Trim(word, ".,!?;:'\"()[]{}")
+		if word == "" {
+			continue
+		}
+		similarity := CalculateSimilarityNormalized(word, normalizedQuery)
+		if similarity > maxSimilarity {
+			maxSimilarity = similarity
+		}
+	}
+
+	return maxSimilarity
+}

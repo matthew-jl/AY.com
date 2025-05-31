@@ -7,7 +7,7 @@ import (
 	"sync"
 
 	"github.com/Acad600-TPA/WEB-MJ-242/backend/api-gateway/client"
-	// mediapb "github.com/Acad600-TPA/WEB-MJ-242/backend/media-service/genproto/proto"
+	mediapb "github.com/Acad600-TPA/WEB-MJ-242/backend/media-service/genproto/proto"
 	searchpb "github.com/Acad600-TPA/WEB-MJ-242/backend/search-service/genproto/proto"
 	threadpb "github.com/Acad600-TPA/WEB-MJ-242/backend/thread-service/genproto/proto"
 	userpb "github.com/Acad600-TPA/WEB-MJ-242/backend/user-service/genproto/proto"
@@ -103,100 +103,141 @@ func (h *SearchHandler) SearchThreadsHTTP(c *gin.Context) {
 	page, limit := parsePagination(c)
     requesterUserID, _ := getUserIDFromContext(c)
 
-	// 1. Get Thread IDs (and snippets, author IDs) from Search Service
-	idResp, err := h.searchClient.SearchThreads(c.Request.Context(), &searchpb.SearchRequest{Query: query, Page: page, Limit: limit})
+	// 1. Get Thread ID Results from Search Service
+	searchServiceResp, err := h.searchClient.SearchThreads(c.Request.Context(), &searchpb.SearchRequest{Query: query, Page: page, Limit: limit})
 	if err != nil { handleGRPCError(c, "search thread IDs", err); return }
 
-	if idResp == nil || len(idResp.GetThreadResults()) == 0 {
+	if searchServiceResp == nil || len(searchServiceResp.GetThreadResults()) == 0 {
 		c.JSON(http.StatusOK, SearchThreadsAPIResponse{Threads: []FrontendThreadData{}, HasMore: false})
 		return
 	}
 
-	// 2. Collect Thread IDs and unique Author IDs
-	threadIDsToFetch := make([]uint32, 0, len(idResp.GetThreadResults()))
-	authorIDsSet := make(map[uint32]bool)
-	for _, threadResult := range idResp.GetThreadResults() {
-		threadIDsToFetch = append(threadIDsToFetch, threadResult.GetId())
-		if threadResult.GetUserId() != 0 {
-			authorIDsSet[threadResult.GetUserId()] = true
+	// 2. Collect IDs
+	threadIDsToFetchFullDetails := make([]uint32, 0, len(searchServiceResp.GetThreadResults()))
+	authorIDsSet := make(map[uint32]bool)      // To collect unique author IDs
+
+	for _, searchResult := range searchServiceResp.GetThreadResults() {
+		threadIDsToFetchFullDetails = append(threadIDsToFetchFullDetails, searchResult.GetId())
+		if searchResult.GetUserId() != 0 {
+			authorIDsSet[searchResult.GetUserId()] = true
 		}
 	}
-	var authorIDsToFetchDetails []uint32
-	for id := range authorIDsSet { authorIDsToFetchDetails = append(authorIDsToFetchDetails, id) }
 
+	var authorIDsToFetchProfiles []uint32
+	for id := range authorIDsSet { authorIDsToFetchProfiles = append(authorIDsToFetchProfiles, id) }
 
-	// 3. Fetch Full Thread Details (this will include likes, bookmarks specific to requester) and Author Details in parallel
+	// 3. Fetch Full Thread Details, Author Details, and Media Details in Parallel
 	var wg sync.WaitGroup
-	fullThreadsMap := make(map[uint32]*threadpb.Thread) // From thread.proto
-	authorsMap := make(map[uint32]*userpb.User)      // From user.proto
-    // mediaMap := make(map[uint32]*mediapb.Media)      // From media.proto
-	// var threadsErr error 
-	var authorsErr error 
-	// var mediaErr error
+	fullThreadsDataMap := make(map[uint32]*threadpb.Thread)
+	authorsProfileMap := make(map[uint32]*userpb.User)
+	mediaMetadataMap := make(map[uint32]*mediapb.Media)
+	var authorsErr, mediaErr error
 
-	// Goroutine to fetch details for each thread
-	threadDetailsChan := make(chan *threadpb.Thread, len(threadIDsToFetch))
+	fetchedThreadsChan := make(chan *threadpb.Thread, len(threadIDsToFetchFullDetails))
 
-	for _, threadID := range threadIDsToFetch {
+	// Launch goroutines for fetching individual full thread details
+	for _, threadID := range threadIDsToFetchFullDetails {
 		wg.Add(1)
-		go func(tid uint32) {
+		go func(tid uint32, reqUID uint32) {
 			defer wg.Done()
-			if h.threadClient == nil { log.Println("SearchThreadsHTTP: threadClient is nil"); return }
-			threadDetail, err := h.threadClient.GetThread(c.Request.Context(), &threadpb.GetThreadRequest{
-				ThreadId:      tid,
-				CurrentUserId: &requesterUserID,
-			})
-			if err != nil {
-				log.Printf("SearchThreadsHTTP: Error fetching detail for thread %d: %v", tid, err)
+			if h.threadClient == nil {
+				log.Println("SearchThreadsHTTP: threadClient is nil")
 				return
 			}
-			threadDetailsChan <- threadDetail
-		}(threadID)
+			threadDetail, err := h.threadClient.GetThread(c.Request.Context(), &threadpb.GetThreadRequest{
+				ThreadId:      tid,
+				CurrentUserId: &reqUID,
+			})
+			if err != nil {
+				log.Printf("SearchThreadsHTTP: Error fetching full detail for thread %d: %v", tid, err)
+				return
+			}
+			fetchedThreadsChan <- threadDetail
+		}(threadID, requesterUserID)
 	}
 
-	// Goroutine to fetch author details
-	if len(authorIDsToFetchDetails) > 0 && h.userClient != nil {
+	// Launch goroutine for fetching author profiles
+	if len(authorIDsToFetchProfiles) > 0 && h.userClient != nil {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			resp, err := h.userClient.GetUserProfilesByIds(c.Request.Context(), &userpb.GetUserProfilesByIdsRequest{UserIds: authorIDsToFetchDetails})
-			if err != nil { authorsErr = err; return }
-			if resp != nil { authorsMap = resp.GetUsers() }
+			resp, err := h.userClient.GetUserProfilesByIds(c.Request.Context(), &userpb.GetUserProfilesByIdsRequest{UserIds: authorIDsToFetchProfiles})
+			if err != nil {
+				authorsErr = err
+				return
+			}
+			if resp != nil {
+				authorsProfileMap = resp.GetUsers()
+			}
 		}()
 	}
 
+	allMediaIDsToFetch := make(chan []uint32, 1)
+
+	// Goroutine to collect thread results and trigger media fetch
+	go func() {
+		tempAllMediaIDsSet := make(map[uint32]bool)
+
+		for threadDetail := range fetchedThreadsChan {
+			if threadDetail != nil {
+				fullThreadsDataMap[threadDetail.GetId()] = threadDetail
+				for _, mediaID := range threadDetail.GetMediaIds() {
+					if mediaID != 0 {
+						tempAllMediaIDsSet[mediaID] = true
+					}
+				}
+			}
+		}
+
+		// After all threads are processed from the channel, send media IDs to be fetched
+		var mediaIDs []uint32
+		for id := range tempAllMediaIDsSet {
+			mediaIDs = append(mediaIDs, id)
+		}
+		allMediaIDsToFetch <- mediaIDs
+		close(allMediaIDsToFetch)
+	}()
+
     go func() {
         wg.Wait()
-        close(threadDetailsChan)
+        close(fetchedThreadsChan)
     }()
 
-    for threadDetail := range threadDetailsChan {
-        if threadDetail != nil {
-            fullThreadsMap[threadDetail.GetId()] = threadDetail
+
+    // Now fetch media based on IDs collected from fullThreadsDataMap
+    mediaIDsFromFullThreads := <-allMediaIDsToFetch
+
+    if len(mediaIDsFromFullThreads) > 0 && h.mediaClient != nil {
+        resp, err := h.mediaClient.GetMultipleMediaMetadata(c.Request.Context(), &mediapb.GetMultipleMediaMetadataRequest{MediaIds: mediaIDsFromFullThreads})
+        if err != nil {
+            mediaErr = err
+        } else if resp != nil {
+            mediaMetadataMap = resp.GetMediaItems()
         }
     }
 
+	if authorsErr != nil { log.Printf("SearchThreadsHTTP: Error occurred during author profile fetching: %v", authorsErr) }
+	if mediaErr != nil { log.Printf("SearchThreadsHTTP: Error occurred during media metadata fetching: %v", mediaErr) }
 
-    if authorsErr != nil { log.Printf("SearchThreadsHTTP: Error fetching all author details: %v", authorsErr) }
-    // TODO: Media hydration for threads from search results.
-
-	// 4. Map to Frontend Structure
-	frontendThreads := make([]FrontendThreadData, 0, len(idResp.GetThreadResults()))
-	for _, searchResultThread := range idResp.GetThreadResults() {
-		if fullThread, ok := fullThreadsMap[searchResultThread.GetId()]; ok && fullThread != nil {
-			feThread := mapProtoThreadToFrontend(fullThread, authorsMap, nil) // Pass nil for mediaMap for now
-            // Add the snippet from search result if different from full content
-            if searchResultThread.GetContentSnippet() != "" && searchResultThread.GetContentSnippet() != fullThread.GetContent() {
-                // feThread.Content = searchResultThread.GetContentSnippet() // Or add a new field for snippet
-            }
+	// 4. Map to Frontend Structure, using the order from original search results
+	frontendThreads := make([]FrontendThreadData, 0, len(searchServiceResp.GetThreadResults()))
+	for _, searchResult := range searchServiceResp.GetThreadResults() {
+		if fullThreadData, ok := fullThreadsDataMap[searchResult.GetId()]; ok && fullThreadData != nil {
+			feThread := mapProtoThreadToFrontend(fullThreadData, authorsProfileMap, mediaMetadataMap)
 			frontendThreads = append(frontendThreads, feThread)
+		} else {
+			log.Printf("SearchThreadsHTTP: Full details not found or fetch failed for searched thread ID %d, using minimal data.", searchResult.GetId())
+             frontendThreads = append(frontendThreads, FrontendThreadData{
+                 ID: searchResult.GetId(),
+                 UserID: searchResult.GetUserId(),
+                 Content: searchResult.GetContentSnippet(),
+             })
 		}
 	}
 
-
 	c.JSON(http.StatusOK, SearchThreadsAPIResponse{
 		Threads: frontendThreads,
-		HasMore: idResp.GetHasMore(),
+		HasMore: searchServiceResp.GetHasMore(),
 	})
 }
 

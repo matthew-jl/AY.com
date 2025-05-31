@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log"
 
+	searchpb "github.com/Acad600-TPA/WEB-MJ-242/backend/search-service/genproto/proto"
 	threadpb "github.com/Acad600-TPA/WEB-MJ-242/backend/thread-service/genproto/proto"
 	"github.com/Acad600-TPA/WEB-MJ-242/backend/thread-service/repository/postgres"
 	"github.com/Acad600-TPA/WEB-MJ-242/backend/thread-service/utils"
@@ -22,12 +23,14 @@ type ThreadHandler struct {
 	threadpb.UnimplementedThreadServiceServer
 	repo *postgres.ThreadRepository
 	userClient userpb.UserServiceClient
+	searchClient searchpb.SearchServiceClient
 }
 
-func NewThreadHandler(repo *postgres.ThreadRepository, userClient userpb.UserServiceClient) *ThreadHandler {
+func NewThreadHandler(repo *postgres.ThreadRepository, userClient userpb.UserServiceClient, searchClient searchpb.SearchServiceClient) *ThreadHandler {
 	return &ThreadHandler{
 		repo: repo,
 		userClient: userClient,
+		searchClient: searchClient,
 	}
 }
 
@@ -48,7 +51,6 @@ func (h *ThreadHandler) CreateThread(ctx context.Context, req *threadpb.CreateTh
 	if req.Content == "" && len(req.MediaIds) == 0 {
          return nil, status.Errorf(codes.InvalidArgument, "Thread must have content or media")
     }
-    // Add more validation: content length, media ID existence (by calling media service?), etc.
 
 	thread := &postgres.Thread{
 		UserID:           uint(req.UserId),
@@ -68,15 +70,12 @@ func (h *ThreadHandler) CreateThread(ctx context.Context, req *threadpb.CreateTh
          scheduledTime := req.ScheduledAt.AsTime()
          thread.ScheduledAt = &scheduledTime
     }
-     // IsAdvertisement would be set based on user role check, likely done in gateway or here if user info passed
 
 	extractedHashtags := utils.ExtractHashtags(req.Content)
 	extractedMentionUsernames := utils.ExtractMentions(req.Content)
 
-	// Resolve mentioned usernames to IDs by calling User Service
 	var mentionedUserIDs []uint32
-	if len(extractedMentionUsernames) > 0 && h.userClient != nil { // Check if userClient is available
-		// This could be a batch "GetUsersByUsernames" RPC in User Service for efficiency
+	if len(extractedMentionUsernames) > 0 && h.userClient != nil {
 		for _, username := range extractedMentionUsernames {
 			userResp, err := h.userClient.GetUserByUsername(ctx, &userpb.GetUserByUsernameRequest{Username: username})
 			if err == nil && userResp != nil {
@@ -87,14 +86,11 @@ func (h *ThreadHandler) CreateThread(ctx context.Context, req *threadpb.CreateTh
 		}
 	}
 
-	// Create thread in a transaction to also save hashtags/mentions
 	err := h.repo.DB().WithContext(ctx).Transaction(func(tx *gorm.DB) error {
-		// Use tx for all operations within the transaction
 		tempRepo := postgres.NewThreadRepositoryWithTx(tx)
 		if err := tempRepo.CreateThread(ctx, thread); err != nil {
 			return err
 		}
-		// After thread is created and has an ID:
 		if len(extractedHashtags) > 0 {
 			if err := tempRepo.AddHashtags(ctx, thread.ID, extractedHashtags); err != nil {
 				return fmt.Errorf("failed to add hashtags: %w", err)
@@ -114,19 +110,10 @@ func (h *ThreadHandler) CreateThread(ctx context.Context, req *threadpb.CreateTh
 	}
 
     // Increment hashtag counts for trending (after successful thread creation)
-    // This could be an async call to Search Service or direct Redis interaction.
-    // For simplicity, let's assume Search Service will have an RPC to increment them
-    // OR ThreadService connects to Redis directly.
-    // If ThreadService has its own Redis client:
-    // if h.redisClient != nil && len(extractedHashtags) > 0 {
-    // go h.incrementTrendingHashtagsInBackground(extractedHashtags)
-    // }
-    // For now, let's log and assume Search Service will pick up hashtags for trending.
     if len(extractedHashtags) > 0 {
         log.Printf("Thread %d created with hashtags: %v. Search service should process these.", thread.ID, extractedHashtags)
-        // TODO: If search service has an IncrementHashtags RPC:
-        // _, errSearch := h.searchClient.IncrementHashtags(ctx, &searchpb.IncrementHashtagsRequest{Hashtags: extractedHashtags})
-        // if errSearch != nil { log.Printf("Error calling SearchService to increment hashtags: %v", errSearch)}
+        _, errSearch := h.searchClient.IncrementHashtagCounts(ctx, &searchpb.IncrementHashtagCountsRequest{Hashtags: extractedHashtags})
+        if errSearch != nil { log.Printf("Error calling SearchService to increment hashtags: %v", errSearch)}
     }
 
 	// Map DB model back to proto response

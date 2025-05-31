@@ -33,13 +33,24 @@ func main() {
 	}
 	defer userClient.Close()
 
+	// Initialize search client
+	searchServiceAddr := os.Getenv("SEARCH_SERVICE_ADDR")
+	if searchServiceAddr == "" {
+		searchServiceAddr = "search-service:50054" // Default to search-service container name and port
+	}
+	searchClient, err := client.NewSearchClient(searchServiceAddr)
+	if err != nil {
+		log.Fatalf("failed to initialize search client: %v", err)
+	}
+	defer searchClient.Close()
+
 	port := os.Getenv("PORT")
 	if port == "" { port = "50052" } // Default thread service port
 	lis, err := net.Listen("tcp", ":"+port)
 	if err != nil { log.Fatalf("failed to listen on port %s: %v", port, err) }
 
 	s := grpc.NewServer()
-	threadServer := threadhandler.NewThreadHandler(repo, userClient.GetClient())
+	threadServer := threadhandler.NewThreadHandler(repo, userClient.GetClient(), searchClient.GetClient())
 	threadpb.RegisterThreadServiceServer(s, threadServer)
 	reflection.Register(s)
 

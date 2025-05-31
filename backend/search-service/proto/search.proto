@@ -11,6 +11,7 @@ service SearchService {
   rpc SearchUsers(SearchRequest) returns (SearchUserIDsResponse);
   rpc SearchThreads(SearchRequest) returns (SearchThreadIDsResponse);
   rpc GetTrendingHashtags(GetTrendingHashtagsRequest) returns (GetTrendingHashtagsResponse);
+  rpc IncrementHashtagCounts(IncrementHashtagCountsRequest) returns (IncrementHashtagCountsResponse);
 }
 
 message HealthResponse { string status = 1; }
@@ -49,4 +50,12 @@ message GetTrendingHashtagsRequest {
 
 message GetTrendingHashtagsResponse {
   repeated string hashtags = 1;
+}
+
+message IncrementHashtagCountsRequest {
+  repeated string hashtags = 1;
+}
+
+message IncrementHashtagCountsResponse {
+  bool success = 1;
 }

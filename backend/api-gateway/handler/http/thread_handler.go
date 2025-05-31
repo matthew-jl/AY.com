@@ -547,7 +547,6 @@ func (h *ThreadHandler) GetUserSpecificThreads(c *gin.Context) {
          }
     }
 
-
 	// 3. Get Exclude IDs (users blocked by/blocking the requester) for filtering the target's content.
 	excludeUserIDs, err := h.getFeedExclusionIDs(c.Request.Context(), requesterUserID)
 	if err != nil {
