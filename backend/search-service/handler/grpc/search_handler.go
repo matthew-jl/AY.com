@@ -195,12 +195,21 @@ func (h *SearchHandler) GetTrendingHashtags(ctx context.Context, req *searchpb.G
     if limit <= 0 || limit > 20 {
         limit = 10
     }
-    tags, err := h.repo.GetTrendingHashtags(ctx, int64(limit))
+    tagsWithScores, err := h.repo.GetTrendingHashtags(ctx, int64(limit))
     if err != nil {
         log.Printf("Error getting trending hashtags: %v", err)
         return nil, status.Errorf(codes.Internal, "Failed to retrieve trending hashtags")
     }
-    return &searchpb.GetTrendingHashtagsResponse{Hashtags: tags}, nil
+
+	protoTrendingHashtags := make([]*searchpb.TrendingHashtag, len(tagsWithScores))
+    for i, tagScore := range tagsWithScores {
+        protoTrendingHashtags[i] = &searchpb.TrendingHashtag{
+            Tag:   tagScore.Tag,
+            Count: int32(tagScore.Count),
+        }
+    }
+
+    return &searchpb.GetTrendingHashtagsResponse{TrendingHashtags: protoTrendingHashtags}, nil
 }
 
 func (h *SearchHandler) IncrementHashtagCounts(ctx context.Context, req *searchpb.IncrementHashtagCountsRequest) (*searchpb.IncrementHashtagCountsResponse, error) {
@@ -209,6 +218,35 @@ func (h *SearchHandler) IncrementHashtagCounts(ctx context.Context, req *searchp
 	}
 	h.repo.IncrementHashtagCounts(ctx, req.Hashtags)
 	return &searchpb.IncrementHashtagCountsResponse{Success: true}, nil
+}
+
+func (h *SearchHandler) GetTopUsersToFollow(ctx context.Context, req *searchpb.GetTopUsersToFollowRequest) (*searchpb.SearchUserIDsResponse, error) {
+	log.Printf("GetTopUsersToFollow request: Limit=%d, ExcludeUserID=%d", req.Limit, req.GetExcludeUserId())
+	limit := int(req.Limit)
+	if limit <= 0 || limit > 10 {
+		limit = 3
+	}
+
+    var excludeID *uint
+    if req.GetExcludeUserId() != 0 {
+        uid := uint(req.GetExcludeUserId())
+        excludeID = &uid
+    }
+
+	topDBUsers, err := h.repo.GetTopUsersByFollowerCount(ctx, limit, excludeID)
+	if err != nil {
+		log.Printf("Error getting top users from repo: %v", err)
+		return nil, status.Errorf(codes.Internal, "Failed to retrieve top users to follow")
+	}
+
+	userResults := make([]*searchpb.UserIDResult, len(topDBUsers))
+	for i, u := range topDBUsers {
+		userResults[i] = &searchpb.UserIDResult{
+			Id: uint32(u.ID),
+		}
+	}
+
+	return &searchpb.SearchUserIDsResponse{UserResults: userResults, HasMore: false}, nil
 }
 
 // Helper for pagination

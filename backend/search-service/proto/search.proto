@@ -12,6 +12,7 @@ service SearchService {
   rpc SearchThreads(SearchRequest) returns (SearchThreadIDsResponse);
   rpc GetTrendingHashtags(GetTrendingHashtagsRequest) returns (GetTrendingHashtagsResponse);
   rpc IncrementHashtagCounts(IncrementHashtagCountsRequest) returns (IncrementHashtagCountsResponse);
+  rpc GetTopUsersToFollow(GetTopUsersToFollowRequest) returns (SearchUserIDsResponse);
 }
 
 message HealthResponse { string status = 1; }
@@ -44,12 +45,17 @@ message SearchThreadIDsResponse {
   bool has_more = 2;
 }
 
+message TrendingHashtag {
+  string tag = 1;
+  int32 count = 2;
+}
+
 message GetTrendingHashtagsRequest {
   int32 limit = 1;
 }
 
 message GetTrendingHashtagsResponse {
-  repeated string hashtags = 1;
+  repeated TrendingHashtag trending_hashtags = 1;
 }
 
 message IncrementHashtagCountsRequest {
@@ -58,4 +64,9 @@ message IncrementHashtagCountsRequest {
 
 message IncrementHashtagCountsResponse {
   bool success = 1;
+}
+
+message GetTopUsersToFollowRequest {
+  int32 limit = 1;
+  optional uint32 exclude_user_id = 2;
 }

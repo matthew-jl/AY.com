@@ -1,9 +1,17 @@
 <script lang="ts">
   import { link, navigate } from 'svelte-routing';
   import { onMount } from 'svelte';
+  import { api, type TrendingHashtagItem, type UserProfileBasic } from '../lib/api';
+  import UserCard from './UserCard.svelte';
 
   let searchQuery = '';
   let recentSearches: string[] = [];
+  let searchBarFocused = false;
+  
+  let trendingHashtags: TrendingHashtagItem[] = [];
+  let whoToFollowUsers: UserProfileBasic[] = [];
+  let isLoadingTrending = true;
+  let isLoadingWhoToFollow = true;
 
   function handleSearchSubmit() {
     if (searchQuery.trim()) {
@@ -18,39 +26,69 @@
       if (stored) {
         recentSearches = JSON.parse(stored);
       }
-    }
-    function saveRecentSearches() {
-      localStorage.setItem('recentSearches_AY', JSON.stringify(recentSearches.slice(0, 5))); // Save top 5
-    }
-    function addRecentSearch(term: string) {
-      if (!term.trim() || recentSearches.includes(term.trim())) return;
-      recentSearches = [term.trim(), ...recentSearches.filter(s => s !== term.trim())];
-      saveRecentSearches();
-    }
-    function clearAllRecent() {
-      recentSearches = [];
-      saveRecentSearches();
-    }
-    function searchFromRecentSidebar(term: string) {
-      addRecentSearch(term); // Still add it even if clicked, moves to top
-      navigate(`/explore?q=${encodeURIComponent(term)}`);
-    }
-  
+  }
+  function saveRecentSearches() {
+    localStorage.setItem('recentSearches_AY', JSON.stringify(recentSearches.slice(0, 5))); // Save top 5
+  }
+  function addRecentSearch(term: string) {
+    if (!term.trim() || recentSearches.includes(term.trim())) return;
+    recentSearches = [term.trim(), ...recentSearches.filter(s => s !== term.trim())];
+    saveRecentSearches();
+  }
+  function clearAllRecent() {
+    recentSearches = [];
+    saveRecentSearches();
+  }
+  function searchFromRecentSidebar(term: string) {
+    addRecentSearch(term);
+    navigate(`/explore?q=${encodeURIComponent(term)}`);
+  }
 
-  onMount(loadRecentSearches);
+  async function fetchTrending() {
+    isLoadingTrending = true;
+    try {
+      const response = await api.getTrendingHashtags(5); // Get top 5
+      // The current backend GetTrendingHashtagsResponse only returns string[]
+      // We need to adapt if we want counts displayed (backend SearchService needs to return counts)
+      trendingHashtags = response.trending_hashtags || []
+    } catch (err) {
+      console.error("Error fetching trending hashtags for sidebar:", err);
+    } finally {
+      isLoadingTrending = false;
+    }
+  }
+
+  async function fetchWhoToFollow() {
+    isLoadingWhoToFollow = true;
+    try {
+      const response = await api.getWhoToFollow(3); // Get top 3
+      whoToFollowUsers = response.users || [];
+    } catch (err) {
+      console.error("Error fetching who to follow for sidebar:", err);
+    } finally {
+      isLoadingWhoToFollow = false;
+    }
+  }
+  
+  onMount(() => {
+    loadRecentSearches();
+    fetchTrending();
+    fetchWhoToFollow();
+  });
+
 </script>
 
 <aside class="right-sidebar">
   <div class="sticky-container">
     <div class="search-container">
       <form class="search-bar" on:submit|preventDefault={handleSearchSubmit}>
-        <svg viewBox="0 0 24 24" class="search-icon">...</svg>
-        <input type="text" placeholder="Search" aria-label="Search query" bind:value={searchQuery} />
+        <svg viewBox="0 0 24 24" class="search-icon"><g><path d="M10.25 3.75c-3.59 0-6.5 2.91-6.5 6.5s2.91 6.5 6.5 6.5c1.795 0 3.42-.726 4.596-1.904 1.178-1.177 1.904-2.801 1.904-4.596 0-3.59-2.91-6.5-6.5-6.5zm-8.5 6.5c0-4.694 3.806-8.5 8.5-8.5s8.5 3.806 8.5 8.5c0 1.986-.682 3.815-1.824 5.262l4.781 4.781-1.414 1.414-4.781-4.781c-1.447 1.142-3.276 1.824-5.262 1.824-4.694 0-8.5-3.806-8.5-8.5z"></path></g></svg>
+        <input type="text" placeholder="Search" aria-label="Search query" bind:value={searchQuery} on:focus={() => searchBarFocused = true} on:blur={() => searchBarFocused = false}/>
         {#if searchQuery} <button type="button" class="clear-search-btn-sidebar" on:click={() => searchQuery = ''}>×</button> {/if}
         <button type="submit" style="display:none;" aria-hidden="true"></button>
       </form>
        <!-- Display recent searches if search query is empty and recent searches exist -->
-      {#if !searchQuery && recentSearches.length > 0}
+      {#if searchBarFocused && !searchQuery && recentSearches.length > 0}
         <div class="recent-searches-dropdown">
             <div class="dropdown-header">
                 <span>Recent</span>
@@ -65,7 +103,59 @@
       {/if}
     </div>
 
-    <!-- ... (Premium Box, What's Happening, Who to Follow sections remain) ... -->
+    <!-- Ads for premium subscription (Placeholder) -->
+    <section class="content-box premium-box">
+      <h3>Subscribe to Premium</h3>
+      <p>Subscribe to unlock new features and if eligible, receive a share of ads revenue.</p>
+      <a href="/premium" use:link class="premium-button">Subscribe</a>
+    </section>
+
+    <!-- What's Happening Section -->
+    <section class="content-box whats-happening">
+      <h3>What's happening</h3>
+      {#if isLoadingTrending}
+        <div class="list-item"><p>Loading trends...</p></div>
+      {:else if trendingHashtags.length > 0}
+        <ul>
+          {#each trendingHashtags as trend (trend.tag)}
+            <li class="list-item">
+              <a href="/explore?q=%23{trend.tag}" use:link class="trend-link-sidebar">
+                <span class="trend-tag-sidebar">#{trend.tag}</span>
+                {#if trend.count && trend.count > 0}
+                  <span class="trend-count-sidebar">{trend.count.toLocaleString()} posts</span>
+                {/if}
+              </a>
+            </li>
+          {/each}
+        </ul>
+        <!-- <div class="list-item show-more">
+            <a href="/explore" use:link>Show more</a>
+        </div> -->
+      {:else}
+        <div class="list-item"><p>No trends right now.</p></div>
+      {/if}
+    </section>
+
+    <!-- Who to Follow Section -->
+    <section class="content-box who-to-follow-sidebar">
+      <h3>Who to follow</h3>
+      {#if isLoadingWhoToFollow}
+         <div class="list-item"><p>Loading suggestions...</p></div>
+      {:else if whoToFollowUsers.length > 0}
+        <ul>
+          {#each whoToFollowUsers as user (user.id)}
+            <li class="list-item no-border">
+              <UserCard {user} showFollowButton={true} />
+            </li>
+          {/each}
+        </ul>
+         <!-- <div class="list-item show-more">
+            <a href="/connect_people" use:link>Show more</a>
+        </div> -->
+      {:else}
+        <div class="list-item"><p>No suggestions right now.</p></div>
+      {/if}
+    </section>
   </div>
 </aside>
 
@@ -100,7 +190,7 @@
 
   .content-box h3 {
     font-size: 20px;
-    font-weight: 800;
+    font-weight: 700;
     padding: 12px 16px;
     margin: 0;
     border-bottom: 1px solid var(--border-color);
@@ -345,6 +435,33 @@
           padding: 10px 12px; background: none; border: none;
           color: var(--text-color); cursor: pointer; font-size: 15px;
           &:hover { background-color: var(--section-hover-bg); }
+      }
+  }
+
+  .trend-link-sidebar {
+      display: block;
+      padding: 10px 16px;
+      text-decoration: none;
+      color: inherit;
+       &:hover { background-color: var(--section-hover-bg); }
+
+      .trend-context-sidebar {
+          font-size: 13px;
+          color: var(--secondary-text-color);
+          display: block;
+          margin-bottom: 2px;
+      }
+      .trend-tag-sidebar {
+          font-size: 15px;
+          font-weight: bold;
+          color: var(--text-color);
+          display: block;
+      }
+      .trend-count-sidebar {
+          font-size: 13px;
+          color: var(--secondary-text-color);
+          display: block;
+          margin-top: 2px;
       }
   }
 

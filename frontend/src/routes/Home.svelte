@@ -217,7 +217,7 @@
 
     h1 {
       font-size: 20px;
-      font-weight: bold;
+      font-weight: 800;
       padding: 12px 16px;
       margin: 0;
     }

@@ -84,7 +84,18 @@ func (h *AuthHandler) HealthCheck(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"status": resp.Status})
 }
 
-// Register forwards the registration request to the user service
+// Register godoc
+// @Summary Register a new user
+// @Description Register a new user with name, username, email, password, gender, date of birth, security question and answer, and optional profile picture and banner URLs
+// @Tags auth
+// @Accept json
+// @Produce json
+// @Param        payload  body  RegisterPayload  true  "User registration details"
+// @Success      200      {object}  emptypb.Empty		"Empty response on successful registration"
+// @Failure      400      {object}  map[string]string	"Invalid request body"
+// @Failure      409      {object}  map[string]string	"Conflict (e.g., email already exists)"
+// @Failure      500      {object}  map[string]string	"Internal server error"
+// @Router /auth/register [post]
 func (h *AuthHandler) Register(c *gin.Context) {
 	var payload RegisterPayload
 	if err := c.ShouldBindJSON(&payload); err != nil {
@@ -277,6 +288,17 @@ func (h *AuthHandler) ResendVerificationCode(c *gin.Context) {
     c.JSON(http.StatusOK, gin.H{"message": "Verification code resent successfully. Please check your email."})
 }
 
+// GetProfile godoc
+// @Summary Get current user's profile
+// @Description Retrieve the authenticated user's profile details
+// @Tags users
+// @Produce json
+// @Security BearerAuth
+// @Success 200 {object} userpb.UserProfileResponse "User profile details"
+// @Failure 401 {object} map[string]string "Authentication context missing or unauthorized"
+// @Failure 404 {object} map[string]string "User profile not found"
+// @Failure 500 {object} map[string]string "Internal server error"
+// @Router /users/me/profile [get]
 func (h *AuthHandler) GetProfile(c *gin.Context) {
 	// Retrieve userID set by the AuthMiddleware
 	userIDAny, exists := c.Get("userID")
@@ -321,6 +343,19 @@ func (h *AuthHandler) GetProfile(c *gin.Context) {
 	c.JSON(http.StatusOK, resp)
 }
 
+// UpdateOwnUserProfile godoc
+// @Summary Update current user's profile
+// @Description Update the authenticated user's profile information
+// @Tags users
+// @Accept json
+// @Produce json
+// @Param profile body UpdateProfilePayload true "Updated profile details"
+// @Security BearerAuth
+// @Success 200 {object} object "Updated user profile in frontend format"
+// @Failure 400 {object} map[string]string "Invalid request data"
+// @Failure 401 {object} map[string]string "Authentication context missing or unauthorized"
+// @Failure 500 {object} map[string]string "Internal server error"
+// @Router /users/me/profile [put]
 func (h *AuthHandler) UpdateOwnUserProfile(c *gin.Context) {
     userID, ok := getUserIDFromContext(c)
     if !ok { return }

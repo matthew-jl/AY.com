@@ -26,6 +26,21 @@ type ThreadHandler struct {
 	searchClient searchpb.SearchServiceClient
 }
 
+type ThreadLikedEventPayload struct {
+    ThreadID         uint32 `json:"thread_id"`
+    ThreadAuthorID   uint32 `json:"thread_author_id"`
+    LikedByUserID    uint32 `json:"liked_by_user_id"`
+    LikedByUsername  string `json:"liked_by_username"`
+}
+
+type MentionEventPayload struct {
+    ThreadID             uint32 `json:"thread_id"`
+    MentionedUserID      uint32 `json:"mentioned_user_id"`
+    MentioningUserID     uint32 `json:"mentioning_user_id"`
+    MentioningUsername   string `json:"mentioning_username"`
+    ThreadContentSnippet string `json:"thread_content_snippet"`
+}
+
 func NewThreadHandler(repo *postgres.ThreadRepository, userClient userpb.UserServiceClient, searchClient searchpb.SearchServiceClient) *ThreadHandler {
 	return &ThreadHandler{
 		repo: repo,
@@ -75,11 +90,23 @@ func (h *ThreadHandler) CreateThread(ctx context.Context, req *threadpb.CreateTh
 	extractedMentionUsernames := utils.ExtractMentions(req.Content)
 
 	var mentionedUserIDs []uint32
+	var mentionerUsername string = "Someone"
+
+	// Fetch mentioner's username
+    if h.userClient != nil {
+        mentionerProfile, err := h.userClient.GetUserProfile(ctx, &userpb.GetUserProfileRequest{UserIdToView: req.UserId})
+        if err == nil && mentionerProfile != nil && mentionerProfile.User != nil {
+            mentionerUsername = mentionerProfile.User.Username
+        }
+    }
+
 	if len(extractedMentionUsernames) > 0 && h.userClient != nil {
 		for _, username := range extractedMentionUsernames {
 			userResp, err := h.userClient.GetUserByUsername(ctx, &userpb.GetUserByUsernameRequest{Username: username})
 			if err == nil && userResp != nil {
-				mentionedUserIDs = append(mentionedUserIDs, userResp.GetId())
+				if userResp.GetId() != req.UserId {
+                    mentionedUserIDs = append(mentionedUserIDs, userResp.GetId())
+                }
 			} else {
 				log.Printf("CreateThread: Could not resolve mention for username @%s: %v", username, err)
 			}
@@ -108,6 +135,26 @@ func (h *ThreadHandler) CreateThread(ctx context.Context, req *threadpb.CreateTh
 		log.Printf("Failed to create thread with hashtags/mentions for user %d: %v", req.UserId, err)
 		return nil, status.Errorf(codes.Internal, "Could not create thread")
 	}
+
+	// Publish MentionEvents
+    if len(mentionedUserIDs) > 0 && thread != nil {
+        contentSnippet := req.Content
+        if len(contentSnippet) > 100 { contentSnippet = contentSnippet[:97] + "..." }
+
+        for _, mentionedUID := range mentionedUserIDs {
+            eventPayload := MentionEventPayload{
+                ThreadID:             uint32(thread.ID),
+                MentionedUserID:      mentionedUID,
+                MentioningUserID:     req.UserId,
+                MentioningUsername:   mentionerUsername,
+                ThreadContentSnippet: contentSnippet,
+            }
+            go func(payload MentionEventPayload) {
+                errPub := utils.PublishEvent(context.Background(), "thread_events", "thread.mentioned", payload)
+                if errPub != nil { log.Printf("ERROR publishing MentionEvent: %v", errPub) }
+            }(eventPayload)
+        }
+    }
 
     // Increment hashtag counts for trending (after successful thread creation)
     if len(extractedHashtags) > 0 {
@@ -209,13 +256,45 @@ func (h *ThreadHandler) LikeThread(ctx context.Context, req *threadpb.InteractTh
     log.Printf("Received LikeThread request for Thread %d by User %d", req.ThreadId, req.UserId)
     if req.ThreadId == 0 || req.UserId == 0 { return nil, status.Errorf(codes.InvalidArgument, "Thread ID and User ID required") }
 
-    err := h.repo.AddInteraction(ctx, uint(req.UserId), uint(req.ThreadId), "like")
+	// Get thread to find author_id
+    thread, err := h.repo.GetThreadByID(ctx, uint(req.ThreadId))
+    if err != nil {
+        if err.Error() == "thread not found" {
+            return nil, status.Errorf(codes.NotFound, "Cannot like thread: thread not found")
+        }
+        return nil, status.Errorf(codes.Internal, "Failed to retrieve thread for like")
+    }
+
+    err = h.repo.AddInteraction(ctx, uint(req.UserId), uint(req.ThreadId), "like")
      if err != nil {
         if err.Error() == "interaction already exists" { return &emptypb.Empty{}, nil } // Idempotent like
         if err.Error() == "user or thread not found for interaction" { return nil, status.Errorf(codes.NotFound, "Cannot like thread: user or thread not found") }
          log.Printf("Failed to add like interaction: %v", err)
          return nil, status.Errorf(codes.Internal, "Failed to process like")
      }
+
+	 // Publish ThreadLikedEvent
+    if thread.UserID != uint(req.UserId) {
+        likerProfile, errUser := h.userClient.GetUserProfile(ctx, &userpb.GetUserProfileRequest{UserIdToView: req.UserId})
+        likerUsername := "Someone"
+        if errUser == nil && likerProfile != nil && likerProfile.User != nil {
+            likerUsername = likerProfile.User.Username
+        } else {
+            log.Printf("LikeThread: Could not get profile for liker %d to publish event: %v", req.UserId, errUser)
+        }
+
+        eventPayload := ThreadLikedEventPayload{
+            ThreadID:        req.ThreadId,
+            ThreadAuthorID:  uint32(thread.UserID),
+            LikedByUserID:   req.UserId,
+            LikedByUsername: likerUsername,
+        }
+        go func() {
+            errPub := utils.PublishEvent(context.Background(), "thread_events", "thread.liked", eventPayload)
+            if errPub != nil { log.Printf("ERROR publishing ThreadLikedEvent: %v", errPub) }
+        }()
+    }
+
      return &emptypb.Empty{}, nil
 }
 

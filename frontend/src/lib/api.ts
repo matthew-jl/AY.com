@@ -77,23 +77,6 @@ export interface FeedResponse {
   has_more: boolean;
 }
 
-// export interface UserSearchResult {
-//   id: number;
-//   name: string;
-//   username: string;
-//   profile_picture: string | null;
-//   bio: string | null;
-// }
-
-// export interface ThreadSearchResult {
-//   id: number;
-//   content_snippet: string;
-//   user_id: number;
-//   author_username: string;
-//   author_name: string;
-//   author_profile_picture: string | null;
-// }
-
 export interface SearchUsersApiResponse {
   users: UserProfileBasic[];
   has_more: boolean;
@@ -105,7 +88,12 @@ export interface SearchThreadsApiResponse {
 }
 
 export interface GetTrendingHashtagsApiResponse {
-  hashtags: string[];
+  trending_hashtags: TrendingHashtagItem[];
+}
+
+export interface TrendingHashtagItem {
+  tag: string;
+  count: number;
 }
 
 export interface ErrorResponse {
@@ -322,6 +310,34 @@ export interface SocialUserListItem {
 export interface SocialListResponseData {
   users: SocialUserListItem[];
   has_more: boolean;
+}
+
+export interface NotificationData {
+  id: number;
+  user_id: number;
+  type: string; // "new_follower", "like", "mention", "reply" etc.
+  message: string;
+  is_read: boolean;
+  entity_id: string; // ID of related entity (thread_id, follower_user_id)
+  actor_id?: number | null;
+  // Optional hydrated actor details
+  actor_name?: string;
+  actor_username?: string;
+  actor_profile_picture?: string | null;
+  created_at: string;
+}
+
+export interface GetNotificationsApiResponse {
+  notifications: NotificationData[];
+  has_more: boolean;
+}
+
+export interface GetUnreadNotificationCountApiResponse {
+  count: number;
+}
+
+export interface GetWhoToFollowApiResponse {
+  users: UserProfileBasic[];
 }
 
 // --- API Methods ---
@@ -547,6 +563,12 @@ export const api = {
       { method: "GET" }
     ),
 
+  getWhoToFollow: (limit: number = 3): Promise<GetWhoToFollowApiResponse> =>
+    apiFetch<GetWhoToFollowApiResponse>(
+      `/suggestions/who-to-follow?limit=${limit}`,
+      { method: "GET" }
+    ),
+
   getBookmarkedThreads: (
     page: number = 1,
     limit: number = 20
@@ -554,4 +576,27 @@ export const api = {
     apiFetch<FeedResponse>(`/threads/bookmarked?page=${page}&limit=${limit}`, {
       method: "GET",
     }),
+
+  getNotifications: (
+    page: number = 1,
+    limit: number = 20,
+    unreadOnly: boolean = false
+  ): Promise<GetNotificationsApiResponse> =>
+    apiFetch<GetNotificationsApiResponse>(
+      `/notifications?page=${page}&limit=${limit}&unread_only=${unreadOnly}`,
+      { method: "GET" }
+    ),
+
+  markNotificationAsRead: (notificationId: number): Promise<void> =>
+    apiFetch<void>(`/notifications/read/${notificationId}`, { method: "POST" }), // Assuming POST, as it's an action
+
+  markAllNotificationsAsRead: (): Promise<void> =>
+    apiFetch<void>("/notifications/read/all", { method: "POST" }),
+
+  getUnreadNotificationCount:
+    (): Promise<GetUnreadNotificationCountApiResponse> =>
+      apiFetch<GetUnreadNotificationCountApiResponse>(
+        "/notifications/unread_count",
+        { method: "GET" }
+      ),
 };

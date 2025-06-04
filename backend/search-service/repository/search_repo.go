@@ -21,12 +21,24 @@ type UserSearchIndex struct {
 }
 func (UserSearchIndex) TableName() string { return "users" }
 
+type UserWithFollowerCount struct {
+	ID            uint
+	FollowerCount int64
+	Username string
+}
+
+type TrendingHashtagWithScore struct {
+    Tag   string
+    Count float64
+}
+
 type ThreadSearchIndex struct {
 	ID      uint   `gorm:"primaryKey"`
 	Content string
 	UserID  uint
 }
 func (ThreadSearchIndex) TableName() string { return "threads" }
+
 
 type SearchRepository struct {
 	userDB   *gorm.DB
@@ -127,7 +139,7 @@ func (r *SearchRepository) SearchThreads(ctx context.Context, query string, limi
 
 // --- Trending Hashtags (Redis) ---
 const trendingHashtagsKey = "trending_hashtags"
-const hashtagCountsKeyPrefix = "hashtag_counts:" // e.g., hashtag_counts:2023-05-20
+// const hashtagCountsKeyPrefix = "hashtag_counts:" // e.g., hashtag_counts:2023-05-20
 
 func (r *SearchRepository) IncrementHashtagCounts(ctx context.Context, hashtags []string) {
     if r.redisClient == nil { log.Println("IncrementHashtagCounts: Redis client not available."); return }
@@ -147,18 +159,23 @@ func (r *SearchRepository) IncrementHashtagCounts(ctx context.Context, hashtags 
 	}
 }
 
-func (r *SearchRepository) GetTrendingHashtags(ctx context.Context, topN int64) ([]string, error) {
-    if r.redisClient == nil { return nil, errors.New("GetTrendingHashtags: Redis client not available.") }
+func (r *SearchRepository) GetTrendingHashtags(ctx context.Context, topN int64) ([]TrendingHashtagWithScore, error) {
+	if r.redisClient == nil { return nil, errors.New("GetTrendingHashtags: Redis client not available") }
 
 	// Get top N hashtags by score (count)
-	// ZRevRange retrieves members from a sorted set, ordered by score from high to low.
-	tags, err := r.redisClient.ZRevRange(ctx, trendingHashtagsKey, 0, topN-1).Result()
+	redisZSlice, err := r.redisClient.ZRevRangeWithScores(ctx, trendingHashtagsKey, 0, topN-1).Result()
 	if err != nil {
 		log.Printf("Error getting trending hashtags from Redis: %v", err)
 		return nil, err
 	}
-	// The result is just a list of members (hashtags). If you need scores: ZRevRangeWithScores
-	return tags, nil
+	trendingTags := make([]TrendingHashtagWithScore, len(redisZSlice))
+    for i, z := range redisZSlice {
+        trendingTags[i] = TrendingHashtagWithScore{
+            Tag:   z.Member.(string),
+            Count: z.Score,
+        }
+    }
+    return trendingTags, nil
 }
 
  func (r *SearchRepository) CheckHealth(ctx context.Context) error {
@@ -179,3 +196,31 @@ func (r *SearchRepository) GetTrendingHashtags(ctx context.Context, topN int64) 
     }
     return nil
  }
+
+ func (r *SearchRepository) GetTopUsersByFollowerCount(ctx context.Context, limit int, excludeUserID *uint) ([]UserSearchIndex, error) {
+	var results []UserWithFollowerCount
+
+	query := r.userDB.WithContext(ctx).
+		Table("users").
+		Select("users.id, users.username, COUNT(f.follower_id) as follower_count").
+		Joins("LEFT JOIN follows f ON users.id = f.followed_id").
+		Where("users.deleted_at IS NULL").
+		Group("users.id, users.username").
+		Order("follower_count DESC, users.username ASC").
+		Limit(limit)
+
+	if excludeUserID != nil && *excludeUserID != 0 {
+		query = query.Where("users.id != ?", *excludeUserID)
+	}
+
+	err := query.Scan(&results).Error
+	if err != nil {
+		return nil, fmt.Errorf("failed to get top users by follower count: %w", err)
+	}
+
+	var topUserIndexes []UserSearchIndex
+	for _, res := range results {
+		topUserIndexes = append(topUserIndexes, UserSearchIndex{ID: res.ID}) // We only strictly need ID
+	}
+	return topUserIndexes, nil
+}

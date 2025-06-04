@@ -257,6 +257,60 @@ func (h *SearchHandler) GetTrendingHashtagsHTTP(c *gin.Context) {
 	c.JSON(http.StatusOK, resp)
 }
 
+func (h *SearchHandler) GetTopUsersToFollowHTTP(c *gin.Context) {
+	requesterUserID, _ := getUserIDFromContext(c)
+
+	limitStr := c.DefaultQuery("limit", "3")
+	limit, err := strconv.Atoi(limitStr)
+	if err != nil || limit <= 0 || limit > 5 {
+		limit = 3
+	}
+
+	// 1. Get Top User IDs from Search Service
+	grpcReq := &searchpb.GetTopUsersToFollowRequest{
+		Limit:         int32(limit),
+		ExcludeUserId: &requesterUserID,
+	}
+	idResp, err := h.searchClient.GetTopUsersToFollow(c.Request.Context(), grpcReq)
+	if err != nil {
+		handleGRPCError(c, "get top users to follow from search service", err)
+		return
+	}
+
+	if idResp == nil || len(idResp.GetUserResults()) == 0 {
+		c.JSON(http.StatusOK, gin.H{"users": []FrontendUserProfile{}})
+		return
+	}
+
+	// 2. Collect User IDs to fetch full profiles
+	userIDsToFetch := make([]uint32, 0, len(idResp.GetUserResults()))
+	for _, userResult := range idResp.GetUserResults() {
+		userIDsToFetch = append(userIDsToFetch, userResult.GetId())
+	}
+
+	// 3. Fetch full user profiles from User Service (using h.userClient)
+	var hydratedUsers []FrontendUserProfile
+	if len(userIDsToFetch) > 0 && h.userClient != nil {
+		profilesResp, err := h.userClient.GetUserProfilesByIds(c.Request.Context(), &userpb.GetUserProfilesByIdsRequest{UserIds: userIDsToFetch})
+		if err == nil && profilesResp != nil && profilesResp.GetUsers() != nil {
+			for _, idResult := range idResp.GetUserResults() {
+				if fullProfile, ok := profilesResp.GetUsers()[idResult.GetId()]; ok && fullProfile != nil {
+					hydratedUsers = append(hydratedUsers, FrontendUserProfile{
+						ID:             fullProfile.GetId(),
+						Name:           fullProfile.GetName(),
+						Username:       fullProfile.GetUsername(),
+						ProfilePicture: fullProfile.GetProfilePicture(),
+					})
+				}
+			}
+		} else if err != nil {
+			log.Printf("GetTopUsersToFollowHTTP: Error fetching full profiles: %v", err)
+		}
+	}
+
+	c.JSON(http.StatusOK, gin.H{"users": hydratedUsers})
+}
+
 func (h *SearchHandler) SearchServiceHealthHTTP(c *gin.Context) {
     resp, err := h.searchClient.HealthCheck(c.Request.Context())
     if err != nil {

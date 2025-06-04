@@ -8,6 +8,7 @@ import (
 	userpb "github.com/Acad600-TPA/WEB-MJ-242/backend/user-service/genproto/proto"
 	userhandler "github.com/Acad600-TPA/WEB-MJ-242/backend/user-service/handler/grpc"
 	"github.com/Acad600-TPA/WEB-MJ-242/backend/user-service/repository/postgres"
+	"github.com/Acad600-TPA/WEB-MJ-242/backend/user-service/utils"
 	"github.com/joho/godotenv"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/reflection"
@@ -30,6 +31,10 @@ func main() {
 	if err != nil {
 		log.Fatalf("failed to listen: %v", err)
 	}
+
+	// RabbitMQ
+	utils.InitRabbitMQPublisher()
+	defer utils.CloseRabbitMQPublisher()
 
 	s := grpc.NewServer()
 	userpb.RegisterUserServiceServer(s, userhandler.NewUserHandler(repo))

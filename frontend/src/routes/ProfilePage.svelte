@@ -321,7 +321,7 @@
           <nav class="profile-tabs">
               <button class:active={activeTab === 'posts'} on:click={() => switchTab('posts')}>Posts</button>
               <button class:active={activeTab === 'replies'} on:click={() => switchTab('replies')}>Replies</button>
-              {#if isOwnProfile || pUser.account_privacy === 'public' || profileUser.is_followed_by_requester}
+              {#if isOwnProfile}
                   <button class:active={activeTab === 'likes'} on:click={() => switchTab('likes')}>Likes</button>
               {/if}
               <button class:active={activeTab === 'media'} on:click={() => switchTab('media')}>Media</button>

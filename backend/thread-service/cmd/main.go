@@ -10,6 +10,7 @@ import (
 	threadpb "github.com/Acad600-TPA/WEB-MJ-242/backend/thread-service/genproto/proto"
 	threadhandler "github.com/Acad600-TPA/WEB-MJ-242/backend/thread-service/handler/grpc"
 	"github.com/Acad600-TPA/WEB-MJ-242/backend/thread-service/repository/postgres"
+	"github.com/Acad600-TPA/WEB-MJ-242/backend/thread-service/utils"
 	"github.com/joho/godotenv"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/reflection"
@@ -48,6 +49,9 @@ func main() {
 	if port == "" { port = "50052" } // Default thread service port
 	lis, err := net.Listen("tcp", ":"+port)
 	if err != nil { log.Fatalf("failed to listen on port %s: %v", port, err) }
+
+	utils.InitRabbitMQPublisher()
+	defer utils.CloseRabbitMQPublisher()
 
 	s := grpc.NewServer()
 	threadServer := threadhandler.NewThreadHandler(repo, userClient.GetClient(), searchClient.GetClient())

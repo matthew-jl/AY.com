@@ -1,0 +1,285 @@
+definitions:
+  emptypb.Empty:
+    type: object
+  genproto.User:
+    properties:
+      account_privacy:
+        type: string
+      account_status:
+        type: string
+      banner:
+        description: URL or identifier
+        type: string
+      bio:
+        type: string
+      created_at:
+        $ref: '#/definitions/timestamppb.Timestamp'
+      date_of_birth:
+        type: string
+      email:
+        type: string
+      gender:
+        type: string
+      id:
+        type: integer
+      name:
+        type: string
+      profile_picture:
+        description: URL or identifier
+        type: string
+      subscribed_to_newsletter:
+        type: boolean
+      username:
+        type: string
+    type: object
+  genproto.UserProfileResponse:
+    properties:
+      follower_count:
+        type: integer
+      following_count:
+        type: integer
+      is_blocked_by_requester:
+        type: boolean
+      is_blocking_requester:
+        type: boolean
+      is_followed_by_requester:
+        type: boolean
+      user:
+        $ref: '#/definitions/genproto.User'
+    type: object
+  http.RegisterPayload:
+    properties:
+      banner_url:
+        type: string
+      date_of_birth:
+        type: string
+      email:
+        type: string
+      gender:
+        type: string
+      name:
+        type: string
+      password:
+        type: string
+      profile_picture_url:
+        type: string
+      recaptchaToken:
+        type: string
+      security_answer:
+        type: string
+      security_question:
+        type: string
+      subscribed_to_newsletter:
+        type: boolean
+      username:
+        type: string
+    required:
+    - date_of_birth
+    - email
+    - name
+    - password
+    - recaptchaToken
+    - security_answer
+    - security_question
+    - username
+    type: object
+  http.UpdateProfilePayload:
+    properties:
+      account_privacy:
+        type: string
+      banner_url:
+        type: string
+      bio:
+        type: string
+      current_password:
+        type: string
+      date_of_birth:
+        type: string
+      gender:
+        type: string
+      name:
+        type: string
+      new_password:
+        type: string
+      profile_picture_url:
+        type: string
+      subscribed_to_newsletter:
+        type: boolean
+    type: object
+  timestamppb.Timestamp:
+    properties:
+      nanos:
+        description: |-
+          Non-negative fractions of a second at nanosecond resolution. Negative
+          second values with fractions must still have non-negative nanos values
+          that count forward in time. Must be from 0 to 999,999,999
+          inclusive.
+        type: integer
+      seconds:
+        description: |-
+          Represents seconds of UTC time since Unix epoch
+          1970-01-01T00:00:00Z. Must be from 0001-01-01T00:00:00Z to
+          9999-12-31T23:59:59Z inclusive.
+        type: integer
+    type: object
+info:
+  contact: {}
+paths:
+  /auth/register:
+    post:
+      consumes:
+      - application/json
+      description: Register a new user with name, username, email, password, gender,
+        date of birth, security question and answer, and optional profile picture
+        and banner URLs
+      parameters:
+      - description: User registration details
+        in: body
+        name: payload
+        required: true
+        schema:
+          $ref: '#/definitions/http.RegisterPayload'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Empty response on successful registration
+          schema:
+            $ref: '#/definitions/emptypb.Empty'
+        "400":
+          description: Invalid request body
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "409":
+          description: Conflict (e.g., email already exists)
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Internal server error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Register a new user
+      tags:
+      - auth
+  /threads/{threadId}:
+    delete:
+      description: Delete a thread by its ID for the authenticated user
+      parameters:
+      - description: Thread ID
+        in: path
+        name: threadId
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Success message
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "400":
+          description: Invalid thread ID
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "401":
+          description: Authentication context missing or unauthorized
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Internal server error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Delete a thread
+      tags:
+      - threads
+  /users/me/profile:
+    get:
+      description: Retrieve the authenticated user's profile details
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: User profile details
+          schema:
+            $ref: '#/definitions/genproto.UserProfileResponse'
+        "401":
+          description: Authentication context missing or unauthorized
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "404":
+          description: User profile not found
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Internal server error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Get current user's profile
+      tags:
+      - users
+    put:
+      consumes:
+      - application/json
+      description: Update the authenticated user's profile information
+      parameters:
+      - description: Updated profile details
+        in: body
+        name: profile
+        required: true
+        schema:
+          $ref: '#/definitions/http.UpdateProfilePayload'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Updated user profile in frontend format
+          schema:
+            type: object
+        "400":
+          description: Invalid request data
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "401":
+          description: Authentication context missing or unauthorized
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Internal server error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Update current user's profile
+      tags:
+      - users
+swagger: "2.0"

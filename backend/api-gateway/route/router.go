@@ -1,3 +1,16 @@
+// @title API Gateway Documentation
+// @version 1.0
+// @description API Gateway for the application
+// @termsOfService http://swagger.io/terms/
+
+// @contact.name API Support
+// @contact.email matthewjeremiahlim@gmail.com
+
+// @license.name MIT
+// @license.url https://opensource.org/licenses/MIT
+
+// @host localhost:8080
+// @BasePath /api/v1
 package route
 
 import (
@@ -10,6 +23,8 @@ import (
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
 	"github.com/sirupsen/logrus"
+	swaggerFiles "github.com/swaggo/files"
+	ginSwagger "github.com/swaggo/gin-swagger"
 )
 
 func SetupRouter(
@@ -18,6 +33,7 @@ func SetupRouter(
 	mediaHandler *gwHTTPHandler.MediaHandler, 
 	profileHandler *gwHTTPHandler.ProfileHandler,
 	searchHandler *gwHTTPHandler.SearchHandler,
+	notificationHandler *gwHTTPHandler.NotificationHandler,
 	wsHub *websocket.Hub, 
 	jwtSecret string) *gin.Engine {
 	r := gin.New()
@@ -55,12 +71,16 @@ func SetupRouter(
 	authMiddleware := middleware.AuthMiddleware(jwtSecret)
 	attemptAuthMiddleware := middleware.AttemptAuthMiddleware(jwtSecret)
 
+	// Swagger UI
+	r.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerFiles.Handler))
+
 	// Routes
 	v1 := r.Group("/api/v1")
 
 	auth := v1.Group("/auth")
 	{
 		auth.POST("/register", authHandler.Register)
+
 		auth.POST("/login", authHandler.Login)
 		auth.POST("/verify", authHandler.VerifyEmail)
 		auth.POST("/verify/resend", authHandler.ResendVerificationCode)
@@ -72,7 +92,9 @@ func SetupRouter(
 	users.Use(authMiddleware)
 	{
 		users.GET("/health", authHandler.HealthCheck)
+		
 		users.GET("/me/profile", authHandler.GetProfile)
+
 		users.PUT("/me/profile", authHandler.UpdateOwnUserProfile)
 	}
 
@@ -98,6 +120,7 @@ func SetupRouter(
 		threads.GET("/feed", threadHandler.GetFeed)
 		threads.GET("/bookmarked", threadHandler.GetBookmarkedThreadsHTTP)
 		threads.GET("/:threadId", threadHandler.GetThread)
+
 		threads.DELETE("/:threadId", threadHandler.DeleteThread)
 
 		threads.POST("/:threadId/like", threadHandler.LikeThread)
@@ -114,19 +137,34 @@ func SetupRouter(
 	}
         // Maybe GET /media/:mediaId/metadata later if needed by frontend directly
 
-		search := v1.Group("/search")
-		search.Use(attemptAuthMiddleware)
-		{
-			search.GET("/users", searchHandler.SearchUsersHTTP)
-			search.GET("/threads", searchHandler.SearchThreadsHTTP)
-			// search.GET("/communities", searchHandler.SearchCommunitiesHTTP) // Add later
-		}
+	search := v1.Group("/search")
+	search.Use(attemptAuthMiddleware)
+	{
+		search.GET("/users", searchHandler.SearchUsersHTTP)
+		search.GET("/threads", searchHandler.SearchThreadsHTTP)
+		// search.GET("/communities", searchHandler.SearchCommunitiesHTTP) // Add later
+	}
 
-		trending := v1.Group("/trending")
-		trending.Use(attemptAuthMiddleware)
-		{
-			trending.GET("/hashtags", searchHandler.GetTrendingHashtagsHTTP)
-		}
+	trending := v1.Group("/trending")
+	trending.Use(attemptAuthMiddleware)
+	{
+		trending.GET("/hashtags", searchHandler.GetTrendingHashtagsHTTP)
+	}
+
+	suggestions := v1.Group("/suggestions")
+	suggestions.Use(attemptAuthMiddleware)
+	{
+		suggestions.GET("/who-to-follow", searchHandler.GetTopUsersToFollowHTTP)
+	}
+
+	notifications := v1.Group("/notifications")
+	notifications.Use(authMiddleware)
+	{
+		notifications.GET("", notificationHandler.GetNotificationsHTTP)
+		notifications.POST("/read/all", notificationHandler.MarkAllAsReadHTTP)
+		notifications.POST("/read/:notificationId", notificationHandler.MarkAsReadHTTP)
+		notifications.GET("/unread_count", notificationHandler.GetUnreadCountHTTP)
+	}
 
 	// --- WebSocket routes (Auth handled potentially within the handler) ---
 	ws := v1.Group("/ws")

@@ -44,3 +44,7 @@ func (c *SearchClient) SearchThreads(ctx context.Context, req *searchpb.SearchRe
 func (c *SearchClient) GetTrendingHashtags(ctx context.Context, req *searchpb.GetTrendingHashtagsRequest) (*searchpb.GetTrendingHashtagsResponse, error) {
 	return c.client.GetTrendingHashtags(ctx, req)
 }
+
+func (c *SearchClient) GetTopUsersToFollow(ctx context.Context, req *searchpb.GetTopUsersToFollowRequest) (*searchpb.SearchUserIDsResponse, error) {
+	return c.client.GetTopUsersToFollow(ctx, req)
+}

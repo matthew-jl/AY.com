@@ -19,6 +19,7 @@
   import ProfilePage from "./routes/ProfilePage.svelte";
   import ExplorePage from "./routes/ExplorePage.svelte";
   import BookmarksPage from "./routes/BookmarksPage.svelte";
+  import NotificationsPage from "./routes/NotificationsPage.svelte";
 
   export let url = "";
 
@@ -139,7 +140,7 @@
          {#if isAuth} <ExplorePage /> {:else} <NoAccess /> {/if}
       </Route>
        <Route path="/notifications">
-         {#if isAuth} <Home /> <!-- Replace with Notifications later --> {:else} <NoAccess /> {/if}
+         {#if isAuth} <NotificationsPage /> {:else} <NoAccess /> {/if}
       </Route>
        <Route path="/messages">
          {#if isAuth} <Home /> <!-- Replace with Messages later --> {:else} <NoAccess /> {/if}

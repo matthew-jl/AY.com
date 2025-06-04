@@ -1,6 +1,6 @@
 <script lang="ts">
     import { onMount, onDestroy } from 'svelte';
-    import { api, ApiError, type ThreadData, type UserProfileBasic, type FeedResponse } from '../lib/api';
+    import { api, ApiError, type ThreadData, type UserProfileBasic, type FeedResponse, type TrendingHashtagItem } from '../lib/api';
     import { currentPathname } from '../stores/locationStore';
     import { navigate, link } from 'svelte-routing';
     import ThreadComponent from '../components/ThreadComponent.svelte';
@@ -29,7 +29,7 @@
     let debounceTimer: number | undefined = undefined;
   
     // --- Trending Hashtags ---
-    let trendingHashtags: string[] = [];
+    let trendingHashtags: TrendingHashtagItem[] = [];
     let isLoadingTrending = true;
   
     // --- Lifecycle & Initial Load ---
@@ -136,7 +136,7 @@
       isLoadingTrending = true;
       try {
         const response = await api.getTrendingHashtags(10);
-        trendingHashtags = response.hashtags || [];
+        trendingHashtags = response.trending_hashtags || [];
       } catch (err) {
         console.error("Error fetching trending hashtags:", err);
       } finally {
@@ -293,11 +293,10 @@
               <ul>
                   {#each trendingHashtags as tag (tag)}
                       <li>
-                          <a href="/explore?q=%23{tag}" use:link class="trend-link">
+                          <a href="/explore?q=%23{tag.tag}" use:link class="trend-link">
                               <span class="trend-category">Trending</span>
-                              <span class="trend-tag">#{tag}</span>
-                              <!-- TODO: Add post count later -->
-                              <!-- <span class="trend-posts">10.5K posts</span> -->
+                              <span class="trend-tag">#{tag.tag}</span>
+                              <span class="trend-posts">{tag.count} posts</span>
                           </a>
                       </li>
                   {/each}

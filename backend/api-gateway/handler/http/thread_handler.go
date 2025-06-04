@@ -171,6 +171,18 @@ func (h *ThreadHandler) GetThread(c *gin.Context) {
 	c.JSON(http.StatusOK, feThread)
 }
 
+// DeleteThread godoc
+// @Summary Delete a thread
+// @Description Delete a thread by its ID for the authenticated user
+// @Tags threads
+// @Produce json
+// @Param threadId path uint32 true "Thread ID"
+// @Security BearerAuth
+// @Success 200 {object} map[string]string "Success message"
+// @Failure 400 {object} map[string]string "Invalid thread ID"
+// @Failure 401 {object} map[string]string "Authentication context missing or unauthorized"
+// @Failure 500 {object} map[string]string "Internal server error"
+// @Router /threads/{threadId} [delete]
 func (h *ThreadHandler) DeleteThread(c *gin.Context) {
 	userID, ok := getUserIDFromContext(c)
 	if !ok { return }

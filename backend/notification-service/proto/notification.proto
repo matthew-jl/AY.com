@@ -1,0 +1,58 @@
+syntax = "proto3";
+
+package notification;
+
+option go_package = "github.com/Acad600-TPA/WEB-MJ-242/backend/notification-service/genproto/notification;notificationpb";
+
+import "google/protobuf/empty.proto";
+import "google/protobuf/timestamp.proto";
+
+service NotificationService {
+  rpc HealthCheck(google.protobuf.Empty) returns (HealthResponse);
+  rpc GetNotifications(GetNotificationsRequest) returns (GetNotificationsResponse);
+  rpc MarkNotificationAsRead(MarkNotificationAsReadRequest) returns (google.protobuf.Empty);
+  rpc MarkAllNotificationsAsRead(MarkAllNotificationsAsReadRequest) returns (google.protobuf.Empty);
+  rpc GetUnreadNotificationCount(GetUnreadNotificationCountRequest) returns (GetUnreadNotificationCountResponse);
+}
+
+message HealthResponse { string status = 1; }
+
+message Notification {
+  uint32 id = 1;
+  uint32 user_id = 2;
+  string type = 3;    // "new_follower", "like", "mention"
+  string message = 4;
+  bool is_read = 5;
+  string entity_id = 6; // e.g., thread_id, follower_user_id
+  optional uint32 actor_id = 7;
+  google.protobuf.Timestamp created_at = 11;
+}
+
+message GetNotificationsRequest {
+  uint32 user_id = 1;
+  int32 page = 2;
+  int32 limit = 3;
+  bool unread_only = 4;
+}
+
+message GetNotificationsResponse {
+  repeated Notification notifications = 1;
+  bool has_more = 2;
+}
+
+message MarkNotificationAsReadRequest {
+  uint32 notification_id = 1;
+  uint32 user_id = 2;
+}
+
+message MarkAllNotificationsAsReadRequest {
+  uint32 user_id = 1;
+}
+
+message GetUnreadNotificationCountRequest {
+    uint32 user_id = 1;
+}
+
+message GetUnreadNotificationCountResponse {
+    int32 count = 1;
+}

@@ -25,6 +25,7 @@ const (
 	SearchService_SearchThreads_FullMethodName          = "/search.SearchService/SearchThreads"
 	SearchService_GetTrendingHashtags_FullMethodName    = "/search.SearchService/GetTrendingHashtags"
 	SearchService_IncrementHashtagCounts_FullMethodName = "/search.SearchService/IncrementHashtagCounts"
+	SearchService_GetTopUsersToFollow_FullMethodName    = "/search.SearchService/GetTopUsersToFollow"
 )
 
 // SearchServiceClient is the client API for SearchService service.
@@ -36,6 +37,7 @@ type SearchServiceClient interface {
 	SearchThreads(ctx context.Context, in *SearchRequest, opts ...grpc.CallOption) (*SearchThreadIDsResponse, error)
 	GetTrendingHashtags(ctx context.Context, in *GetTrendingHashtagsRequest, opts ...grpc.CallOption) (*GetTrendingHashtagsResponse, error)
 	IncrementHashtagCounts(ctx context.Context, in *IncrementHashtagCountsRequest, opts ...grpc.CallOption) (*IncrementHashtagCountsResponse, error)
+	GetTopUsersToFollow(ctx context.Context, in *GetTopUsersToFollowRequest, opts ...grpc.CallOption) (*SearchUserIDsResponse, error)
 }
 
 type searchServiceClient struct {
@@ -96,6 +98,16 @@ func (c *searchServiceClient) IncrementHashtagCounts(ctx context.Context, in *In
 	return out, nil
 }
 
+func (c *searchServiceClient) GetTopUsersToFollow(ctx context.Context, in *GetTopUsersToFollowRequest, opts ...grpc.CallOption) (*SearchUserIDsResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(SearchUserIDsResponse)
+	err := c.cc.Invoke(ctx, SearchService_GetTopUsersToFollow_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // SearchServiceServer is the server API for SearchService service.
 // All implementations must embed UnimplementedSearchServiceServer
 // for forward compatibility.
@@ -105,6 +117,7 @@ type SearchServiceServer interface {
 	SearchThreads(context.Context, *SearchRequest) (*SearchThreadIDsResponse, error)
 	GetTrendingHashtags(context.Context, *GetTrendingHashtagsRequest) (*GetTrendingHashtagsResponse, error)
 	IncrementHashtagCounts(context.Context, *IncrementHashtagCountsRequest) (*IncrementHashtagCountsResponse, error)
+	GetTopUsersToFollow(context.Context, *GetTopUsersToFollowRequest) (*SearchUserIDsResponse, error)
 	mustEmbedUnimplementedSearchServiceServer()
 }
 
@@ -129,6 +142,9 @@ func (UnimplementedSearchServiceServer) GetTrendingHashtags(context.Context, *Ge
 }
 func (UnimplementedSearchServiceServer) IncrementHashtagCounts(context.Context, *IncrementHashtagCountsRequest) (*IncrementHashtagCountsResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method IncrementHashtagCounts not implemented")
+}
+func (UnimplementedSearchServiceServer) GetTopUsersToFollow(context.Context, *GetTopUsersToFollowRequest) (*SearchUserIDsResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetTopUsersToFollow not implemented")
 }
 func (UnimplementedSearchServiceServer) mustEmbedUnimplementedSearchServiceServer() {}
 func (UnimplementedSearchServiceServer) testEmbeddedByValue()                       {}
@@ -241,6 +257,24 @@ func _SearchService_IncrementHashtagCounts_Handler(srv interface{}, ctx context.
 	return interceptor(ctx, in, info, handler)
 }
 
+func _SearchService_GetTopUsersToFollow_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetTopUsersToFollowRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(SearchServiceServer).GetTopUsersToFollow(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: SearchService_GetTopUsersToFollow_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(SearchServiceServer).GetTopUsersToFollow(ctx, req.(*GetTopUsersToFollowRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // SearchService_ServiceDesc is the grpc.ServiceDesc for SearchService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -267,6 +301,10 @@ var SearchService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "IncrementHashtagCounts",
 			Handler:    _SearchService_IncrementHashtagCounts_Handler,
+		},
+		{
+			MethodName: "GetTopUsersToFollow",
+			Handler:    _SearchService_GetTopUsersToFollow_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

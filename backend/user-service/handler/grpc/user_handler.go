@@ -28,6 +28,13 @@ type UserHandler struct {
 	repo *postgres.UserRepository
 }
 
+// matches notification-service event/consumer.go
+type NewFollowerEventPayload struct {
+    FollowedUserID   uint32 `json:"followed_user_id"`
+    FollowerUserID   uint32 `json:"follower_user_id"`
+    FollowerUsername string `json:"follower_username"`
+}
+
 func NewUserHandler(repo *postgres.UserRepository) *UserHandler {
 	return &UserHandler{repo: repo}
 }
@@ -597,12 +604,42 @@ func (h *UserHandler) FollowUser(ctx context.Context, req *userpb.FollowRequest)
 		return nil, status.Errorf(codes.InvalidArgument, "User cannot follow themselves")
 	}
 	// TODO: Check if Follower has blocked Followed, or if Followed has blocked Follower
-	err := h.repo.FollowUser(ctx, uint(req.FollowerId), uint(req.FollowedId))
+	
+	// Get follower profile to publish event
+	followerProfile, err := h.GetUserProfile(ctx, &userpb.GetUserProfileRequest{
+        UserIdToView: req.FollowerId,
+    })
+    if err != nil || followerProfile == nil || followerProfile.User == nil {
+        log.Printf("FollowUser: Could not get profile for follower %d to publish event: %v", req.FollowerId, err)
+    }
+    followerUsername := "Someone" // Default
+    if followerProfile != nil && followerProfile.User != nil {
+        followerUsername = followerProfile.User.Username
+    }
+
+	err = h.repo.FollowUser(ctx, uint(req.FollowerId), uint(req.FollowedId))
 	if err != nil {
 		log.Printf("Error following user: %v", err)
 		if err.Error() == "user cannot follow themselves" {return nil, status.Errorf(codes.InvalidArgument, err.Error())}
 		return nil, status.Errorf(codes.Internal, "Could not process follow request")
 	}
+
+	// Publish Follow Event
+	eventPayload := NewFollowerEventPayload{
+		FollowedUserID:   req.FollowedId,
+		FollowerUserID:   req.FollowerId,
+        FollowerUsername: followerUsername,
+	}
+	// Use "social.new_follower" as routing key, "social_events" as exchange
+	// These consts should match what notification-service consumer expects
+	go func() {
+		errPub := utils.PublishEvent(context.Background(), "social_events", "social.new_follower", eventPayload)
+		if errPub != nil {
+			log.Printf("ERROR publishing NewFollowerEvent for %d -> %d: %v", req.FollowerId, req.FollowedId, errPub)
+		}
+	}()
+
+
 	return &emptypb.Empty{}, nil
 }
 
