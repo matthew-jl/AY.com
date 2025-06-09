@@ -340,6 +340,148 @@ export interface GetWhoToFollowApiResponse {
   users: UserProfileBasic[];
 }
 
+export interface UserSummary {
+  id: number;
+  name: string;
+  username: string;
+  profile_picture_url: string | null;
+}
+
+export interface MessageData {
+  id: number;
+  chat_id: number;
+  sender_id: number;
+  content: string;
+  type: string; // "text", "image", "video", "gif"
+  media_items?: MediaMetadata[];
+  sent_at: string;
+  is_deleted: boolean;
+  sender_summary?: UserSummary | null;
+}
+
+export interface ChatData {
+  id: number;
+  type: string; // "direct", "group"
+  name?: string | null;
+  creator_id: number;
+  created_at: string;
+  updated_at: string;
+  participants: UserSummary[];
+  last_message?: MessageData | null;
+  // Frontend specific
+  display_name?: string | null;
+  display_avatar?: string | null;
+  unread_count?: number;
+}
+
+export interface GetOrCreateDirectChatRequestData {
+  other_user_id: number;
+}
+
+export interface SendMessageRequestData {
+  content: string;
+  media_ids?: number[];
+}
+
+export interface GetMessagesApiResponse {
+  messages: MessageData[];
+  has_more: boolean;
+}
+
+export interface GetUserChatsApiResponse {
+  chats: ChatData[];
+  has_more: boolean;
+}
+
+export interface CreateGroupChatRequestData {
+  name: string;
+  initial_participant_ids: number[];
+}
+
+export interface AddParticipantRequestData {
+  target_user_id: number;
+}
+
+export const CommunityStatusNumbers = {
+  COMMUNITY_STATUS_UNSPECIFIED: 0,
+  PENDING_APPROVAL: 1,
+  ACTIVE: 2,
+  REJECTED: 3,
+  BANNED: 4,
+} as const;
+// Type for the keys of CommunityStatusNumbers, e.g., "ACTIVE", "PENDING_APPROVAL"
+export type CommunityStatusString = keyof typeof CommunityStatusNumbers;
+// Type for the values (the numbers)
+export type CommunityStatusCode =
+  (typeof CommunityStatusNumbers)[CommunityStatusString];
+
+export interface CommunityDetailsData {
+  id: number;
+  name: string;
+  description: string;
+  creator_id: number;
+  creator_summary: UserSummary; // Hydrated creator info
+  icon_url: string | null;
+  banner_url: string | null;
+  categories: string[];
+  rules: string[];
+  status: CommunityStatusCode;
+  created_at: string;
+  member_count: number;
+}
+
+export interface CommunityFullDetailsResponseData {
+  community: CommunityDetailsData;
+  is_joined_by_requester: boolean;
+  requester_role: string; // "member", "moderator", "owner", "pending_join", "none"
+  has_pending_request_by_requester: boolean;
+}
+
+export interface CreateCommunityRequestData {
+  name: string;
+  description: string;
+  // creator_id is set by backend from JWT
+  icon_url?: string | null;
+  banner_url?: string | null;
+  categories?: string[];
+  rules?: string[];
+}
+
+export interface CommunityListItem {
+  id: number;
+  name: string;
+  description_snippet: string;
+  icon_url: string | null;
+  status: CommunityStatusCode;
+  member_count: number;
+  is_joined_by_requester?: boolean;
+  has_pending_request_by_requester?: boolean;
+  categories?: string[];
+}
+
+export interface ListCommunitiesApiResponse {
+  communities: CommunityListItem[];
+  has_more: boolean;
+}
+
+export interface JoinRequestItem {
+  request_id: number;
+  community_id: number;
+  community_name?: string; // Needs hydration for user's list
+  user: UserSummary; // User who requested
+  status: string;
+  requested_at: string;
+}
+
+export interface GetUserJoinRequestsApiResponse {
+  requests: JoinRequestItem[];
+  has_more: boolean;
+}
+
+export interface HandleJoinRequestPayload {
+  target_user_id: number;
+}
+
 // --- API Methods ---
 export const api = {
   getHealth: (): Promise<HealthResponse> =>
@@ -599,4 +741,143 @@ export const api = {
         "/notifications/unread_count",
         { method: "GET" }
       ),
+
+  getUserChats: (
+    page: number = 1,
+    limit: number = 20
+  ): Promise<GetUserChatsApiResponse> =>
+    apiFetch<GetUserChatsApiResponse>(`/messages?page=${page}&limit=${limit}`, {
+      method: "GET",
+    }),
+
+  deleteChat: (chatId: number): Promise<void> =>
+    apiFetch<void>(`/messages/chat/${chatId}`, { method: "DELETE" }),
+
+  getOrCreateDirectChat: (
+    data: GetOrCreateDirectChatRequestData
+  ): Promise<ChatData> =>
+    apiFetch<ChatData>("/messages/direct", {
+      method: "POST",
+      body: JSON.stringify(data),
+    }),
+
+  getMessagesForChat: (
+    chatId: number,
+    page: number = 1,
+    limit: number = 30
+  ): Promise<GetMessagesApiResponse> =>
+    apiFetch<GetMessagesApiResponse>(
+      `/messages/chat/${chatId}?page=${page}&limit=${limit}`,
+      { method: "GET" }
+    ),
+
+  sendMessageToChat: (
+    chatId: number,
+    data: SendMessageRequestData
+  ): Promise<MessageData> =>
+    apiFetch<MessageData>(`/messages/chat/${chatId}`, {
+      method: "POST",
+      body: JSON.stringify(data),
+    }),
+
+  deleteMessage: (chatId: number, messageId: number): Promise<void> =>
+    apiFetch<void>(`/messages/chat/${chatId}/message/${messageId}`, {
+      method: "DELETE",
+    }),
+
+  createGroupChat: (data: CreateGroupChatRequestData): Promise<ChatData> =>
+    apiFetch<ChatData>("/messages/group", {
+      method: "POST",
+      body: JSON.stringify(data),
+    }),
+
+  addParticipantToGroup: (
+    chatId: number,
+    data: AddParticipantRequestData
+  ): Promise<void> =>
+    apiFetch<void>(`/messages/group/${chatId}/participants`, {
+      method: "POST",
+      body: JSON.stringify(data),
+    }),
+
+  removeParticipantFromGroup: (
+    chatId: number,
+    targetUserId: number
+  ): Promise<void> =>
+    apiFetch<void>(`/messages/group/${chatId}/participants/${targetUserId}`, {
+      method: "DELETE",
+    }),
+
+  createCommunity: (
+    data: CreateCommunityRequestData
+  ): Promise<CommunityDetailsData> =>
+    apiFetch<CommunityDetailsData>("/communities", {
+      method: "POST",
+      body: JSON.stringify(data),
+    }),
+
+  getCommunityDetails: (
+    communityId: number
+  ): Promise<CommunityFullDetailsResponseData> =>
+    apiFetch<CommunityFullDetailsResponseData>(`/communities/${communityId}`, {
+      method: "GET",
+    }),
+
+  listCommunities: (
+    filterType: "ALL_PUBLIC" | "JOINED_BY_USER" | "CREATED_BY_USER",
+    userIdContext?: number | null, // Required for JOINED or CREATED
+    page: number = 1,
+    limit: number = 20,
+    searchQuery?: string,
+    categories?: string[]
+  ): Promise<ListCommunitiesApiResponse> => {
+    let queryParams = `filter_type=${filterType}&page=${page}&limit=${limit}`;
+    if (userIdContext) queryParams += `&user_id_context=${userIdContext}`;
+    if (searchQuery)
+      queryParams += `&search_query=${encodeURIComponent(searchQuery)}`;
+    if (categories && categories.length > 0)
+      queryParams += `&categories=${categories.join(",")}`;
+    return apiFetch<ListCommunitiesApiResponse>(`/communities?${queryParams}`, {
+      method: "GET",
+    });
+  },
+
+  requestToJoinCommunity: (communityId: number): Promise<void> =>
+    apiFetch<void>(`/communities/${communityId}/join`, { method: "POST" }),
+
+  getUserJoinRequests: (
+    page: number = 1,
+    limit: number = 20
+  ): Promise<GetUserJoinRequestsApiResponse> =>
+    apiFetch<GetUserJoinRequestsApiResponse>(
+      `/users/community-join-requests?page=${page}&limit=${limit}`,
+      { method: "GET" }
+    ),
+
+  acceptJoinRequest: (
+    communityId: number,
+    data: HandleJoinRequestPayload
+  ): Promise<void> =>
+    apiFetch<void>(`/communities/${communityId}/requests/accept`, {
+      method: "POST",
+      body: JSON.stringify(data),
+    }),
+  rejectJoinRequest: (
+    communityId: number,
+    data: HandleJoinRequestPayload
+  ): Promise<void> =>
+    apiFetch<void>(`/communities/${communityId}/requests/reject`, {
+      method: "POST",
+      body: JSON.stringify(data),
+    }),
+
+  getCommunityPendingRequests: (
+    communityId: number,
+    page: number = 1,
+    limit: number = 20
+  ): Promise<GetUserJoinRequestsApiResponse> =>
+    apiFetch<GetUserJoinRequestsApiResponse>(
+      `/communities/${communityId}/requests?page=${page}&limit=${limit}`,
+      { method: "GET" }
+    ),
 };

@@ -34,6 +34,8 @@ func SetupRouter(
 	profileHandler *gwHTTPHandler.ProfileHandler,
 	searchHandler *gwHTTPHandler.SearchHandler,
 	notificationHandler *gwHTTPHandler.NotificationHandler,
+	messageHandler *gwHTTPHandler.MessageHandler,
+	communityHandler *gwHTTPHandler.CommunityHandler,
 	wsHub *websocket.Hub, 
 	jwtSecret string) *gin.Engine {
 	r := gin.New()
@@ -96,6 +98,8 @@ func SetupRouter(
 		users.GET("/me/profile", authHandler.GetProfile)
 
 		users.PUT("/me/profile", authHandler.UpdateOwnUserProfile)
+
+		users.GET("community-join-requests", communityHandler.GetUserJoinRequestsHTTP)
 	}
 
 	userProfiles := v1.Group("/profiles")
@@ -164,6 +168,43 @@ func SetupRouter(
 		notifications.POST("/read/all", notificationHandler.MarkAllAsReadHTTP)
 		notifications.POST("/read/:notificationId", notificationHandler.MarkAsReadHTTP)
 		notifications.GET("/unread_count", notificationHandler.GetUnreadCountHTTP)
+	}
+
+	messagesGroup := v1.Group("/messages")
+	messagesGroup.Use(authMiddleware)
+	{
+		messagesGroup.GET("", messageHandler.GetUserChatsHTTP)            
+		messagesGroup.POST("/direct", messageHandler.GetOrCreateDirectChatHTTP)
+		messagesGroup.GET("/chat/:chatId", messageHandler.GetMessagesHTTP)   
+		messagesGroup.POST("/chat/:chatId", messageHandler.SendMessageHTTP)  
+		messagesGroup.DELETE("/chat/:chatId/message/:messageId", messageHandler.DeleteMessageHTTP)
+		messagesGroup.DELETE("/chat/:chatId", messageHandler.DeleteChatHTTP)
+
+		// Group chat routes
+		messagesGroup.POST("/group", messageHandler.CreateGroupChatHTTP)
+		messagesGroup.POST("/group/:chatId/participants", messageHandler.AddParticipantHTTP)
+		messagesGroup.DELETE("/group/:chatId/participants/:userId", messageHandler.RemoveParticipantHTTP)
+	}
+
+	communities := v1.Group("/communities")
+	communities.Use(authMiddleware)
+	{
+		communities.POST("", communityHandler.CreateCommunityHTTP)
+		communities.GET("/:communityId", communityHandler.GetCommunityDetailsHTTP)
+		communities.GET("", communityHandler.ListCommunitiesHTTP)
+
+		// Actions on a specific community
+		communities.POST("/:communityId/join", communityHandler.RequestToJoinCommunityHTTP)
+		communities.GET("/:communityId/members", communityHandler.GetCommunityMembersHTTP) // Viewing members
+		
+		// Join request management (mod/admin actions)
+		communityRequests := communities.Group("/:communityId/requests")
+		communityRequests.Use(authMiddleware)
+		{
+			communityRequests.GET("", communityHandler.GetCommunityPendingRequestsHTTP)
+			communityRequests.POST("/accept", communityHandler.AcceptJoinRequestHTTP)
+			communityRequests.POST("/reject", communityHandler.RejectJoinRequestHTTP)
+		}
 	}
 
 	// --- WebSocket routes (Auth handled potentially within the handler) ---

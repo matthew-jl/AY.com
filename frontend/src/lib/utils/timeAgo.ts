@@ -79,3 +79,12 @@ export function timeAgoProfile(
   }
   return "Just Now";
 }
+
+export function getTimeFromProtoTimestamp(
+  dateInput: { seconds: number; nanos: number } | string
+): number {
+  if (typeof dateInput === "string") {
+    return new Date(dateInput).getTime();
+  }
+  return dateInput.seconds * 1000 + Math.floor(dateInput.nanos / 1_000_000);
+}

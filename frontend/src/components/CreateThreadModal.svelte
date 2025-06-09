@@ -502,5 +502,60 @@
    .error-text { color: var(--error-color); font-size: 0.85rem; margin-top: 4px; }
    .api-error { margin-top: 1rem; text-align: center; font-weight: bold; }
 
-
+  @media (max-width: 500px) {
+    .modal-overlay {
+      padding-top: 0;
+      align-items: stretch;
+    }
+    .modal-content {
+      max-width: 100vw;
+      width: 100vw;
+      min-width: 0;
+      border-radius: 0;
+      padding: 4px;
+      box-shadow: none;
+      max-height: 100vh;
+    }
+    h3 {
+      font-size: 1.1rem;
+      padding-bottom: 6px;
+      margin-bottom: 10px;
+    }
+    .compose-area {
+      padding-bottom: 6px;
+      margin-bottom: 6px;
+    }
+    .media-preview-grid {
+      gap: 4px;
+      max-height: 80px;
+    }
+    .media-preview-item {
+      border-radius: 4px;
+    }
+    .close-button {
+      font-size: 1.5rem;
+      top: 4px;
+      left: 4px;
+      padding: 0 2px;
+    }
+    .action-icons {
+      gap: 2px;
+    }
+    .icon-button {
+      padding: 5px;
+      svg {
+        width: 16px;
+        height: 16px;
+      }
+    }
+    .progress-container {
+      width: 18px;
+      height: 18px;
+    }
+    .post-btn {
+      font-size: 13px;
+      padding: 6px 8px;
+      min-width: 48px;
+    }
+  }
 </style>

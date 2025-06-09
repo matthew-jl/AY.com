@@ -5,6 +5,8 @@ COPY media-service/ media-service/
 COPY thread-service/ thread-service/
 COPY search-service/ search-service/
 COPY notification-service/ notification-service/
+COPY message-service/ message-service/
+COPY community-service/ community-service/
 WORKDIR /app/api-gateway
 COPY api-gateway/go.mod api-gateway/go.sum ./
 RUN go mod download

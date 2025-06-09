@@ -76,6 +76,18 @@ func main() {
 	if err != nil { logrus.Fatalf("failed to connect to notification-service: %v", err) }
 	defer notificationClient.Close()
 
+	messageServiceAddr := os.Getenv("MESSAGE_SERVICE_ADDR")
+	if messageServiceAddr == "" { messageServiceAddr = "message-service:50056" }
+	messageClient, err := client.NewMessageClient(messageServiceAddr)
+	if err != nil { logrus.Fatalf("failed to connect to message-service: %v", err) }
+	defer messageClient.Close()
+
+	communityServiceAddr := os.Getenv("COMMUNITY_SERVICE_ADDR")
+	if communityServiceAddr == "" { communityServiceAddr = "community-service:50057" }
+	communityClient, err := client.NewCommunityClient(communityServiceAddr)
+	if err != nil { logrus.Fatalf("failed to connect to community-service: %v", err) }
+	defer communityClient.Close()
+
 	logrus.Info("gRPC Clients initialized")
 
 	// Initialize handlers
@@ -85,6 +97,8 @@ func main() {
 	profileHandler := gwHTTPHandler.NewProfileHandler(userClient)
 	searchHandler := gwHTTPHandler.NewSearchHandler(searchClient, userClient, threadClient, mediaClient)
 	notificationHandler := gwHTTPHandler.NewNotificationHandler(notificationClient)
+	messageHandler := gwHTTPHandler.NewMessageHandler(messageClient, userClient, mediaClient)
+	communityHandler := gwHTTPHandler.NewCommunityHandler(communityClient, userClient)
 	wsHub := websocket.NewHub()
 
 	logrus.Info("HTTP Handlers initialized")
@@ -97,7 +111,7 @@ func main() {
 	}
 
 	// Set up router
-	r := route.SetupRouter(authHandler, threadHandler, mediaHandler, profileHandler, searchHandler, notificationHandler, wsHub, jwtSecret)
+	r := route.SetupRouter(authHandler, threadHandler, mediaHandler, profileHandler, searchHandler, notificationHandler, messageHandler, communityHandler, wsHub, jwtSecret)
 
 	// Start server
 	logrus.Info("API Gateway starting on :8080")

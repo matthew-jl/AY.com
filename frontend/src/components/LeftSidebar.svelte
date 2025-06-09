@@ -7,20 +7,29 @@
   import { clearUser, user } from '../stores/userStore';
   import { openCreateThreadModal } from '../stores/modalStore';
 
-  
+  import { Home, Search, Bell, Mail, Bookmark, Users, Star, User, Settings, Moon, Sun } from 'lucide-svelte';
+
   let theme: 'light' | 'dark' = 'light';
   let showLogout = false;
+  let isCompact = false;
 
   $: logoPath = theme === 'light' ? '/logo_light.png' : '/logo_dark.png';
-  
+
+  // Responsive: update isCompact on resize
+  function updateCompact() {
+    isCompact = window.innerWidth < 900;
+  }
   onMount(() => {
     const savedTheme = localStorage.getItem('theme') as 'light' | 'dark';
     if (savedTheme) {
       theme = savedTheme;
       document.documentElement.setAttribute('data-theme', theme);
     }
+    updateCompact();
+    window.addEventListener('resize', updateCompact);
+    return () => window.removeEventListener('resize', updateCompact);
   });
-  
+
   function toggleTheme() {
     theme = theme === 'light' ? 'dark' : 'light';
     document.documentElement.setAttribute('data-theme', theme);
@@ -30,18 +39,18 @@
   function toggleLogout() {
     showLogout = !showLogout;
   }
-  
+
   const location = useLocation();
   const menuItems = [
-    { label: 'Home', path: '/home', icon: '🏠' },
-    { label: 'Explore', path: '/explore', icon: '🔍' },
-    { label: 'Notifications', path: '/notifications', icon: '🔔' },
-    { label: 'Messages', path: '/messages', icon: '✉️' },
-    { label: 'Bookmarks', path: '/bookmarks', icon: '🔖' },
-    { label: 'Communities', path: '/communities', icon: '👥' },
-    { label: 'Premium', path: '/premium', icon: '⭐' },
-    { label: 'Profile', path: $user ? `/profile/${$user.username}` : '/profile', icon: '👤' },
-    { label: 'Settings', path: '/settings', icon: '⚙' },
+    { label: 'Home', path: '/home', icon: Home },
+    { label: 'Explore', path: '/explore', icon: Search },
+    { label: 'Notifications', path: '/notifications', icon: Bell },
+    { label: 'Messages', path: '/messages', icon: Mail },
+    { label: 'Bookmarks', path: '/bookmarks', icon: Bookmark },
+    { label: 'Communities', path: '/communities', icon: Users },
+    { label: 'Premium', path: '/premium', icon: Star },
+    { label: 'Profile', path: $user ? `/profile/${$user.username}` : '/profile', icon: User },
+    { label: 'Settings', path: '/settings', icon: Settings },
   ];
 
   function handleLogout() {
@@ -53,7 +62,7 @@
   }
 </script>
 
-<aside class="left-sidebar">
+<aside class="left-sidebar {isCompact ? 'compact' : ''}">
   <div class="logo">
       <img src={logoPath} alt="Logo" />
   </div>
@@ -63,15 +72,28 @@
         class:active={$location.pathname === item.path}
         href={item.path}
         use:link
-        role="menuitem">
-        <span class="icon">{item.icon}</span>
-        <span>{item.label}</span>
+        role="menuitem"
+        aria-label={item.label}>
+        <span class="icon"><svelte:component this={item.icon} size="1.6em" /></span>
+        {#if !isCompact}
+          <span>{item.label}</span>
+        {/if}
       </a>
     {/each}
   </nav>
-  <button class="post-button" on:click={openCreateThreadModal}>Post</button>
-  <button class="theme-toggle" on:click={toggleTheme}>
-    {theme === 'light' ? '🌙' : '☀️'}
+  <button class="post-button" on:click={openCreateThreadModal}>
+    {#if isCompact}
+      +
+    {:else}
+      Post
+    {/if}
+  </button>
+  <button class="theme-toggle" on:click={toggleTheme} aria-label="Toggle theme">
+    {#if theme === 'light'}
+      <Moon size="1.4em" />
+    {:else}
+      <Sun size="1.4em" />
+    {/if}
   </button>
   {#if $user}
     <div class="user-info-container" role="button" tabindex="0" aria-label="Account options" on:click={toggleLogout} on:keydown={(e) => e.key === 'Enter' && toggleLogout()}>
@@ -82,10 +104,12 @@
               {$user.name.charAt(0).toUpperCase()}
             {/if}
         </div>
+        {#if !isCompact}
         <div class="user-details">
             <span class="user-name">{$user.name}</span>
             <span class="user-handle">@{$user.username}</span>
         </div>
+        {/if}
     </div>
     {#if showLogout}
       <button class="logout-button" on:click={handleLogout}>
@@ -112,6 +136,38 @@
     display: flex;
     flex-direction: column;
     scrollbar-width: none;
+    transition: width 0.2s;
+    z-index: 10;
+    &.compact {
+      width: 70px;
+      .menu-item span:not(.icon),
+      .post-button,
+      .user-details,
+      .logout-button {
+        display: none !important;
+      }
+      .icon {
+        margin-right: 0;
+        justify-content: center;
+      }
+      .post-button {
+        width: 40px;
+        height: 40px;
+        padding: 0;
+        font-size: 1.5em;
+        border-radius: 50%;
+        margin-top: 20px;
+      }
+      .theme-toggle {
+        width: 40px;
+        height: 40px;
+        padding: 0;
+        border-radius: 50%;
+      }
+      .user-avatar-placeholder {
+        margin-right: 0;
+      }
+    }
   }
 
   .logo {
@@ -155,6 +211,9 @@
     font-size: 22px;
     width: 24px;
     text-align: center;
+    display: flex;
+    align-items: center;
+    justify-content: center;
   }
 
   .post-button {
@@ -186,6 +245,9 @@
     width: 90%;
     align-self: center;
     cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
   }
 
   .logout-button {
@@ -282,4 +344,38 @@
        }
   }
 
+  @media (max-width: 900px) {
+    .left-sidebar {
+      width: 70px;
+    }
+    .left-sidebar:not(.compact) {
+      .menu-item span:not(.icon),
+      .post-button,
+      .user-details,
+      .logout-button {
+        display: none !important;
+      }
+      .icon {
+        margin-right: 0;
+        justify-content: center;
+      }
+      .post-button {
+        width: 40px;
+        height: 40px;
+        padding: 0;
+        font-size: 1.5em;
+        border-radius: 50%;
+        margin-top: 20px;
+      }
+      .theme-toggle {
+        width: 40px;
+        height: 40px;
+        padding: 0;
+        border-radius: 50%;
+      }
+      .user-avatar-placeholder {
+        margin-right: 0;
+      }
+    }
+  }
 </style>

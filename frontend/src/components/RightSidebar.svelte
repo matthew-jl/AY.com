@@ -168,6 +168,8 @@
     padding-right: 15px; 
     position: relative; 
     height: 100vh; 
+    transition: width 0.2s, padding 0.2s;
+    flex-shrink: 0;
   }
 
   .sticky-container {
@@ -465,4 +467,46 @@
       }
   }
 
+  @media (max-width: 1200px) {
+    .right-sidebar {
+      width: 250px;
+      padding-left: 8px;
+      padding-right: 8px;
+    }
+  }
+
+  @media (max-width: 900px) {
+    .right-sidebar {
+      width: 70px;
+      padding-left: 0;
+      padding-right: 0;
+      .sticky-container {
+        padding: 0;
+      }
+      // Optionally hide all content except search
+      .content-box,
+      .premium-box,
+      .whats-happening,
+      .who-to-follow-sidebar {
+        display: none !important;
+      }
+      // Optionally shrink/hide search bar text
+      .search-bar input {
+        font-size: 0;
+        padding-left: 32px;
+        width: 32px;
+        min-width: 32px;
+        background-position: center;
+      }
+      .search-bar .search-icon {
+        left: 8px;
+      }
+    }
+  }
+
+  @media (max-width: 600px) {
+    .right-sidebar {
+      display: none !important;
+    }
+  }
 </style>

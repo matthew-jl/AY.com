@@ -351,14 +351,14 @@
         text-align: center; padding: 40px 20px; color: var(--secondary-text-color);
     }
   
-      @keyframes pulse { 0% { background-color: var(--section-hover-bg); } 50% { background-color: var(--border-color); } 100% { background-color: var(--section-hover-bg); } }
-      .skeleton-notification-item { display: flex; padding: 12px 16px; border-bottom: 1px solid var(--border-color); gap: 12px; align-items: flex-start; }
-      .skeleton-icon { width: 24px; height: 24px; border-radius: 4px; background-color: var(--section-hover-bg); animation: pulse 1.5s infinite ease-in-out; margin-right: 12px; margin-top: 2px;}
-      .skeleton-details { flex-grow: 1; display: flex; flex-direction: column; gap: 8px; }
-      .skeleton-line { height: 10px; border-radius: 4px; background-color: var(--section-hover-bg); animation: pulse 1.5s infinite ease-in-out;
-          &.avatar { width: 30px; height: 30px; border-radius: 50%; margin-bottom: 6px; }
-          &.text.short { width: 40%; }
-          &.text.long { width: 80%; }
-      }
+    @keyframes pulse { 0% { background-color: var(--section-hover-bg); } 50% { background-color: var(--border-color); } 100% { background-color: var(--section-hover-bg); } }
+    .skeleton-notification-item { display: flex; padding: 12px 16px; border-bottom: 1px solid var(--border-color); gap: 12px; align-items: flex-start; }
+    .skeleton-icon { width: 24px; height: 24px; border-radius: 4px; background-color: var(--section-hover-bg); animation: pulse 1.5s infinite ease-in-out; margin-right: 12px; margin-top: 2px;}
+    .skeleton-details { flex-grow: 1; display: flex; flex-direction: column; gap: 8px; }
+    .skeleton-line { height: 10px; border-radius: 4px; background-color: var(--section-hover-bg); animation: pulse 1.5s infinite ease-in-out;
+        &.avatar { width: 30px; height: 30px; border-radius: 50%; margin-bottom: 6px; }
+        &.text.short { width: 40%; }
+        &.text.long { width: 80%; }
+    }
   
   </style>

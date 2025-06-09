@@ -1,0 +1,130 @@
+syntax = "proto3";
+
+package message;
+
+option go_package = "github.com/Acad600-TPA/WEB-MJ-242/backend/message-service/genproto/message;messagepb";
+
+import "google/protobuf/empty.proto";
+import "google/protobuf/timestamp.proto";
+// import "../../media-service/proto/media.proto";
+
+service MessageService {
+  rpc HealthCheck(google.protobuf.Empty) returns (HealthResponse);
+
+  // Chat Management
+  rpc GetOrCreateDirectChat(GetOrCreateDirectChatRequest) returns (Chat);
+  rpc DeleteChat(DeleteChatRequest) returns (google.protobuf.Empty);
+  rpc CreateGroupChat(CreateGroupChatRequest) returns (Chat);
+  rpc AddParticipantToGroup(UpdateGroupParticipantsRequest) returns (google.protobuf.Empty);
+  rpc RemoveParticipantFromGroup(UpdateGroupParticipantsRequest) returns (google.protobuf.Empty);
+
+  // Message Management
+  rpc SendMessage(SendMessageRequest) returns (Message);
+  rpc GetMessages(GetMessagesRequest) returns (GetMessagesResponse);
+  rpc DeleteMessage(DeleteMessageRequest) returns (google.protobuf.Empty);
+
+  // User's Chat List
+  rpc GetUserChats(GetUserChatsRequest) returns (GetUserChatsResponse);
+}
+
+message HealthResponse { string status = 1; }
+
+message Chat {
+  uint32 id = 1;
+  string type = 2; // "direct", "group"
+  optional string name = 3; // For group chats
+  uint32 creator_id = 4;
+  google.protobuf.Timestamp created_at = 5;
+  google.protobuf.Timestamp updated_at = 6; // When last message was sent
+  repeated UserSummary participants = 7;
+  optional Message last_message = 8;
+}
+
+message UserSummary { // Minimal user info for chat display
+    uint32 id = 1;
+    string name = 2;
+    string username = 3;
+    string profile_picture_url = 4;
+}
+
+// from media.proto
+message Media {
+  uint32 id = 1;
+  uint32 uploader_user_id = 2;
+  string supabase_path = 3;
+  string bucket_name = 4;
+  string mime_type = 5;
+  int64 file_size = 6;
+  string public_url = 7;
+  google.protobuf.Timestamp created_at = 8;
+}
+
+message Message {
+  uint32 id = 1;
+  uint32 chat_id = 2;
+  uint32 sender_id = 3;
+  string content = 4;
+  string type = 5; // "text", "image", etc.
+  repeated uint32 media_ids = 6; // IDs from Media Service
+  repeated Media media_items = 7; // Alternative: send hydrated media
+  google.protobuf.Timestamp sent_at = 8;
+  bool is_deleted = 9;
+  UserSummary sender_summary = 10; // Hydrated sender info
+}
+
+message GetOrCreateDirectChatRequest {
+  uint32 user_id1 = 1; // Current authenticated user
+  uint32 user_id2 = 2; // The other user
+}
+
+message SendMessageRequest {
+  uint32 chat_id = 1;
+  uint32 sender_id = 2;
+  string content = 3;
+  repeated uint32 media_ids = 4;
+}
+
+message GetMessagesRequest {
+  uint32 chat_id = 1;
+  uint32 user_id = 2;
+  int32 page = 3;
+  int32 limit = 4;
+}
+
+message GetMessagesResponse {
+  repeated Message messages = 1;
+  bool has_more = 2;
+}
+
+message DeleteMessageRequest {
+  uint32 message_id = 1;
+  uint32 user_id = 2;
+}
+
+message GetUserChatsRequest {
+  uint32 user_id = 1;
+  int32 page = 2;
+  int32 limit = 3;
+}
+
+message GetUserChatsResponse {
+  repeated Chat chats = 1;
+  bool has_more = 2;
+}
+
+message DeleteChatRequest {
+  uint32 chat_id = 1;
+  uint32 user_id = 2;
+}
+
+message CreateGroupChatRequest {
+  uint32 creator_id = 1;
+  string group_name = 2;
+  repeated uint32 initial_participant_ids = 3;
+}
+
+message UpdateGroupParticipantsRequest {
+  uint32 chat_id = 1;      
+  uint32 actor_user_id = 2;
+  uint32 target_user_id = 3;
+}

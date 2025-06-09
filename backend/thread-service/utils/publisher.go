@@ -60,7 +60,7 @@ func InitRabbitMQPublisher() {
 			log.Printf("Warning: Failed to declare exchange 'social_events': %v", err)
 		}
 
-		log.Println("RabbitMQ Publisher initialized successfully for user-service.")
+		log.Println("RabbitMQ Publisher initialized successfully for thread-service.")
 
 		go func() {
 			<-rabbitConn.NotifyClose(make(chan *amqp.Error))

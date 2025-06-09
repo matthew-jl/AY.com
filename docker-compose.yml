@@ -102,6 +102,33 @@ services:
       user-service:
         condition: service_started
 
+  message-service:
+    build:
+      context: ./backend
+      dockerfile: message-service/Dockerfile
+    container_name: message-service
+    ports:
+      - "50056:50056"
+      - "8082:8082" # WebSocket port
+    env_file: ./backend/message-service/.env
+    depends_on:
+      postgres:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+
+  community-service:
+    build:
+      context: ./backend
+      dockerfile: community-service/Dockerfile
+    container_name: community-service
+    ports:
+      - "50057:50057"
+    env_file: ./backend/community-service/.env
+    depends_on:
+      postgres:
+        condition: service_healthy
+
   api-gateway:
     build:
       context: ./backend
@@ -114,6 +141,7 @@ services:
       - user-service
       - thread-service
       - media-service
+      - message-service
 
   redis:
     image: redis:7-alpine

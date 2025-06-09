@@ -1,0 +1,173 @@
+syntax = "proto3";
+
+package community;
+
+option go_package = "github.com/Acad600-TPA/WEB-MJ-242/backend/community-service/genproto/community;communitypb";
+
+import "google/protobuf/empty.proto";
+import "google/protobuf/timestamp.proto";
+
+service CommunityService {
+  rpc HealthCheck(google.protobuf.Empty) returns (HealthResponse);
+  rpc CreateCommunity(CreateCommunityRequest) returns (CommunityDetails);
+  rpc GetCommunityDetails(GetCommunityDetailsRequest) returns (CommunityDetailsResponse);
+  rpc ListCommunities(ListCommunitiesRequest) returns (ListCommunitiesResponse);
+  rpc RequestToJoinCommunity(CommunityUserRequest) returns (google.protobuf.Empty);
+  rpc AcceptJoinRequest(CommunityUserActionRequest) returns (google.protobuf.Empty);
+  rpc RejectJoinRequest(CommunityUserActionRequest) returns (google.protobuf.Empty);
+  rpc GetCommunityMembers(GetCommunityMembersRequest) returns (GetCommunityMembersResponse);
+  rpc GetUserJoinRequests(GetUserJoinRequestsRequest) returns (GetUserJoinRequestsResponse);
+  rpc GetCommunityPendingRequests(GetCommunityPendingRequestsRequest) returns (GetCommunityPendingRequestsResponse);
+  // rpc UpdateCommunity(UpdateCommunityRequest) returns (CommunityDetails); // For editing name, desc, icon, etc.
+  // rpc UpdateMemberRole(UpdateMemberRoleRequest) returns (google.protobuf.Empty);
+  // rpc RemoveMember(CommunityUserActionRequest) returns (google.protobuf.Empty); // Mod/Admin removes member or user leaves
+}
+
+message HealthResponse { string status = 1; }
+
+enum CommunityStatus {
+  COMMUNITY_STATUS_UNSPECIFIED = 0;
+  PENDING_APPROVAL = 1;
+  ACTIVE = 2;
+  REJECTED = 3;
+  BANNED = 4;
+}
+
+message UserSummary {
+  uint32 id = 1;
+  string name = 2;
+  string username = 3;
+  string profile_picture_url = 4;
+}
+
+message Community {
+  uint32 id = 1;
+  string name = 2;
+  string description_snippet = 3;
+  string icon_url = 4;
+  CommunityStatus status = 5;
+  int32 member_count = 6;
+  bool is_joined_by_requester = 7;
+  bool has_pending_request_by_requester = 8;
+  repeated string categories = 9;
+}
+
+message CommunityDetails { // Used for responses
+  uint32 id = 1;
+  string name = 2;
+  string description = 3;
+  uint32 creator_id = 4;
+  UserSummary creator_summary = 5; // Hydrated creator info
+  string icon_url = 6;
+  string banner_url = 7;
+  repeated string categories = 8;
+  repeated string rules = 9;
+  CommunityStatus status = 10;
+  google.protobuf.Timestamp created_at = 11;
+  int32 member_count = 12;
+}
+
+message CreateCommunityRequest {
+  string name = 1;
+  string description = 2;
+  uint32 creator_id = 3; // From JWT
+  string icon_url = 4;   // URL from Media Service (frontend uploads first, sends URL)
+  string banner_url = 5; // URL from Media Service
+  repeated string categories = 6;
+  repeated string rules = 7;
+}
+
+message GetCommunityDetailsRequest {
+  uint32 community_id = 1;
+  optional uint32 requester_user_id = 2; // To determine join status, role, etc.
+}
+
+// For CommunityDetails, we want more info than just the basic Community proto
+message CommunityDetailsResponse {
+    CommunityDetails community = 1;
+    // Add relationship flags based on requester_user_id
+    bool is_joined_by_requester = 2;
+    string requester_role = 3; // "member", "moderator", "owner", "pending_join", "none"
+    bool has_pending_request_by_requester = 4;
+}
+
+
+message ListCommunitiesRequest {
+  enum FilterType {
+    ALL_PUBLIC = 0; // All active, public communities
+    JOINED_BY_USER = 1; // Communities a specific user is a member of
+    CREATED_BY_USER = 2; // Communities created by a specific user
+    // PENDING_FOR_USER = 3; // Communities user has a pending join request for (use GetUserJoinRequests)
+  }
+  FilterType filter_type = 1;
+  optional uint32 user_id_context = 2; // Required if filter_type is JOINED_BY_USER or CREATED_BY_USER
+  optional uint32 requester_user_id = 3; // To determine if requester has joined listed communities
+  int32 page = 4;
+  int32 limit = 5;
+  string search_query = 6; // Optional search term
+  repeated string category_filters = 7; // Optional category filters
+}
+
+message ListCommunitiesResponse {
+  repeated Community communities = 1; // List of basic community info
+  bool has_more = 2;
+}
+
+message CommunityUserRequest { // For Join, Leave, etc.
+  uint32 community_id = 1;
+  uint32 user_id = 2; // User performing action / target user
+}
+
+message CommunityUserActionRequest { // For Mod/Admin actions
+  uint32 community_id = 1;
+  uint32 target_user_id = 2;
+  uint32 actor_user_id = 3; // User performing the action (from JWT)
+}
+
+message CommunityMemberDetails {
+  UserSummary user = 1;
+  string role = 2;
+  google.protobuf.Timestamp joined_at = 3;
+}
+
+message GetCommunityMembersRequest {
+  uint32 community_id = 1;
+  optional uint32 requester_user_id = 2; // To check follow status of members
+  string role_filter = 3; // "all", "member", "moderator", "owner"
+  int32 page = 4;
+  int32 limit = 5;
+}
+
+message GetCommunityMembersResponse {
+  repeated CommunityMemberDetails members = 1;
+  bool has_more = 2;
+}
+
+message JoinRequestDetails {
+    uint32 request_id = 1;
+    uint32 community_id = 2;
+    UserSummary user = 3; // User who requested
+    string status = 4;
+    google.protobuf.Timestamp requested_at = 5;
+}
+
+message GetUserJoinRequestsRequest { // User getting their own requests
+    uint32 user_id = 1;
+    int32 page = 2;
+    int32 limit = 3;
+}
+message GetUserJoinRequestsResponse {
+    repeated JoinRequestDetails requests = 1;
+    bool has_more = 2;
+}
+
+message GetCommunityPendingRequestsRequest { // Mod/Admin getting requests for their community
+    uint32 community_id = 1;
+    uint32 actor_user_id = 2; // For permission check
+    int32 page = 3;
+    int32 limit = 4;
+}
+message GetCommunityPendingRequestsResponse {
+    repeated JoinRequestDetails requests = 1;
+    bool has_more = 2;
+}

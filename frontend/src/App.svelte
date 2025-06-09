@@ -20,6 +20,10 @@
   import ExplorePage from "./routes/ExplorePage.svelte";
   import BookmarksPage from "./routes/BookmarksPage.svelte";
   import NotificationsPage from "./routes/NotificationsPage.svelte";
+  import MessagesPage from "./routes/MessagesPage.svelte";
+  import CommunitiesPage from "./routes/CommunitiesPage.svelte";
+  import CreateCommunityPage from "./routes/CreateCommunityPage.svelte";
+  import CommunityDetailPage from "./routes/CommunityDetailPage.svelte";
 
   export let url = "";
 
@@ -33,6 +37,8 @@
     if (sidebarLayoutRoutes.includes(path)) return true;
     // Match /profile/:username
     if (/^\/profile\/[^/]+$/.test(path)) return true;
+    // Match /community/:id
+    if (/^\/community\/[^/]+$/.test(path)) return true;
     return false;
   }
 
@@ -143,13 +149,19 @@
          {#if isAuth} <NotificationsPage /> {:else} <NoAccess /> {/if}
       </Route>
        <Route path="/messages">
-         {#if isAuth} <Home /> <!-- Replace with Messages later --> {:else} <NoAccess /> {/if}
+         {#if isAuth} <MessagesPage /> {:else} <NoAccess /> {/if}
       </Route>
        <Route path="/bookmarks">
          {#if isAuth} <BookmarksPage /> {:else} <NoAccess /> {/if}
       </Route>
        <Route path="/communities">
-         {#if isAuth} <Home /> <!-- Replace with Communities later --> {:else} <NoAccess /> {/if}
+         {#if isAuth} <CommunitiesPage /> {:else} <NoAccess /> {/if}
+      </Route>
+       <Route path="/communities/create">
+         {#if isAuth} <CreateCommunityPage /> {:else} <NoAccess /> {/if}
+      </Route>
+      <Route path="/community/:id" let:params>
+          <CommunityDetailPage id={params.id} />
       </Route>
        <Route path="/premium">
          {#if isAuth} <Home /> <!-- Replace with Premium later --> {:else} <NoAccess /> {/if}
@@ -198,6 +210,9 @@
   .main-content-area {
     flex-grow: 1;
     width: 100%;
+    min-width: 0;
+    // padding: 0 16px;
+    box-sizing: border-box;
   }
 
   .sidebar-layout .main-content-area {
@@ -205,6 +220,39 @@
     border-left: 1px solid var(--border-color);
     border-right: 1px solid var(--border-color);
     margin-left: $left-sidebar-width;
+    margin-right: 0;
+    max-width: 700px;
+    min-width: 0;
+    // padding: 0 24px;
+  }
+
+  @media (max-width: 1200px) {
+    .sidebar-layout .main-content-area {
+      margin-left: $left-sidebar-width;
+      margin-right: 0;
+      max-width: 100vw;
+      // padding: 0 12px;
+    }
+  }
+
+  @media (max-width: 900px) {
+    .sidebar-layout .main-content-area {
+      margin-left: 70px;
+      margin-right: 0;
+      max-width: 100vw;
+      // padding: 0 6px;
+    }
+  }
+
+  @media (max-width: 600px) {
+    .main-content-area,
+    .sidebar-layout .main-content-area {
+      margin-left: 70px;
+      // padding: 0 2vw;
+      border-left: none;
+      border-right: none;
+      max-width: 100vw;
+    }
   }
 
   .not-found {
