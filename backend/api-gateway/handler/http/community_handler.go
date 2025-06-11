@@ -1,14 +1,20 @@
-// backend/api-gateway/handler/http/community_handler.go
 package http
 
 import (
+	"context"
+	"fmt"
 	"log"
 	"net/http"
+	"sort"
 	"strconv"
 	"strings"
+	"sync"
 
 	"github.com/Acad600-TPA/WEB-MJ-242/backend/api-gateway/client"
 	communitypb "github.com/Acad600-TPA/WEB-MJ-242/backend/community-service/genproto/proto"
+	mediapb "github.com/Acad600-TPA/WEB-MJ-242/backend/media-service/genproto/proto"
+	threadpb "github.com/Acad600-TPA/WEB-MJ-242/backend/thread-service/genproto/proto"
+	userpb "github.com/Acad600-TPA/WEB-MJ-242/backend/user-service/genproto/proto"
 	"github.com/gin-gonic/gin"
 	// "google.golang.org/grpc/status" // For handleGRPCError
 	// "google.golang.org/grpc/codes"  // For handleGRPCError
@@ -17,15 +23,17 @@ import (
 type CommunityHandler struct {
 	communityClient *client.CommunityClient
 	userClient   *client.UserClient
-	// mediaClient  *client.MediaClient  // If gateway handles media URL validation/proxying
+	threadClient *client.ThreadClient
+	mediaClient  *client.MediaClient
 }
 
 // NewCommunityHandler initializes a new community handler
-func NewCommunityHandler(cc *client.CommunityClient , uc *client.UserClient/* , mc *client.MediaClient */) *CommunityHandler {
+func NewCommunityHandler(cc *client.CommunityClient , uc *client.UserClient, tc *client.ThreadClient, mc *client.MediaClient) *CommunityHandler {
 	return &CommunityHandler{
 		communityClient: cc,
 		userClient:   uc,
-		// mediaClient:  mc,
+		threadClient: tc,
+		mediaClient:  mc,
 	}
 }
 
@@ -42,6 +50,11 @@ type CreateCommunityPayloadHTTP struct {
 type HandleJoinRequestPayloadHTTP struct {
 	// For admin/mod to accept/reject a specific user's request for their community
 	TargetUserID uint32 `json:"target_user_id" binding:"required"`
+}
+
+type UpdateMemberRolePayloadHTTP struct {
+	TargetUserID uint32 `json:"target_user_id" binding:"required"`
+	NewRole      string `json:"new_role" binding:"required,oneof=member moderator"` // Validate role
 }
 
 // CreateCommunityHTTP handles the HTTP request to create a new community.
@@ -246,10 +259,266 @@ func (h *CommunityHandler) GetCommunityPendingRequestsHTTP(c *gin.Context) {
     c.JSON(http.StatusOK, resp)
 }
 
+func (h *CommunityHandler) UpdateMemberRoleHTTP(c *gin.Context) {
+	actorUserID, ok := getUserIDFromContext(c)
+	if !ok { return }
+	communityID, ok := getUint32Param(c, "communityId")
+	if !ok { return }
 
-// CommunityServiceHealthHTTP
+	var payload UpdateMemberRolePayloadHTTP
+	if err := c.ShouldBindJSON(&payload); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid payload: " + err.Error()}); return
+	}
+
+	grpcReq := &communitypb.UpdateMemberRoleRequest{
+		CommunityId:   communityID,
+		ActorUserId:   actorUserID,
+		TargetUserId:  payload.TargetUserID,
+		NewRole:       payload.NewRole,
+	}
+	_, err := h.communityClient.UpdateMemberRole(c.Request.Context(), grpcReq)
+	if err != nil { handleGRPCError(c, "update member role", err); return }
+	c.JSON(http.StatusOK, gin.H{"message": "Member role updated successfully"})
+}
+
+func (h *CommunityHandler) GetCommunityThreadsHTTP(c *gin.Context) {
+	communityID, ok := getUint32Param(c, "communityId")
+	if !ok { return }
+	if communityID == 0 { c.JSON(http.StatusBadRequest, gin.H{"error": "Community ID is required"}); return }
+
+	requesterUserID, _ := getUserIDFromContext(c)
+	page, limit := parsePagination(c)
+	sortType := c.DefaultQuery("sort", "latest") // e.g., "latest", "top"
+
+	// --- Permission Check: Can requester view this community's content? ---
+    commDetailsResp, err := h.communityClient.GetCommunityDetails(c.Request.Context(), &communitypb.GetCommunityDetailsRequest{
+        CommunityId:     uint32(communityID),
+        RequesterUserId: &requesterUserID,
+    })
+    if err != nil { handleGRPCError(c, "check community visibility for threads", err); return }
+    if commDetailsResp == nil || commDetailsResp.Community == nil {
+        c.JSON(http.StatusNotFound, gin.H{"error": "Community not found"}); return
+    }
+    // Apply privacy rules from community details before fetching threads
+    if commDetailsResp.Community.Status != communitypb.CommunityStatus_ACTIVE {
+         c.JSON(http.StatusForbidden, gin.H{"error": "Community is not active"}); return
+    }
+
+    // Get IDs to exclude based on requester's blocks
+    excludeUserIDs, err := h.getFeedExclusionIDs(c.Request.Context(), requesterUserID) // Use the existing helper
+    if err != nil {
+        log.Printf("GetCommunityThreadsHTTP: Error getting exclusion IDs: %v", err)
+        // Potentially proceed without exclusions or return an error
+    }
+
+
+	// Call Thread Service's GetCommunityThreads RPC
+	grpcReq := &threadpb.GetCommunityThreadsRequest{
+		CommunityId:    uint32(communityID), // Cast to uint32
+		RequesterUserId: &requesterUserID,    // For is_liked etc. on threads
+		SortType:       sortType,
+		Page:           page,
+		Limit:          limit,
+        ExcludeUserIds: excludeUserIDs,
+	}
+
+	threadServiceResp, err := h.threadClient.GetCommunityThreads(c.Request.Context(), grpcReq)
+	if err != nil {
+		handleGRPCError(c, "get community threads from thread service", err)
+		return
+	}
+
+	// --- Hydrate Author and Media (same logic as GetFeed) ---
+    if len(threadServiceResp.GetThreads()) == 0 {
+        c.JSON(http.StatusOK, FrontendFeedResponse{Threads: []FrontendThreadData{}, HasMore: false})
+        return
+    }
+    authorIDsSet := make(map[uint32]bool); mediaIDsSet := make(map[uint32]bool)
+    for _, t := range threadServiceResp.GetThreads() {
+        if t.GetUserId() != 0 { authorIDsSet[t.GetUserId()] = true }
+        for _, mediaID := range t.GetMediaIds() { if mediaID != 0 { mediaIDsSet[mediaID] = true } }
+    }
+    var authorIDs []uint32; for id := range authorIDsSet { authorIDs = append(authorIDs, id) }
+    var mediaIDs []uint32; for id := range mediaIDsSet { mediaIDs = append(mediaIDs, id) }
+    var wg sync.WaitGroup; var authorsMap map[uint32]*userpb.User; var mediaMap map[uint32]*mediapb.Media
+    var userErr, mediaErr error
+    if len(authorIDs) > 0 && h.userClient != nil {
+        wg.Add(1); go func() { defer wg.Done();
+            resp, err := h.userClient.GetUserProfilesByIds(c.Request.Context(), &userpb.GetUserProfilesByIdsRequest{UserIds: authorIDs})
+            if err != nil { userErr = err; return }; authorsMap = resp.GetUsers()
+        }()
+    }
+    if len(mediaIDs) > 0 && h.mediaClient != nil {
+        wg.Add(1); go func() { defer wg.Done();
+            resp, err := h.mediaClient.GetMultipleMediaMetadata(c.Request.Context(), &mediapb.GetMultipleMediaMetadataRequest{MediaIds: mediaIDs})
+            if err != nil { mediaErr = err; return }; mediaMap = resp.GetMediaItems()
+        }()
+    }
+    wg.Wait()
+    if userErr != nil { log.Printf("Error fetching authors for community threads: %v", userErr) }
+    if mediaErr != nil { log.Printf("Error fetching media for community threads: %v", mediaErr) }
+    hydratedThreads := make([]FrontendThreadData, 0, len(threadServiceResp.GetThreads()))
+    for _, tProto := range threadServiceResp.GetThreads() {
+        feThread := mapProtoThreadToFrontend(tProto, authorsMap, mediaMap)
+        hydratedThreads = append(hydratedThreads, feThread)
+    }
+
+	c.JSON(http.StatusOK, FrontendFeedResponse{
+		Threads: hydratedThreads,
+		HasMore: threadServiceResp.GetHasMore(),
+	})
+}
+
+func (h *CommunityHandler) GetTopCommunityMembersHTTP(c *gin.Context) {
+	communityID, ok := getUint32Param(c, "communityId") // Expecting ID
+	if !ok { return }
+
+	requesterUserID, _ := getUserIDFromContext(c) // For context if needed by GetUserProfile
+
+	limitStr := c.DefaultQuery("limit", "3")
+	limit, _ := strconv.Atoi(limitStr)
+	if limit <= 0 || limit > 5 { limit = 3 }
+
+	// 1. Fetch a list of member UserSummaries from Community Service
+	communityMembersResp, err := h.communityClient.GetCommunityMembers(c.Request.Context(), &communitypb.GetCommunityMembersRequest{
+		CommunityId:    communityID,
+		RequesterUserId: &requesterUserID, // For any context needed by GetCommunityMembers
+		RoleFilter:     "all",           // Get all roles
+		Page:           1,
+		Limit:          50,
+	})
+	if err != nil {
+		handleGRPCError(c, "get community members for top list", err)
+		return
+	}
+	if communityMembersResp == nil || len(communityMembersResp.GetMembers()) == 0 {
+		c.JSON(http.StatusOK, gin.H{"users": []FrontendUserProfile{}}) // Return empty list
+		return
+	}
+
+	// 2. Collect User IDs of these members to fetch their full profiles (with follower counts)
+	memberUserIDs := make([]uint32, 0, len(communityMembersResp.GetMembers()))
+	memberUserSummariesMap := make(map[uint32]*communitypb.UserSummary) // To keep basic info if full profile fetch fails
+
+	for _, memberDetail := range communityMembersResp.GetMembers() {
+		if memberDetail.GetUser() != nil {
+			memberUserIDs = append(memberUserIDs, memberDetail.GetUser().GetId())
+            memberUserSummariesMap[memberDetail.GetUser().GetId()] = memberDetail.GetUser()
+		}
+	}
+
+	if len(memberUserIDs) == 0 {
+		c.JSON(http.StatusOK, gin.H{"users": []FrontendUserProfile{}})
+		return
+	}
+
+	// 3. Fetch full profiles (which include follower_count) from User Service for these member IDs
+	// We need UserProfileResponse from user.proto which includes follower_count
+	fullMemberProfilesWithStats := make([]*userpb.UserProfileResponse, 0, len(memberUserIDs))
+
+    // Fetch profiles one by one (N+1, bad for many members)
+    if h.userClient != nil {
+        var profilesWg sync.WaitGroup
+        profilesChan := make(chan *userpb.UserProfileResponse, len(memberUserIDs))
+
+        for _, memberID := range memberUserIDs {
+            profilesWg.Add(1)
+            go func(uid uint32) {
+                defer profilesWg.Done()
+                profileResp, err := h.userClient.GetUserProfile(c.Request.Context(), &userpb.GetUserProfileRequest{
+                    UserIdToView:    uid,
+                    RequesterUserId: &requesterUserID, // Pass requester for context
+                })
+                if err != nil {
+                    log.Printf("Error fetching profile for member %d (for top list): %v", uid, err)
+                    // fetchProfileErr = err // Store first error, or collect all
+                    return
+                }
+                if profileResp != nil {
+                    profilesChan <- profileResp
+                }
+            }(memberID)
+        }
+
+        go func() {
+            profilesWg.Wait()
+            close(profilesChan)
+        }()
+
+        for profileResp := range profilesChan {
+            fullMemberProfilesWithStats = append(fullMemberProfilesWithStats, profileResp)
+        }
+    }
+    // Could check fetchProfileErr here if it's critical
+
+
+	// 4. Sort these full profiles by follower_count (descending)
+	sort.SliceStable(fullMemberProfilesWithStats, func(i, j int) bool {
+		return fullMemberProfilesWithStats[i].GetFollowerCount() > fullMemberProfilesWithStats[j].GetFollowerCount()
+	})
+
+	// 5. Take the top N (up to the requested limit)
+	finalCount := limit
+	if len(fullMemberProfilesWithStats) < limit {
+		finalCount = len(fullMemberProfilesWithStats)
+	}
+	topSortedProfiles := fullMemberProfilesWithStats[:finalCount]
+
+	// 6. Map to FrontendUserProfile structure
+	frontendTopUsers := make([]FrontendUserProfile, 0, len(topSortedProfiles))
+	for _, profileWithStats := range topSortedProfiles {
+		if profileWithStats.GetUser() != nil {
+			pbUser := profileWithStats.GetUser()
+			frontendTopUsers = append(frontendTopUsers, FrontendUserProfile{
+				ID:             pbUser.GetId(),
+				Name:           pbUser.GetName(),
+				Username:       pbUser.GetUsername(),
+				ProfilePicture: pbUser.GetProfilePicture(),
+                Email:          pbUser.GetEmail(),
+                AccountPrivacy: pbUser.GetAccountPrivacy(),
+			})
+		}
+	}
+
+	c.JSON(http.StatusOK, gin.H{"users": frontendTopUsers})
+}
+
 func (h *CommunityHandler) CommunityServiceHealthHTTP(c *gin.Context) {
     resp, err := h.communityClient.HealthCheck(c.Request.Context())
     if err != nil {handleGRPCError(c, "community service health", err); return }
     c.JSON(http.StatusOK, resp)
+}
+
+// Helpers
+func (h *CommunityHandler) getFeedExclusionIDs(ctx context.Context, requesterID uint32) ([]uint32, error) {
+	if requesterID == 0 { return nil, nil } // No exclusions for unauthenticated
+
+	var excludeIDs []uint32
+	var wg sync.WaitGroup
+	var errBlocked, errBlocking error
+	var blockedByRequester, requesterBlockedBy *userpb.UserIDListResponse
+
+	wg.Add(2)
+	go func() {
+		defer wg.Done()
+		blockedByRequester, errBlocked = h.userClient.GetBlockedUserIDs(ctx, &userpb.SocialListRequest{UserId: requesterID, Limit: 10000})
+	}()
+	go func() {
+		defer wg.Done()
+		requesterBlockedBy, errBlocking = h.userClient.GetBlockingUserIDs(ctx, &userpb.SocialListRequest{UserId: requesterID, Limit: 10000})
+	}()
+	wg.Wait()
+
+	if errBlocked != nil { return nil, fmt.Errorf("failed to get users blocked by requester: %w", errBlocked) }
+	if errBlocking != nil { return nil, fmt.Errorf("failed to get users blocking requester: %w", errBlocking) }
+
+	tempSet := make(map[uint32]bool)
+	if blockedByRequester != nil {
+		for _, id := range blockedByRequester.GetUserIds() { tempSet[id] = true }
+	}
+	if requesterBlockedBy != nil {
+		for _, id := range requesterBlockedBy.GetUserIds() { tempSet[id] = true }
+	}
+	for id := range tempSet { excludeIDs = append(excludeIDs, id) }
+	return excludeIDs, nil
 }

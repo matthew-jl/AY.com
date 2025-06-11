@@ -27,6 +27,7 @@ type Thread struct {
     CommunityID      *uint          `gorm:"index"` 
     IsAdvertisement  bool           `gorm:"default:false;not null"`
     MediaIDs         pq.Int64Array  `gorm:"type:bigint[]"`
+	Categories		 pq.StringArray `gorm:"type:text[]"`
     CreatedAt        time.Time
     UpdatedAt        time.Time
     DeletedAt        gorm.DeletedAt `gorm:"index"`
@@ -47,6 +48,7 @@ type GetThreadsParams struct {
 	ForUsername             string
 	FeedTabType             string // "posts", "replies", "media", "likes"
 	LikedByUserID           *uint  // for "likes" tab
+	ForCommunityID		 	*uint  // for community threads
 	ExcludeUserIDs          []uint
 	IncludeOnlyUserIDs      []uint
 	OnlyPublicOrFollowedByUserID *uint // filter: only threads public or by users followed by this user
@@ -177,7 +179,10 @@ func (r *ThreadRepository) GetThreads(ctx context.Context, params GetThreadsPara
 		Limit(params.Limit).
 		Offset(params.Offset)
 
-	if params.ByUserID != nil && *params.ByUserID != 0 {
+	if params.ForCommunityID != nil && *params.ForCommunityID != 0 {
+		query = query.Where("threads.community_id = ?", *params.ForCommunityID)
+		query = query.Where("threads.parent_thread_id IS NULL") // Only top-level threads for community feed
+	} else if params.ByUserID != nil && *params.ByUserID != 0 {
 		switch params.FeedTabType {
 		case "posts":
 			query = query.Where("user_id = ? AND parent_thread_id IS NULL", *params.ByUserID)
@@ -191,7 +196,7 @@ func (r *ThreadRepository) GetThreads(ctx context.Context, params GetThreadsPara
 	}
 
 	// Filter for "following" feed
-	if len(params.IncludeOnlyUserIDs) > 0 {
+	if len(params.IncludeOnlyUserIDs) > 0  && params.ForCommunityID == nil {
 		query = query.Where("threads.user_id IN ?", params.IncludeOnlyUserIDs)
 	}
 
@@ -203,7 +208,8 @@ func (r *ThreadRepository) GetThreads(ctx context.Context, params GetThreadsPara
 
 	result := query.Find(&threads)
 	if result.Error != nil {
-		return nil, fmt.Errorf("failed to get threads (type: %s, exclude: %v, include: %v): %w", params.FeedTabType, params.ExcludeUserIDs, params.IncludeOnlyUserIDs, result.Error)
+		return nil, fmt.Errorf("failed to get threads (community: %v, user: %v, type: %s): %w",
+            params.ForCommunityID, params.ByUserID, params.FeedTabType, result.Error)
 	}
 	log.Printf("Repo: GetThreads query executed. Found %d threads before further processing.", len(threads))
 	return threads, nil

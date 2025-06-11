@@ -1445,6 +1445,74 @@ func (x *GetCommunityPendingRequestsResponse) GetHasMore() bool {
 	return false
 }
 
+type UpdateMemberRoleRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	CommunityId   uint32                 `protobuf:"varint,1,opt,name=community_id,json=communityId,proto3" json:"community_id,omitempty"`
+	ActorUserId   uint32                 `protobuf:"varint,2,opt,name=actor_user_id,json=actorUserId,proto3" json:"actor_user_id,omitempty"`
+	TargetUserId  uint32                 `protobuf:"varint,3,opt,name=target_user_id,json=targetUserId,proto3" json:"target_user_id,omitempty"`
+	NewRole       string                 `protobuf:"bytes,4,opt,name=new_role,json=newRole,proto3" json:"new_role,omitempty"` // "member" or "moderator"
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *UpdateMemberRoleRequest) Reset() {
+	*x = UpdateMemberRoleRequest{}
+	mi := &file_proto_community_proto_msgTypes[19]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *UpdateMemberRoleRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*UpdateMemberRoleRequest) ProtoMessage() {}
+
+func (x *UpdateMemberRoleRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_community_proto_msgTypes[19]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use UpdateMemberRoleRequest.ProtoReflect.Descriptor instead.
+func (*UpdateMemberRoleRequest) Descriptor() ([]byte, []int) {
+	return file_proto_community_proto_rawDescGZIP(), []int{19}
+}
+
+func (x *UpdateMemberRoleRequest) GetCommunityId() uint32 {
+	if x != nil {
+		return x.CommunityId
+	}
+	return 0
+}
+
+func (x *UpdateMemberRoleRequest) GetActorUserId() uint32 {
+	if x != nil {
+		return x.ActorUserId
+	}
+	return 0
+}
+
+func (x *UpdateMemberRoleRequest) GetTargetUserId() uint32 {
+	if x != nil {
+		return x.TargetUserId
+	}
+	return 0
+}
+
+func (x *UpdateMemberRoleRequest) GetNewRole() string {
+	if x != nil {
+		return x.NewRole
+	}
+	return ""
+}
+
 var File_proto_community_proto protoreflect.FileDescriptor
 
 const file_proto_community_proto_rawDesc = "" +
@@ -1572,7 +1640,12 @@ const file_proto_community_proto_rawDesc = "" +
 	"\x05limit\x18\x04 \x01(\x05R\x05limit\"{\n" +
 	"#GetCommunityPendingRequestsResponse\x129\n" +
 	"\brequests\x18\x01 \x03(\v2\x1d.community.JoinRequestDetailsR\brequests\x12\x19\n" +
-	"\bhas_more\x18\x02 \x01(\bR\ahasMore*o\n" +
+	"\bhas_more\x18\x02 \x01(\bR\ahasMore\"\xa1\x01\n" +
+	"\x17UpdateMemberRoleRequest\x12!\n" +
+	"\fcommunity_id\x18\x01 \x01(\rR\vcommunityId\x12\"\n" +
+	"\ractor_user_id\x18\x02 \x01(\rR\vactorUserId\x12$\n" +
+	"\x0etarget_user_id\x18\x03 \x01(\rR\ftargetUserId\x12\x19\n" +
+	"\bnew_role\x18\x04 \x01(\tR\anewRole*o\n" +
 	"\x0fCommunityStatus\x12 \n" +
 	"\x1cCOMMUNITY_STATUS_UNSPECIFIED\x10\x00\x12\x14\n" +
 	"\x10PENDING_APPROVAL\x10\x01\x12\n" +
@@ -1580,7 +1653,7 @@ const file_proto_community_proto_rawDesc = "" +
 	"\x06ACTIVE\x10\x02\x12\f\n" +
 	"\bREJECTED\x10\x03\x12\n" +
 	"\n" +
-	"\x06BANNED\x10\x042\xa9\a\n" +
+	"\x06BANNED\x10\x042\xf9\a\n" +
 	"\x10CommunityService\x12@\n" +
 	"\vHealthCheck\x12\x16.google.protobuf.Empty\x1a\x19.community.HealthResponse\x12Q\n" +
 	"\x0fCreateCommunity\x12!.community.CreateCommunityRequest\x1a\x1b.community.CommunityDetails\x12a\n" +
@@ -1591,7 +1664,8 @@ const file_proto_community_proto_rawDesc = "" +
 	"\x11RejectJoinRequest\x12%.community.CommunityUserActionRequest\x1a\x16.google.protobuf.Empty\x12d\n" +
 	"\x13GetCommunityMembers\x12%.community.GetCommunityMembersRequest\x1a&.community.GetCommunityMembersResponse\x12d\n" +
 	"\x13GetUserJoinRequests\x12%.community.GetUserJoinRequestsRequest\x1a&.community.GetUserJoinRequestsResponse\x12|\n" +
-	"\x1bGetCommunityPendingRequests\x12-.community.GetCommunityPendingRequestsRequest\x1a..community.GetCommunityPendingRequestsResponseB\\ZZgithub.com/Acad600-TPA/WEB-MJ-242/backend/community-service/genproto/community;communitypbb\x06proto3"
+	"\x1bGetCommunityPendingRequests\x12-.community.GetCommunityPendingRequestsRequest\x1a..community.GetCommunityPendingRequestsResponse\x12N\n" +
+	"\x10UpdateMemberRole\x12\".community.UpdateMemberRoleRequest\x1a\x16.google.protobuf.EmptyB\\ZZgithub.com/Acad600-TPA/WEB-MJ-242/backend/community-service/genproto/community;communitypbb\x06proto3"
 
 var (
 	file_proto_community_proto_rawDescOnce sync.Once
@@ -1606,7 +1680,7 @@ func file_proto_community_proto_rawDescGZIP() []byte {
 }
 
 var file_proto_community_proto_enumTypes = make([]protoimpl.EnumInfo, 2)
-var file_proto_community_proto_msgTypes = make([]protoimpl.MessageInfo, 19)
+var file_proto_community_proto_msgTypes = make([]protoimpl.MessageInfo, 20)
 var file_proto_community_proto_goTypes = []any{
 	(CommunityStatus)(0),                        // 0: community.CommunityStatus
 	(ListCommunitiesRequest_FilterType)(0),      // 1: community.ListCommunitiesRequest.FilterType
@@ -1629,25 +1703,26 @@ var file_proto_community_proto_goTypes = []any{
 	(*GetUserJoinRequestsResponse)(nil),         // 18: community.GetUserJoinRequestsResponse
 	(*GetCommunityPendingRequestsRequest)(nil),  // 19: community.GetCommunityPendingRequestsRequest
 	(*GetCommunityPendingRequestsResponse)(nil), // 20: community.GetCommunityPendingRequestsResponse
-	(*timestamppb.Timestamp)(nil),               // 21: google.protobuf.Timestamp
-	(*emptypb.Empty)(nil),                       // 22: google.protobuf.Empty
+	(*UpdateMemberRoleRequest)(nil),             // 21: community.UpdateMemberRoleRequest
+	(*timestamppb.Timestamp)(nil),               // 22: google.protobuf.Timestamp
+	(*emptypb.Empty)(nil),                       // 23: google.protobuf.Empty
 }
 var file_proto_community_proto_depIdxs = []int32{
 	0,  // 0: community.Community.status:type_name -> community.CommunityStatus
 	3,  // 1: community.CommunityDetails.creator_summary:type_name -> community.UserSummary
 	0,  // 2: community.CommunityDetails.status:type_name -> community.CommunityStatus
-	21, // 3: community.CommunityDetails.created_at:type_name -> google.protobuf.Timestamp
+	22, // 3: community.CommunityDetails.created_at:type_name -> google.protobuf.Timestamp
 	5,  // 4: community.CommunityDetailsResponse.community:type_name -> community.CommunityDetails
 	1,  // 5: community.ListCommunitiesRequest.filter_type:type_name -> community.ListCommunitiesRequest.FilterType
 	4,  // 6: community.ListCommunitiesResponse.communities:type_name -> community.Community
 	3,  // 7: community.CommunityMemberDetails.user:type_name -> community.UserSummary
-	21, // 8: community.CommunityMemberDetails.joined_at:type_name -> google.protobuf.Timestamp
+	22, // 8: community.CommunityMemberDetails.joined_at:type_name -> google.protobuf.Timestamp
 	13, // 9: community.GetCommunityMembersResponse.members:type_name -> community.CommunityMemberDetails
 	3,  // 10: community.JoinRequestDetails.user:type_name -> community.UserSummary
-	21, // 11: community.JoinRequestDetails.requested_at:type_name -> google.protobuf.Timestamp
+	22, // 11: community.JoinRequestDetails.requested_at:type_name -> google.protobuf.Timestamp
 	16, // 12: community.GetUserJoinRequestsResponse.requests:type_name -> community.JoinRequestDetails
 	16, // 13: community.GetCommunityPendingRequestsResponse.requests:type_name -> community.JoinRequestDetails
-	22, // 14: community.CommunityService.HealthCheck:input_type -> google.protobuf.Empty
+	23, // 14: community.CommunityService.HealthCheck:input_type -> google.protobuf.Empty
 	6,  // 15: community.CommunityService.CreateCommunity:input_type -> community.CreateCommunityRequest
 	7,  // 16: community.CommunityService.GetCommunityDetails:input_type -> community.GetCommunityDetailsRequest
 	9,  // 17: community.CommunityService.ListCommunities:input_type -> community.ListCommunitiesRequest
@@ -1657,18 +1732,20 @@ var file_proto_community_proto_depIdxs = []int32{
 	14, // 21: community.CommunityService.GetCommunityMembers:input_type -> community.GetCommunityMembersRequest
 	17, // 22: community.CommunityService.GetUserJoinRequests:input_type -> community.GetUserJoinRequestsRequest
 	19, // 23: community.CommunityService.GetCommunityPendingRequests:input_type -> community.GetCommunityPendingRequestsRequest
-	2,  // 24: community.CommunityService.HealthCheck:output_type -> community.HealthResponse
-	5,  // 25: community.CommunityService.CreateCommunity:output_type -> community.CommunityDetails
-	8,  // 26: community.CommunityService.GetCommunityDetails:output_type -> community.CommunityDetailsResponse
-	10, // 27: community.CommunityService.ListCommunities:output_type -> community.ListCommunitiesResponse
-	22, // 28: community.CommunityService.RequestToJoinCommunity:output_type -> google.protobuf.Empty
-	22, // 29: community.CommunityService.AcceptJoinRequest:output_type -> google.protobuf.Empty
-	22, // 30: community.CommunityService.RejectJoinRequest:output_type -> google.protobuf.Empty
-	15, // 31: community.CommunityService.GetCommunityMembers:output_type -> community.GetCommunityMembersResponse
-	18, // 32: community.CommunityService.GetUserJoinRequests:output_type -> community.GetUserJoinRequestsResponse
-	20, // 33: community.CommunityService.GetCommunityPendingRequests:output_type -> community.GetCommunityPendingRequestsResponse
-	24, // [24:34] is the sub-list for method output_type
-	14, // [14:24] is the sub-list for method input_type
+	21, // 24: community.CommunityService.UpdateMemberRole:input_type -> community.UpdateMemberRoleRequest
+	2,  // 25: community.CommunityService.HealthCheck:output_type -> community.HealthResponse
+	5,  // 26: community.CommunityService.CreateCommunity:output_type -> community.CommunityDetails
+	8,  // 27: community.CommunityService.GetCommunityDetails:output_type -> community.CommunityDetailsResponse
+	10, // 28: community.CommunityService.ListCommunities:output_type -> community.ListCommunitiesResponse
+	23, // 29: community.CommunityService.RequestToJoinCommunity:output_type -> google.protobuf.Empty
+	23, // 30: community.CommunityService.AcceptJoinRequest:output_type -> google.protobuf.Empty
+	23, // 31: community.CommunityService.RejectJoinRequest:output_type -> google.protobuf.Empty
+	15, // 32: community.CommunityService.GetCommunityMembers:output_type -> community.GetCommunityMembersResponse
+	18, // 33: community.CommunityService.GetUserJoinRequests:output_type -> community.GetUserJoinRequestsResponse
+	20, // 34: community.CommunityService.GetCommunityPendingRequests:output_type -> community.GetCommunityPendingRequestsResponse
+	23, // 35: community.CommunityService.UpdateMemberRole:output_type -> google.protobuf.Empty
+	25, // [25:36] is the sub-list for method output_type
+	14, // [14:25] is the sub-list for method input_type
 	14, // [14:14] is the sub-list for extension type_name
 	14, // [14:14] is the sub-list for extension extendee
 	0,  // [0:14] is the sub-list for field type_name
@@ -1688,7 +1765,7 @@ func file_proto_community_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_proto_community_proto_rawDesc), len(file_proto_community_proto_rawDesc)),
 			NumEnums:      2,
-			NumMessages:   19,
+			NumMessages:   20,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

@@ -72,6 +72,7 @@ func (h *ThreadHandler) CreateThread(ctx context.Context, req *threadpb.CreateTh
 		Content:          req.Content,
 		ReplyRestriction: req.ReplyRestriction.String(),
         MediaIDs:         uint32SliceToInt64Array(req.MediaIds),
+		Categories: 	  req.Categories,
 	}
     if req.GetParentThreadId() != 0 {
          parentID := uint(req.GetParentThreadId())
@@ -471,6 +472,75 @@ func (h *ThreadHandler) GetUserThreads(ctx context.Context, req *threadpb.GetUse
 	}, nil
 }
 
+func (h *ThreadHandler) GetCommunityThreads(ctx context.Context, req *threadpb.GetCommunityThreadsRequest) (*threadpb.GetCommunityThreadsResponse, error) {
+    log.Printf("ThreadSvc: GetCommunityThreads. CommunityID: %d, Requester: %d, Sort: %s, Exclude: %v",
+        req.CommunityId, req.GetRequesterUserId(), req.SortType, req.GetExcludeUserIds())
+
+    if req.CommunityId == 0 {
+        return nil, status.Errorf(codes.InvalidArgument, "Community ID is required")
+    }
+
+    limit, offset := getLimitOffset(req.Page, req.Limit)
+    var dbThreads []postgres.Thread
+    var err error
+
+    // Prepare params for repo
+    params := postgres.GetThreadsParams{
+        Limit:          limit,
+        Offset:         offset,
+        ForCommunityID:    pointToUint(uint(req.CommunityId)),
+        ExcludeUserIDs: uint32SliceToUint(req.GetExcludeUserIds()),
+    }
+
+    dbThreads, err = h.repo.GetThreads(ctx, params)
+    if err != nil {
+        log.Printf("Failed to get community threads from repo (community: %d): %v", req.CommunityId, err)
+        return nil, status.Errorf(codes.Internal, "Could not retrieve community threads")
+    }
+
+    protoThreads := make([]*threadpb.Thread, 0, len(dbThreads))
+    if len(dbThreads) > 0 {
+        threadIDs := make([]uint, len(dbThreads))
+        for i, t := range dbThreads {
+            threadIDs[i] = t.ID
+        }
+
+        countsMap, errCounts := h.repo.GetInteractionCountsForMultipleThreads(ctx, threadIDs)
+        if errCounts != nil {
+            log.Printf("Error fetching batch interaction counts for community threads: %v", errCounts)
+        }
+
+        userInteractionsMap := make(map[uint]map[string]bool)
+        if req.GetRequesterUserId() != 0 {
+            userInteractionsMap, err = h.repo.CheckUserInteractionsForMultipleThreads(ctx, uint(req.GetRequesterUserId()), threadIDs)
+            if err != nil {
+                log.Printf("Error fetching batch user interactions for community threads: %v", err)
+            }
+        }
+
+        for i := range dbThreads {
+            tProto := mapThreadToProto(&dbThreads[i])
+            if threadCounts, ok := countsMap[dbThreads[i].ID]; ok {
+                tProto.LikeCount = int32(threadCounts["like"])
+                tProto.BookmarkCount = int32(threadCounts["bookmark"])
+            }
+            if userThreadInteractions, ok := userInteractionsMap[dbThreads[i].ID]; ok {
+                tProto.IsLikedByCurrentUser = userThreadInteractions["like"]
+                tProto.IsBookmarkedByCurrentUser = userThreadInteractions["bookmark"]
+            }
+            protoThreads = append(protoThreads, tProto)
+        }
+    }
+
+    hasMore := len(dbThreads) == limit
+    log.Printf("Returning %d hydrated threads for GetCommunityThreads request.", len(protoThreads))
+
+    return &threadpb.GetCommunityThreadsResponse{
+        Threads: protoThreads,
+        HasMore: hasMore,
+    }, nil
+}
+
 func (h *ThreadHandler) GetBookmarkedThreads(ctx context.Context, req *threadpb.GetBookmarkedThreadsRequest) (*threadpb.GetBookmarkedThreadsResponse, error) {
 	log.Printf("ThreadSvc: GetBookmarkedThreads. UserID: %d, Requester: %d, Page: %d",
 		req.UserId, req.GetRequesterUserId(), req.Page)
@@ -539,6 +609,7 @@ func mapThreadToProto(t *postgres.Thread) *threadpb.Thread {
         PostedAt:        timestamppb.New(t.PostedAt),
         IsAdvertisement: t.IsAdvertisement,
         MediaIds:        int64ArrayToUint32Slice(t.MediaIDs),
+		Categories:      t.Categories,
         CreatedAt:       timestamppb.New(t.CreatedAt),
         // Interaction counts need to be populated separately
     }

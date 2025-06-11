@@ -137,6 +137,31 @@ export function clearTokens(): void {
   }
 }
 
+export function getRefreshToken(): string | null {
+  if (typeof window !== "undefined") {
+    return localStorage.getItem("refreshToken");
+  }
+  return null;
+}
+
+export async function refreshAccessToken(): Promise<boolean> {
+  const refreshToken = getRefreshToken();
+  if (!refreshToken) return false;
+  try {
+    const response = await fetch(`${API_BASE_URL}/auth/refresh`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ refresh_token: refreshToken }),
+    });
+    if (!response.ok) return false;
+    const data = await response.json();
+    saveTokens(data.access_token, data.refresh_token);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 // --- Generic Fetch Wrapper ---
 
 /**
@@ -148,7 +173,8 @@ export function clearTokens(): void {
  */
 async function apiFetch<T>(
   endpoint: string,
-  options: RequestInit = {}
+  options: RequestInit = {},
+  retry = true
 ): Promise<T> {
   const token = getAccessToken();
   const defaultHeaders = new Headers({
@@ -179,6 +205,18 @@ async function apiFetch<T>(
     throw new Error(
       "Network error occurred while fetching data: " + networkError
     );
+  }
+
+  // If unauthorized, try refresh
+  if (response.status === 401 && retry) {
+    const refreshed = await refreshAccessToken();
+    if (refreshed) {
+      // Try again with new token
+      return apiFetch<T>(endpoint, options, false);
+    } else {
+      clearTokens();
+      throw new ApiError("Session expired. Please log in again.", 401);
+    }
   }
 
   if (!response.ok) {
@@ -283,11 +321,12 @@ export interface ResendVerificationRequestData {
 
 export interface CreateThreadRequestData {
   content: string;
-  parent_thread_id?: number;
+  parent_thread_id?: number | null;
   reply_restriction?: string;
   scheduled_at?: string | null;
-  community_id?: number;
+  community_id?: number | null;
   media_ids?: number[];
+  categories?: string[];
 }
 
 export interface UploadMediaResponseData {
@@ -480,6 +519,49 @@ export interface GetUserJoinRequestsApiResponse {
 
 export interface HandleJoinRequestPayload {
   target_user_id: number;
+}
+
+export interface HandleCommunityJoinRequestPayload {
+  target_user_id: number;
+}
+
+export interface UpdateMemberRoleRequestData {
+  target_user_id: number;
+  new_role: "member" | "moderator";
+}
+
+export interface CommunityMemberDetails {
+  user: UserSummary;
+  role: string; // "member", "moderator", "owner"
+  joined_at: string;
+}
+
+export interface GetCommunityMembersApiResponse {
+  members: CommunityMemberDetails[];
+  has_more: boolean;
+}
+
+export interface GetTopCommunityMembersApiResponse {
+  users: UserProfileBasic[];
+}
+
+export interface GetCommunityThreadsRequestData {
+  community_id: number;
+  requester_user_id?: number | null;
+  sort_type?: "latest" | "top_posts";
+  thread_type_filter?: "all" | "media_only";
+  page?: number;
+  limit?: number;
+}
+
+export interface AISuggestionRequest {
+  text: string;
+}
+
+export interface AISuggestionResponse {
+  predicted_class_index: number; // 0, 1, 2, 3
+  predicted_category_name: string; // "World", "Sports"
+  original_text_snippet?: string;
 }
 
 // --- API Methods ---
@@ -842,6 +924,13 @@ export const api = {
     });
   },
 
+  getJoinedCommunities: (
+    userId: number,
+    page: number = 1,
+    limit: number = 100
+  ): Promise<ListCommunitiesApiResponse> =>
+    api.listCommunities("JOINED_BY_USER", userId, page, limit),
+
   requestToJoinCommunity: (communityId: number): Promise<void> =>
     apiFetch<void>(`/communities/${communityId}/join`, { method: "POST" }),
 
@@ -880,4 +969,65 @@ export const api = {
       `/communities/${communityId}/requests?page=${page}&limit=${limit}`,
       { method: "GET" }
     ),
+
+  getCommunityMembers: (
+    communityId: number,
+    page: number = 1,
+    limit: number = 25,
+    role_filter?: "all" | "member" | "moderator" | "owner"
+  ): Promise<GetCommunityMembersApiResponse> => {
+    let url = `/communities/${communityId}/members?page=${page}&limit=${limit}`;
+    if (role_filter && role_filter !== "all") {
+      url += `&role=${role_filter}`;
+    }
+    return apiFetch<GetCommunityMembersApiResponse>(url, { method: "GET" });
+  },
+
+  getTopCommunityMembers: (
+    communityId: number,
+    limit: number = 3
+  ): Promise<GetTopCommunityMembersApiResponse> =>
+    apiFetch<GetTopCommunityMembersApiResponse>(
+      `/communities/${communityId}/top-members?limit=${limit}`,
+      { method: "GET" }
+    ),
+
+  updateMemberRole: (
+    communityId: number,
+    data: UpdateMemberRoleRequestData
+  ): Promise<void> =>
+    apiFetch<void>(`/communities/${communityId}/members/role`, {
+      method: "PUT",
+      body: JSON.stringify(data),
+    }),
+
+  getCommunityThreads: (
+    communityId: number,
+    params: {
+      requesterUserId?: number | null;
+      sortType?: "latest" | "top";
+      filterMediaOnly?: boolean;
+      page?: number;
+      limit?: number;
+    }
+  ): Promise<FeedResponse> => {
+    let url = `/communities/${communityId}/threads?page=${
+      params.page || 1
+    }&limit=${params.limit || 10}`;
+    if (params.sortType) {
+      // Backend needs to support sort_type query param
+      url += `&sort=${params.sortType}`;
+    }
+    if (params.filterMediaOnly) {
+      // Backend needs to support type=media filter
+      url += "&type=media";
+    }
+    return apiFetch<FeedResponse>(url, { method: "GET" });
+  },
+
+  suggestCategory: (data: AISuggestionRequest): Promise<AISuggestionResponse> =>
+    apiFetch<AISuggestionResponse>("/ai/suggest-category", {
+      method: "POST",
+      body: JSON.stringify(data),
+    }),
 };

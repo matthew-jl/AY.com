@@ -390,6 +390,43 @@ func (h *CommunityHandler) GetCommunityPendingRequests(ctx context.Context, req 
     return &communitypb.GetCommunityPendingRequestsResponse{Requests: joinRequestDetailsList, HasMore: len(dbRequests) == limit}, nil
 }
 
+func (h *CommunityHandler) UpdateMemberRole(ctx context.Context, req *communitypb.UpdateMemberRoleRequest) (*emptypb.Empty, error) {
+	log.Printf("UpdateMemberRole: Comm %d, Actor %d, Target %d, NewRole %s",
+		req.CommunityId, req.ActorUserId, req.TargetUserId, req.NewRole)
+
+	if req.CommunityId == 0 || req.ActorUserId == 0 || req.TargetUserId == 0 || req.NewRole == "" {
+		return nil, status.Errorf(codes.InvalidArgument, "CommunityID, ActorID, TargetUserID, and NewRole are required")
+	}
+	if req.ActorUserId == req.TargetUserId {
+		return nil, status.Errorf(codes.InvalidArgument, "Cannot change your own role via this method")
+	}
+
+	// 1. Permission Check: Actor must be an owner of the community
+	actorRole, err := h.repo.GetUserRoleInCommunity(ctx, uint(req.CommunityId), uint(req.ActorUserId))
+	if err != nil {
+		log.Printf("UpdateMemberRole: Error getting actor's role: %v", err)
+		return nil, status.Errorf(codes.Internal, "Failed to verify permissions")
+	}
+	if actorRole != "owner" {
+		log.Printf("UpdateMemberRole: Actor %d is not an owner of community %d (role: %s)", req.ActorUserId, req.CommunityId, actorRole)
+		return nil, status.Errorf(codes.PermissionDenied, "Only community owners can change member roles")
+	}
+
+	// 2. Call repository to update role
+	err = h.repo.UpdateMemberRole(ctx, uint(req.CommunityId), uint(req.TargetUserId), req.NewRole)
+	if err != nil {
+		log.Printf("UpdateMemberRole: Error updating role in repo: %v", err)
+		if strings.Contains(err.Error(), "not a member") || strings.Contains(err.Error(), "cannot change the role of an owner") || strings.Contains(err.Error(), "invalid role specified") {
+			return nil, status.Error(codes.InvalidArgument, err.Error())
+		}
+		return nil, status.Errorf(codes.Internal, "Failed to update member role")
+	}
+
+	// TODO: Publish "member_role_updated" event to RabbitMQ for real-time updates or audit logs
+	log.Printf("Role updated for user %d in community %d to '%s' by owner %d", req.TargetUserId, req.CommunityId, req.NewRole, req.ActorUserId)
+	return &emptypb.Empty{}, nil
+}
+
 
 // --- Helper Functions ---
 func mapDBCommunityToProtoDetails(c *postgres.Community, creatorSummary *communitypb.UserSummary, memberCount int64) *communitypb.CommunityDetails {

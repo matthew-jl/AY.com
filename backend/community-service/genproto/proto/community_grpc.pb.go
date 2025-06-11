@@ -30,6 +30,7 @@ const (
 	CommunityService_GetCommunityMembers_FullMethodName         = "/community.CommunityService/GetCommunityMembers"
 	CommunityService_GetUserJoinRequests_FullMethodName         = "/community.CommunityService/GetUserJoinRequests"
 	CommunityService_GetCommunityPendingRequests_FullMethodName = "/community.CommunityService/GetCommunityPendingRequests"
+	CommunityService_UpdateMemberRole_FullMethodName            = "/community.CommunityService/UpdateMemberRole"
 )
 
 // CommunityServiceClient is the client API for CommunityService service.
@@ -46,6 +47,8 @@ type CommunityServiceClient interface {
 	GetCommunityMembers(ctx context.Context, in *GetCommunityMembersRequest, opts ...grpc.CallOption) (*GetCommunityMembersResponse, error)
 	GetUserJoinRequests(ctx context.Context, in *GetUserJoinRequestsRequest, opts ...grpc.CallOption) (*GetUserJoinRequestsResponse, error)
 	GetCommunityPendingRequests(ctx context.Context, in *GetCommunityPendingRequestsRequest, opts ...grpc.CallOption) (*GetCommunityPendingRequestsResponse, error)
+	// rpc UpdateCommunity(UpdateCommunityRequest) returns (CommunityDetails); // For editing name, desc, icon, etc.
+	UpdateMemberRole(ctx context.Context, in *UpdateMemberRoleRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
 }
 
 type communityServiceClient struct {
@@ -156,6 +159,16 @@ func (c *communityServiceClient) GetCommunityPendingRequests(ctx context.Context
 	return out, nil
 }
 
+func (c *communityServiceClient) UpdateMemberRole(ctx context.Context, in *UpdateMemberRoleRequest, opts ...grpc.CallOption) (*emptypb.Empty, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(emptypb.Empty)
+	err := c.cc.Invoke(ctx, CommunityService_UpdateMemberRole_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // CommunityServiceServer is the server API for CommunityService service.
 // All implementations must embed UnimplementedCommunityServiceServer
 // for forward compatibility.
@@ -170,6 +183,8 @@ type CommunityServiceServer interface {
 	GetCommunityMembers(context.Context, *GetCommunityMembersRequest) (*GetCommunityMembersResponse, error)
 	GetUserJoinRequests(context.Context, *GetUserJoinRequestsRequest) (*GetUserJoinRequestsResponse, error)
 	GetCommunityPendingRequests(context.Context, *GetCommunityPendingRequestsRequest) (*GetCommunityPendingRequestsResponse, error)
+	// rpc UpdateCommunity(UpdateCommunityRequest) returns (CommunityDetails); // For editing name, desc, icon, etc.
+	UpdateMemberRole(context.Context, *UpdateMemberRoleRequest) (*emptypb.Empty, error)
 	mustEmbedUnimplementedCommunityServiceServer()
 }
 
@@ -209,6 +224,9 @@ func (UnimplementedCommunityServiceServer) GetUserJoinRequests(context.Context, 
 }
 func (UnimplementedCommunityServiceServer) GetCommunityPendingRequests(context.Context, *GetCommunityPendingRequestsRequest) (*GetCommunityPendingRequestsResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method GetCommunityPendingRequests not implemented")
+}
+func (UnimplementedCommunityServiceServer) UpdateMemberRole(context.Context, *UpdateMemberRoleRequest) (*emptypb.Empty, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method UpdateMemberRole not implemented")
 }
 func (UnimplementedCommunityServiceServer) mustEmbedUnimplementedCommunityServiceServer() {}
 func (UnimplementedCommunityServiceServer) testEmbeddedByValue()                          {}
@@ -411,6 +429,24 @@ func _CommunityService_GetCommunityPendingRequests_Handler(srv interface{}, ctx 
 	return interceptor(ctx, in, info, handler)
 }
 
+func _CommunityService_UpdateMemberRole_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(UpdateMemberRoleRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(CommunityServiceServer).UpdateMemberRole(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: CommunityService_UpdateMemberRole_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(CommunityServiceServer).UpdateMemberRole(ctx, req.(*UpdateMemberRoleRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // CommunityService_ServiceDesc is the grpc.ServiceDesc for CommunityService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -457,6 +493,10 @@ var CommunityService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "GetCommunityPendingRequests",
 			Handler:    _CommunityService_GetCommunityPendingRequests_Handler,
+		},
+		{
+			MethodName: "UpdateMemberRole",
+			Handler:    _CommunityService_UpdateMemberRole_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

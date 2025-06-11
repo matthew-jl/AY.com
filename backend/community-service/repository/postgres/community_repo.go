@@ -391,3 +391,37 @@ func (r *CommunityRepository) GetUserRolesAndPendingRequestsForCommunities(ctx c
     }
     return statuses, nil
 }
+
+func (r *CommunityRepository) UpdateMemberRole(ctx context.Context, communityID, targetUserID uint, newRole string) error {
+	if newRole != "member" && newRole != "moderator" {
+		return errors.New("invalid role specified, must be 'member' or 'moderator'")
+	}
+
+	// Prevent owner from being demoted by this function or demoting another owner
+	var currentMember CommunityMember
+	if err := r.db.WithContext(ctx).Where("community_id = ? AND user_id = ?", communityID, targetUserID).First(&currentMember).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) { return errors.New("target user is not a member of this community")}
+		return fmt.Errorf("failed to find target member: %w", err)
+	}
+	if currentMember.Role == "owner" {
+		return errors.New("cannot change the role of an owner via this method")
+	}
+    if newRole == currentMember.Role {
+        log.Printf("User %d already has role '%s' in community %d. No update needed.", targetUserID, newRole, communityID)
+        return nil
+    }
+
+
+	result := r.db.WithContext(ctx).Model(&CommunityMember{}).
+		Where("community_id = ? AND user_id = ?", communityID, targetUserID).
+		Update("role", newRole)
+
+	if result.Error != nil {
+		return fmt.Errorf("failed to update role for user %d in community %d: %w", targetUserID, communityID, result.Error)
+	}
+	if result.RowsAffected == 0 {
+		return errors.New("member not found or role already set to target role")
+	}
+	log.Printf("Role of user %d in community %d updated to '%s'", targetUserID, communityID, newRole)
+	return nil
+}

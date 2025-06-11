@@ -98,7 +98,13 @@ func main() {
 	searchHandler := gwHTTPHandler.NewSearchHandler(searchClient, userClient, threadClient, mediaClient)
 	notificationHandler := gwHTTPHandler.NewNotificationHandler(notificationClient)
 	messageHandler := gwHTTPHandler.NewMessageHandler(messageClient, userClient, mediaClient)
-	communityHandler := gwHTTPHandler.NewCommunityHandler(communityClient, userClient)
+	communityHandler := gwHTTPHandler.NewCommunityHandler(communityClient, userClient, threadClient, mediaClient)
+
+	aiHandler, err := gwHTTPHandler.NewAIHandler()
+	if err != nil {
+		logrus.Fatalf("Failed to initialize AI Handler: %v", err)
+	}
+
 	wsHub := websocket.NewHub()
 
 	logrus.Info("HTTP Handlers initialized")
@@ -111,7 +117,11 @@ func main() {
 	}
 
 	// Set up router
-	r := route.SetupRouter(authHandler, threadHandler, mediaHandler, profileHandler, searchHandler, notificationHandler, messageHandler, communityHandler, wsHub, jwtSecret)
+	r := route.SetupRouter(
+		authHandler, threadHandler, mediaHandler, profileHandler, 
+		searchHandler, notificationHandler, messageHandler, 
+		communityHandler, aiHandler, wsHub, jwtSecret,
+	)
 
 	// Start server
 	logrus.Info("API Gateway starting on :8080")

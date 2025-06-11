@@ -19,7 +19,7 @@ service CommunityService {
   rpc GetUserJoinRequests(GetUserJoinRequestsRequest) returns (GetUserJoinRequestsResponse);
   rpc GetCommunityPendingRequests(GetCommunityPendingRequestsRequest) returns (GetCommunityPendingRequestsResponse);
   // rpc UpdateCommunity(UpdateCommunityRequest) returns (CommunityDetails); // For editing name, desc, icon, etc.
-  // rpc UpdateMemberRole(UpdateMemberRoleRequest) returns (google.protobuf.Empty);
+  rpc UpdateMemberRole(UpdateMemberRoleRequest) returns (google.protobuf.Empty);
   // rpc RemoveMember(CommunityUserActionRequest) returns (google.protobuf.Empty); // Mod/Admin removes member or user leaves
 }
 
@@ -170,4 +170,11 @@ message GetCommunityPendingRequestsRequest { // Mod/Admin getting requests for t
 message GetCommunityPendingRequestsResponse {
     repeated JoinRequestDetails requests = 1;
     bool has_more = 2;
+}
+
+message UpdateMemberRoleRequest {
+  uint32 community_id = 1;
+  uint32 actor_user_id = 2; 
+  uint32 target_user_id = 3;
+  string new_role = 4;        // "member" or "moderator"
 }

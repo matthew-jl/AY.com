@@ -74,11 +74,7 @@ services:
     container_name: search-service
     ports:
       - "50054:50054"
-    environment:
-      PORT: 50054
-      USER_DB_DSN: "postgres://user:password@postgres:5432/ay_user_db?sslmode=disable"
-      THREAD_DB_DSN: "postgres://user:password@postgres:5432/ay_thread_db?sslmode=disable"
-      REDIS_ADDR: "redis:6379"
+    env_file: ./backend/search-service/.env
     depends_on:
       postgres:
         condition: service_healthy
@@ -129,6 +125,16 @@ services:
       postgres:
         condition: service_healthy
 
+  ai-service:
+    build:
+      context: ./ai
+      dockerfile: Dockerfile
+    container_name: ai-service
+    ports:
+      - "5000:5000"
+    volumes:
+      - ./ai:/app
+
   api-gateway:
     build:
       context: ./backend
@@ -163,7 +169,7 @@ services:
       - "5672:5672" # AMQP port
       - "15672:15672" # Management UI port
     environment:
-      # Default user/pass is guest/guest, fine for local dev
+      # Default user/pass is guest/guest
       RABBITMQ_DEFAULT_VHOST: "/"
     volumes:
       - rabbitmq_data:/var/lib/rabbitmq/

@@ -1,4 +1,3 @@
-// backend/api-gateway/client/community_client.go
 package client
 
 import (
@@ -75,8 +74,11 @@ func (c *CommunityClient) GetUserJoinRequests(ctx context.Context, req *communit
     if c.client == nil { return nil, fmt.Errorf("gRPC client not initialized")}
     return c.client.GetUserJoinRequests(ctx, req)
 }
-
 func (c *CommunityClient) GetCommunityPendingRequests(ctx context.Context, req *communitypb.GetCommunityPendingRequestsRequest) (*communitypb.GetCommunityPendingRequestsResponse, error) {
     if c.client == nil { return nil, fmt.Errorf("gRPC client not initialized")}
     return c.client.GetCommunityPendingRequests(ctx, req)
+}
+func (c *CommunityClient) UpdateMemberRole(ctx context.Context, req *communitypb.UpdateMemberRoleRequest) (*emptypb.Empty, error) {
+	if c.client == nil { return nil, fmt.Errorf("gRPC client not initialized") }
+	return c.client.UpdateMemberRole(ctx, req)
 }

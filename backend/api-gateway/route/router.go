@@ -36,6 +36,7 @@ func SetupRouter(
 	notificationHandler *gwHTTPHandler.NotificationHandler,
 	messageHandler *gwHTTPHandler.MessageHandler,
 	communityHandler *gwHTTPHandler.CommunityHandler,
+	aiHandler *gwHTTPHandler.AIHandler,
 	wsHub *websocket.Hub, 
 	jwtSecret string) *gin.Engine {
 	r := gin.New()
@@ -84,6 +85,8 @@ func SetupRouter(
 		auth.POST("/register", authHandler.Register)
 
 		auth.POST("/login", authHandler.Login)
+		auth.POST("/refresh", authHandler.RefreshToken)
+
 		auth.POST("/verify", authHandler.VerifyEmail)
 		auth.POST("/verify/resend", authHandler.ResendVerificationCode)
 		auth.POST("/forgot-password/question", authHandler.GetSecurityQuestion)
@@ -194,17 +197,33 @@ func SetupRouter(
 		communities.GET("", communityHandler.ListCommunitiesHTTP)
 
 		// Actions on a specific community
-		communities.POST("/:communityId/join", communityHandler.RequestToJoinCommunityHTTP)
-		communities.GET("/:communityId/members", communityHandler.GetCommunityMembersHTTP) // Viewing members
-		
-		// Join request management (mod/admin actions)
-		communityRequests := communities.Group("/:communityId/requests")
-		communityRequests.Use(authMiddleware)
-		{
-			communityRequests.GET("", communityHandler.GetCommunityPendingRequestsHTTP)
-			communityRequests.POST("/accept", communityHandler.AcceptJoinRequestHTTP)
-			communityRequests.POST("/reject", communityHandler.RejectJoinRequestHTTP)
-		}
+		communityActions := communities.Group("/:communityId")
+        {
+            communityActions.POST("/join", communityHandler.RequestToJoinCommunityHTTP)
+			communityActions.GET("/threads", communityHandler.GetCommunityThreadsHTTP)
+            communityActions.GET("/members", communityHandler.GetCommunityMembersHTTP)
+			communityActions.GET("/top-members", communityHandler.GetTopCommunityMembersHTTP)
+
+            // Join request management (moderator action)
+            requestsGroup := communityActions.Group("/requests")
+            {
+                requestsGroup.GET("", communityHandler.GetCommunityPendingRequestsHTTP)
+                requestsGroup.POST("/accept", communityHandler.AcceptJoinRequestHTTP)
+                requestsGroup.POST("/reject", communityHandler.RejectJoinRequestHTTP)
+            }
+
+            // Member role management (owner action)
+            membersGroup := communityActions.Group("/members")
+            {
+                membersGroup.PUT("/role", communityHandler.UpdateMemberRoleHTTP) // New route PUT /communities/:communityId/members/role
+            }
+        }
+	}
+
+	aiProxy := v1.Group("/ai")
+	aiProxy.Use(authMiddleware)
+	{
+		aiProxy.POST("/suggest-category", aiHandler.SuggestCategory)
 	}
 
 	// --- WebSocket routes (Auth handled potentially within the handler) ---

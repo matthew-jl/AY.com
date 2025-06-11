@@ -1,19 +1,42 @@
 <script lang="ts">
     import { onMount, onDestroy } from 'svelte';
     import { link, navigate } from 'svelte-routing';
-    import { api, ApiError, CommunityStatusNumbers, type CommunityFullDetailsResponseData, type JoinRequestItem, type UserSummary } from '../lib/api';
+    import { api, ApiError, CommunityStatusNumbers, type CommunityFullDetailsResponseData, type CommunityMemberDetails, type JoinRequestItem, type ThreadData, type UpdateMemberRoleRequestData, type UserProfileBasic, type UserSummary } from '../lib/api';
     import { user as currentUserStore } from '../stores/userStore';
     import { tick } from 'svelte';
-  import { timeAgoProfile } from '../lib/utils/timeAgo';
-    // Import ThreadComponent if you were to display posts
-    // import ThreadComponent from '../components/ThreadComponent.svelte';
+    import { timeAgoProfile } from '../lib/utils/timeAgo';
+    import UserCard from '../components/UserCard.svelte';
+    import UserCardSummary from '../components/UserCardSummary.svelte';
+    import ThreadComponent from '../components/ThreadComponent.svelte';
   
-    export let id: string; // From route param /community/:id - svelte-routing passes strings
+    export let id: string; // From route param /community/:id
   
     let communityDetailsResponse: CommunityFullDetailsResponseData | null = null;
     let communityIdNum: number = 0;
-    let activeTab: 'top' | 'latest' | 'media' | 'about' | 'manage_members' = 'top'; // Default tab
+    type CommunityDetailTab = 'top' | 'latest' | 'media' | 'about' | 'manage_members';
+    let activeTab: CommunityDetailTab = 'top';
   
+    // Members Modal (click on members count)
+    let showMembersModal = false;
+    let membersModalTab: 'members' | 'moderators' = 'members';
+    let membersList: CommunityMemberDetails[] = [];
+    let moderatorsList: CommunityMemberDetails[] = [];
+    let isLoadingMembers = false;
+    let membersModalError: string | null = null;
+    let memberSearchQuery = ''; // For searching within the modal
+
+    // State for Thread tabs ("Top", "Latest", "Media")
+    let communityThreads: ThreadData[] = [];
+    let topPostsThreads: ThreadData[] = [];
+    let isLoadingCommunityThreads = false;
+    let communityThreadsError: string | null = null;
+    let currentCommunityThreadsPage = 1;
+    let hasMoreCommunityThreads = true;
+    let communityThreadsSentinel: Element;
+    let communityThreadsObserver: IntersectionObserver;
+    // State for Top Tab specifically if it has different content
+    let topMembersForDisplay: UserProfileBasic[] = []; // Top 3 members
+
     // State for "Manage Members" tab
     let pendingJoinRequests: JoinRequestItem[] = [];
     let isLoadingPendingRequests = false;
@@ -23,6 +46,7 @@
     let isLoading = true;
     let error: string | null = null;
     let joinRequestLoading = false;
+    let roleUpdateLoadingForUser: number | null = null;
   
     async function fetchCommunityDetails(communityIdentifier: number) {
       isLoading = true; error = null;
@@ -31,10 +55,8 @@
         // If this page has tabs that fetch data, trigger fetch for default tab
         if (communityDetailsResponse?.community) {
             console.log("Fetched community details:", communityDetailsResponse.community);
-          if (activeTab === 'manage_members' && isModeratorOrOwner()) {
-              fetchPendingRequests(communityDetailsResponse.community.id);
-          }
-          // Add fetches for other tabs like posts, latest, media when implemented
+            // Initial fetch for the default tab (Top)
+            switchTab(activeTab, true);
         }
       } catch (e) {
         console.error("Error fetching community details:", e);
@@ -44,6 +66,145 @@
         isLoading = false;
       }
     }
+
+    async function fetchThreadsForCurrentTab(page = 1, resetList = false) {
+        if (!communityDetailsResponse?.community || isLoadingCommunityThreads || (!hasMoreCommunityThreads && !resetList)) return;
+
+        isLoadingCommunityThreads = true;
+        if (resetList) {
+            communityThreads = [];
+            topPostsThreads = [];
+            currentCommunityThreadsPage = 1;
+            hasMoreCommunityThreads = true;
+            communityThreadsError = null;
+        }
+
+        const commId = communityDetailsResponse.community.id;
+        let sortType: 'latest' | 'top' | undefined = undefined;
+        let filterMediaOnly = false;
+
+        if (activeTab === 'latest') sortType = 'latest';
+        else if (activeTab === 'top') sortType = 'top'; // Backend needs to handle "top" sort
+        else if (activeTab === 'media') filterMediaOnly = true;
+        else { isLoadingCommunityThreads = false; return; } // Not a thread tab
+
+        try {
+        const response = await api.getCommunityThreads(commId, {
+            requesterUserId: $currentUserStore?.id,
+            page: currentCommunityThreadsPage,
+            limit: 10, // Or your preferred limit
+            sortType: sortType,
+            filterMediaOnly: filterMediaOnly,
+        });
+        if (response && response.threads) {
+            communityThreads = resetList ? response.threads : [...communityThreads, ...response.threads];
+
+            if (activeTab === 'top') {
+                topPostsThreads = [...communityThreads].sort((a, b) => (b.like_count ?? 0) - (a.like_count ?? 0));
+            }
+
+            currentCommunityThreadsPage = page;
+            hasMoreCommunityThreads = response.has_more;
+        } else { hasMoreCommunityThreads = false; }
+        } catch (err) {
+        console.error(`Error fetching ${activeTab} threads:`, err);
+        communityThreadsError = `Could not load ${activeTab} threads.`;
+        hasMoreCommunityThreads = false;
+        } finally {
+        isLoadingCommunityThreads = false;
+        }
+    }
+
+    async function fetchTopMembers(commId: number) {
+        try {
+            const response = await api.getTopCommunityMembers(commId, 3); // Fetches top 3
+            topMembersForDisplay = response.users || [];
+            console.log("Fetched top community members:", topMembersForDisplay);
+        } catch (err) {
+            console.error("Error fetching top members:", err);
+        }
+    }
+
+    async function fetchCommunityMembersForModal(commId: number, role: 'member' | 'moderator' | 'all' = 'all') {
+        isLoadingMembers = true; membersModalError = null;
+        try {
+            // Backend GetCommunityMembersRequest takes string role_filter
+            let roleFilterForApi = role;
+            if (role === 'member') roleFilterForApi = 'member'; // Ensure exact match with backend if specific
+
+            const response = await api.getCommunityMembers(commId, 1, 50, roleFilterForApi); // Fetch up to 50 for now
+            console.log(`Fetched community ${role} members:`, response);
+            if (role === 'member') membersList = response.members || [];
+            else if (role === 'moderator') moderatorsList = response.members || [];
+            else { // For 'all', split them as needed
+                membersList = (response.members || []).filter(m => m.role === 'member');
+                moderatorsList = (response.members || []).filter(m => m.role === 'moderator' || m.role === 'owner'); // Include owner in moderators
+            }
+        } catch (err) {
+            console.error(`Error fetching community ${role}:`, err);
+            membersModalError = `Could not load ${role}.`;
+        } finally { isLoadingMembers = false; }
+    }
+
+    function openMembersModal() {
+    if (!communityDetailsResponse?.community) return;
+    membersModalTab = 'members';
+    membersList = []; moderatorsList = [];
+    // fetchCommunityMembersForModal(communityDetailsResponse.community.id, 'member'); // Fetch members
+    // fetchCommunityMembersForModal(communityDetailsResponse.community.id, 'moderator'); // Fetch moderators
+    fetchCommunityMembersForModal(communityDetailsResponse.community.id, 'all');
+    showMembersModal = true;
+  }
+  function closeMembersModal() { showMembersModal = false; memberSearchQuery = ''; }
+  function switchMembersModalTab(tab: 'members' | 'moderators') { membersModalTab = tab; }
+
+  async function handleRoleChange(targetUserId: number, currentRole: string) {
+    if (!communityDetailsResponse?.community || !$currentUserStore || roleUpdateLoadingForUser === targetUserId) return;
+    const newRole = currentRole === 'member' ? 'moderator' : 'member';
+    if (!confirm(`Are you sure you want to ${newRole === 'moderator' ? 'promote' : 'demote'} this user to ${newRole}?`)) return;
+
+    roleUpdateLoadingForUser = targetUserId;
+    manageMembersError = null; // Clear previous specific error
+    try {
+        const payload: UpdateMemberRoleRequestData = { target_user_id: targetUserId, new_role: newRole };
+        await api.updateMemberRole(communityDetailsResponse.community.id, payload);
+
+        // Optimistically update local list or refetch
+        const updateUserInList = (list: CommunityMemberDetails[]) =>
+            list.map(m => m.user.id === targetUserId ? {...m, role: newRole} : m)
+              .filter(m => !(newRole === 'member' && currentRole === 'moderator' && m.user.id === targetUserId && membersModalTab === 'moderators') &&
+                           !(newRole === 'moderator' && currentRole === 'member' && m.user.id === targetUserId && membersModalTab === 'members'));
+
+
+        if (currentRole === 'member' && newRole === 'moderator') { // Promoted
+            const userToMove = membersList.find(m => m.user.id === targetUserId);
+            if (userToMove) {
+                membersList = membersList.filter(m => m.user.id !== targetUserId);
+                moderatorsList = [{...userToMove, role: newRole}, ...moderatorsList];
+            }
+        } else if (currentRole === 'moderator' && newRole === 'member') { // Demoted
+            const userToMove = moderatorsList.find(m => m.user.id === targetUserId);
+            if (userToMove) {
+                moderatorsList = moderatorsList.filter(m => m.user.id !== targetUserId);
+                membersList = [{...userToMove, role: newRole}, ...membersList];
+            }
+        }
+        // Force reactivity if needed
+        membersList = [...membersList];
+        moderatorsList = [...moderatorsList];
+
+        alert(`User role updated to ${newRole}.`);
+    } catch (err) {
+        if (err instanceof ApiError) manageMembersError = `Role update failed: ${err.message}`;
+        else manageMembersError = "Could not update role.";
+    } finally {
+        roleUpdateLoadingForUser = null;
+    }
+  }
+
+  $: filteredModalMembers = membersModalTab === 'members'
+    ? membersList.filter(m => m.user.name.toLowerCase().includes(memberSearchQuery.toLowerCase()) || m.user.username.toLowerCase().includes(memberSearchQuery.toLowerCase()))
+    : moderatorsList.filter(m => m.user.name.toLowerCase().includes(memberSearchQuery.toLowerCase()) || m.user.username.toLowerCase().includes(memberSearchQuery.toLowerCase()));
   
     // --- Tab Specific Data Fetching ---
     async function fetchPendingRequests(commId: number) {
@@ -65,15 +226,26 @@
       fetchCommunityDetails(communityIdNum);
     }
   
-    function switchTab(tab: 'top' | 'latest' | 'media' | 'about' | 'manage_members') {
-      if (activeTab === tab) return;
-      activeTab = tab;
-      // Fetch data for the new tab if needed
-      if (tab === 'manage_members' && communityDetailsResponse?.community && isModeratorOrOwner()) {
-          pendingJoinRequests = []; // Clear previous
-          fetchPendingRequests(communityDetailsResponse.community.id);
-      }
-      // Add logic for other tabs (Top, Latest, Media will fetch threads)
+    function switchTab(tab: CommunityDetailTab, forceFetch = false) {
+        if (activeTab === tab && !forceFetch) return;
+        activeTab = tab;
+        communityThreads = []; topPostsThreads = [];
+        communityThreadsError = null; currentCommunityThreadsPage = 1; hasMoreCommunityThreads = true; // Reset thread list
+        manageMembersError = null; // Clear manage members error
+
+        if (tab === 'manage_members' && communityDetailsResponse?.community && isModeratorOrOwner()) {
+            pendingJoinRequests = [];
+            fetchPendingRequests(communityDetailsResponse.community.id);
+        } else if (tab === 'about') {
+            // Data is already in communityDetailsResponse
+        } else if (tab === 'top' || tab === 'latest' || tab === 'media') {
+            if (communityDetailsResponse?.community) {
+                fetchThreadsForCurrentTab(1, true); // Fetch page 1, reset list
+                if (tab === 'top') {
+                    fetchTopMembers(communityDetailsResponse.community.id);
+                }
+            }
+        }
     }
   
     function isModeratorOrOwner(): boolean {
@@ -120,6 +292,24 @@
             isLoadingPendingRequests = false;
         }
     }
+
+    onMount(() => {
+        // Convert string ID from prop to number for API calls
+        const numId = parseInt(id, 10);
+        if (!isNaN(numId)) {
+        communityIdNum = numId;
+        fetchCommunityDetails(communityIdNum); // This will trigger fetch for default tab (top)
+        } else {
+            error = "Invalid Community ID.";
+            isLoading = false;
+        }
+    });
+
+    function handleThreadDeleteFromCommunity(event: CustomEvent<{ id: number }>) {
+        communityThreads = communityThreads.filter(t => t.id !== event.detail.id);
+    }
+
+    // TODO: Handle infinite scroll for community threads
   
   </script>
   
@@ -175,7 +365,9 @@
               <p class="description">{comm.description}</p>
             {/if}
             <div class="meta-info">
-              <span>👥 {comm.member_count} member{comm.member_count !== 1 ? 's' : ''}</span>
+                <button class="meta-link" on:click={openMembersModal} aria-label="View members">
+                    👥 {comm.member_count} member{comm.member_count !== 1 ? 's' : ''}
+                </button>
               <span>📅 Created {timeAgoProfile(comm.created_at)}</span>
             </div>
         </div>
@@ -252,20 +444,131 @@
                    <p>You do not have permission to manage members.</p>
               {/if}
   
+              {:else if activeTab === 'top'}
+              {#if topMembersForDisplay.length > 0}
+                  <div class="top-members-preview">
+                    <h4>Top Members</h4>
+                    <div class="user-cards-row">
+                        {#each topMembersForDisplay as user (user.id)}
+                            <div class="user-card-container">
+                                <UserCard user={user} />
+                            </div>
+                        {/each}
+                    </div>
+                  </div>
+              {/if}
+              <!-- Display topPostsThreads for 'top' tab -->
+              {#if isLoadingCommunityThreads && topPostsThreads.length === 0}
+                {#each { length: 3 } as _} <div class="skeleton-thread"> <div class="skeleton-avatar"></div> <div class="skeleton-content"> <div class="skeleton-line short"></div> <div class="skeleton-line long"></div> <div class="skeleton-line medium"></div> </div> </div> {/each}
+              {:else if communityThreadsError} <p class="error-text api-error">{communityThreadsError}</p>
+              {:else if topPostsThreads.length > 0}
+                  {#each topPostsThreads as thread (thread.id)} <ThreadComponent {thread} on:delete={handleThreadDeleteFromCommunity} /> {/each}
+              {:else if !isLoadingCommunityThreads} <p class="empty-feed">No top posts in this community yet.</p> {/if}
+              <!-- Sentinel for infinite scroll (applies to underlying communityThreads) -->
+              <div class="feed-status">
+                {#if isLoadingCommunityThreads && communityThreads.length > 0} <p>Loading more...</p> {/if}
+                {#if !hasMoreCommunityThreads && communityThreads.length > 0 && !isLoadingCommunityThreads} <p>You've reached the end.</p> {/if}
+              </div>
   
-          {:else if activeTab === 'top' || activeTab === 'latest' || activeTab === 'media'}
-              <p>'{activeTab}' threads for this community will appear here.</p>
-              <!-- TODO: Fetch and display threads (use ThreadComponent) filtered by community ID and tab type -->
+          {:else if activeTab === 'latest'}
+              <!-- Display communityThreads for 'latest' tab -->
+              {#if isLoadingCommunityThreads && communityThreads.length === 0}
+                {#each { length: 3 } as _} <div class="skeleton-thread"> <div class="skeleton-avatar"></div> <div class="skeleton-content"> <div class="skeleton-line short"></div> <div class="skeleton-line long"></div> <div class="skeleton-line medium"></div> </div> </div> {/each}
+              {:else if communityThreadsError} <p class="error-text api-error">{communityThreadsError}</p>
+              {:else if communityThreads.length > 0}
+                  {#each communityThreads as thread (thread.id)} <ThreadComponent {thread} on:delete={handleThreadDeleteFromCommunity} /> {/each}
+              {:else if !isLoadingCommunityThreads} <p class="empty-feed">No latest threads in this community yet.</p> {/if}
+              <div class="feed-status">
+                {#if isLoadingCommunityThreads && communityThreads.length > 0} <p>Loading more...</p> {/if}
+                {#if !hasMoreCommunityThreads && communityThreads.length > 0 && !isLoadingCommunityThreads} <p>You've reached the end.</p> {/if}
+              </div>
+  
+          {:else if activeTab === 'media'}
+              <!-- Display media from communityThreads -->
+              {#if isLoadingCommunityThreads && communityThreads.length === 0}
+                {#each { length: 3 } as _} <div class="skeleton-thread"> <div class="skeleton-avatar"></div> <div class="skeleton-content"> <div class="skeleton-line short"></div> <div class="skeleton-line long"></div> <div class="skeleton-line medium"></div> </div> </div> {/each}
+              {:else if communityThreadsError} <p class="error-text api-error">{communityThreadsError}</p>
+              {:else}
+                  {@const threadsWithMedia = communityThreads.filter(t => t.media && t.media.length > 0)}
+                  {#if threadsWithMedia.length > 0}
+                      <div class="explore-media-grid community-media-grid">
+                          {#each threadsWithMedia as thread (thread.id)}
+                              {#each thread.media ?? [] as mediaItem (mediaItem.id)}
+                                  <a href="/thread/{thread.id}" use:link class="media-grid-item">
+                                      {#if mediaItem.mime_type.startsWith('image/')}
+                                          <img src={mediaItem.public_url} alt="Media from {communityDetailsResponse.community.name}" />
+                                      {:else if mediaItem.mime_type.startsWith('video/')}
+                                          <div class="video-placeholder-explore">▶️ <span class="video-overlay-text">Video</span></div>
+                                      {:else}
+                                          <div class="file-placeholder-explore">📄 <span class="file-overlay-text">{mediaItem.mime_type}</span></div>
+                                      {/if}
+                                  </a>
+                              {/each}
+                          {/each}
+                      </div>
+                  {:else if !isLoadingCommunityThreads}
+                      <p class="empty-feed">No media posted in this community yet.</p>
+                  {/if}
+              {/if}
+              <div class="feed-status">
+                {#if isLoadingCommunityThreads && communityThreads.length > 0} <p>Loading more...</p> {/if}
+                {#if !hasMoreCommunityThreads && communityThreads.length > 0 && !isLoadingCommunityThreads} <p>You've reached the end.</p> {/if}
+              </div>
           {/if}
       </section>
-  
-    {:else}
-      <p>Community not found or an error occurred.</p>
     {/if}
   </div>
+
+  {#if showMembersModal && communityDetailsResponse?.community}
+    <div class="modal-overlay" on:click={closeMembersModal}>
+        <div class="modal-content members-modal" on:click|stopPropagation>
+            <header class="modal-header-simple">
+                <h3>Community Members</h3>
+                <button class="close-btn-header" on:click={closeMembersModal}>×</button>
+            </header>
+            <div class="members-modal-tabs">
+                <button class:active={membersModalTab === 'members'} on:click={() => switchMembersModalTab('members')}>
+                    Members ({membersList.length})
+                </button>
+                <button class:active={membersModalTab === 'moderators'} on:click={() => switchMembersModalTab('moderators')}>
+                    Moderators ({moderatorsList.length})
+                </button>
+            </div>
+            <div class="members-modal-search">
+                <input type="text" placeholder="Search {membersModalTab}..." bind:value={memberSearchQuery} />
+            </div>
+            <div class="members-modal-list">
+                {#if isLoadingMembers} <p>Loading...</p>
+                {:else if membersModalError} <p class="error-text">{membersModalError}</p>
+                {:else if filteredModalMembers.length > 0}
+                    {#each filteredModalMembers as member (member.user.id)}
+                        <div class="member-item">
+                            <UserCardSummary user={member.user} />
+                            <div class="member-role-actions">
+                                <span class="member-role">Role: {member.role}</span>
+                                {#if isModeratorOrOwner() && member.user.id !== $currentUserStore?.id && member.role !== 'owner'}
+                                    {#if roleUpdateLoadingForUser === member.user.id}
+                                        <button class="btn btn-secondary small" disabled>...</button>
+                                    {:else if member.role === 'member'}
+                                        <button class="btn btn-success small" on:click={() => handleRoleChange(member.user.id, 'member')}>Promote to Mod</button>
+                                    {:else if member.role === 'moderator'}
+                                        <button class="btn btn-warning small" on:click={() => handleRoleChange(member.user.id, 'moderator')}>Demote to Member</button>
+                                    {/if}
+                                {/if}
+                            </div>
+                        </div>
+                    {/each}
+                {:else}
+                    <p>No {membersModalTab} found{memberSearchQuery ? ` matching "${memberSearchQuery}"` : ''}.</p>
+                {/if}
+            </div>
+        </div>
+    </div>
+  {/if}
   
   <style lang="scss">
     @use '../styles/variables' as *;
+
     .community-detail-page { width: 100%; }
     .community-detail-header {
         border-bottom: 1px solid var(--border-color);
@@ -355,8 +658,7 @@
                 }
             }
         }
-        .description { /* ... from before ... */ margin-bottom: 12px; }
-        .meta-info { /* ... from before ... */ }
+        .description { margin-bottom: 12px; }
     }
   
   
@@ -432,6 +734,130 @@
             .btn.small { padding: 4px 10px; font-size: 0.85rem; font-weight: 600; border-radius: 12px;}
             .btn-success { background-color: var(--success-color); color: white; border: none; &:hover { opacity: 0.9;}}
             .btn-danger { background-color: var(--error-color); color: white; border: none; &:hover { opacity: 0.9;}}
+        }
+    }
+
+    .meta-info .meta-link {
+        background: none; border: none; padding: 0;
+        color: var(--secondary-text-color);
+        cursor: pointer; text-decoration: none;
+        font-size: inherit;
+        &:hover { text-decoration: underline; color: var(--primary-color); }
+    }
+
+    .modal-overlay { 
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background-color: rgba(0, 0, 0, 0.6);
+        display: flex;
+        justify-content: center;
+        align-items: flex-start; 
+        padding-top: 5vh; 
+        z-index: 1000;
+    }
+
+    .modal-content.members-modal {
+        background: var(--background); color: var(--text-color);
+        border-radius: 16px; width: 90%; max-width: 500px;
+        max-height: 80vh; display: flex; flex-direction: column;
+        box-shadow: 0 5px 20px rgba(0,0,0,0.2);
+    }
+
+    .modal-header-simple {
+      display: flex;
+      align-items: center;
+      padding: 12px 16px;
+      border-bottom: 1px solid var(--border-color);
+      h3 { flex-grow: 1; text-align: left; margin: 0; font-size: 1.2rem; font-weight: bold; }
+      .close-btn-header {
+          background: transparent; border: none; font-size: 1.8rem; cursor: pointer; color: var(--text-color);
+          padding: 0 8px;
+      }
+    }
+
+    .members-modal-tabs {
+        display: flex; border-bottom: 1px solid var(--border-color);
+        button {
+            flex: 1;
+            padding: 16px;
+            background: none; border: none;
+            color: var(--secondary-text-color);
+            font-weight: bold; font-size: 15px;
+            cursor: pointer; position: relative;
+            transition: background-color 0.2s ease;
+            &:hover { background-color: var(--section-hover-bg); }
+            &.active {
+            color: var(--text-color);
+                &::after {
+                    content: ''; position: absolute; bottom: 0; left: 0; right: 0;
+                    height: 4px; background-color: var(--primary-color); border-radius: 2px;
+                }
+            }
+        }
+    }
+    .members-modal-search {
+        padding: 12px 16px;
+        input { width: 100%;
+            padding: 8px; border: 1px solid var(--border-color);
+            border-radius: 8px; font-size: 15px;
+            color: var(--text-color); background-color: var(--background);
+            &:focus { outline: none; border-color: var(--primary-color); }
+        }
+    }
+    .members-modal-list {
+        flex-grow: 1; overflow-y: auto; padding: 0 8px 8px 8px;
+        .member-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 8px;
+            border-bottom: 1px solid var(--border-color);
+            &:last-child { border-bottom: none; }
+            :global(.user-card) { padding: 8px 0; border-bottom: none; flex-grow: 1; &:hover { background: none;} }
+        }
+        .member-role-actions {
+            display: flex; flex-direction: column; align-items: flex-end; gap: 4px;
+            flex-shrink: 0; margin-left: 10px;
+            .btn {
+                padding: 4px 10px; font-size: 0.85rem; font-weight: 600; border-radius: 12px;
+                &.btn-success { background-color: var(--success-color); color: white; border: none; &:hover { opacity: 0.9; }}
+                &.btn-warning { background-color: var(--error-color); color: white; border: none; &:hover { opacity: 0.9; }}
+            }
+            .member-role { font-size: 0.8rem; color: var(--secondary-text-color); }
+            .btn.small { padding: 3px 8px; font-size: 0.75rem; }
+            .btn-warning { background-color: orange; color: white; border: none; &:hover { opacity: 0.9; }}
+        }
+    }
+
+    .top-members-preview {
+      padding: 16px;
+      border-bottom: 1px solid var(--border-color);
+      margin-bottom: 1px;
+      h4 { font-size: 1.1rem; font-weight: 700; margin: 0 0 12px 0; }
+      .user-cards-row {
+          display: flex;
+          flex-direction: column;
+          gap: 12px;
+          overflow-x: auto;
+        :global(.user-card-container) {
+            flex: 1; min-width: 150px;
+            display: flex;
+        }
+      }
+    }
+
+    .explore-media-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+        gap: 4px;
+        .media-grid-item {
+            aspect-ratio: 1 / 1; background-color: var(--section-bg);
+            border-radius: 8px; overflow: hidden; display: flex; align-items: center; justify-content: center;
+            img { width: 100%; height: 100%; object-fit: cover; }
+            .video-placeholder-explore { font-size: 2rem; color: var(--secondary-text-color); }
         }
     }
   

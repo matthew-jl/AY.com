@@ -6,7 +6,9 @@ import (
 	"time"
 
 	"github.com/Acad600-TPA/WEB-MJ-242/backend/api-gateway/client"
-	// gwUtils "github.com/Acad600-TPA/WEB-MJ-242/backend/api-gateway/utils"
+	"github.com/golang-jwt/jwt/v5"
+
+	gwUtils "github.com/Acad600-TPA/WEB-MJ-242/backend/api-gateway/utils"
 	userpb "github.com/Acad600-TPA/WEB-MJ-242/backend/user-service/genproto/proto"
 	"github.com/gin-gonic/gin"
 	"google.golang.org/grpc/codes"
@@ -209,6 +211,43 @@ func (h *AuthHandler) Login(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, resp)
+}
+
+func (h *AuthHandler) RefreshToken(c *gin.Context) {
+    var req struct {
+        RefreshToken string `json:"refresh_token"`
+    }
+    if err := c.ShouldBindJSON(&req); err != nil || req.RefreshToken == "" {
+        c.JSON(400, gin.H{"error": "refresh_token required"})
+        return
+    }
+
+    // Validate the refresh token
+    token, err := gwUtils.ValidateToken(req.RefreshToken)
+    if err != nil || !token.Valid {
+        c.JSON(401, gin.H{"error": "Invalid or expired refresh token"})
+        return
+    }
+
+    claims, ok := token.Claims.(jwt.MapClaims)
+    if !ok || claims["sub"] == nil {
+        c.JSON(401, gin.H{"error": "Invalid token claims"})
+        return
+    }
+
+    userID := uint(claims["sub"].(float64)) // adjust type as needed
+
+    // Generate new tokens
+    accessToken, refreshToken, err := gwUtils.GenerateTokens(userID)
+    if err != nil {
+        c.JSON(500, gin.H{"error": "Failed to generate tokens"})
+        return
+    }
+
+    c.JSON(200, gin.H{
+        "access_token": accessToken,
+        "refresh_token": refreshToken,
+    })
 }
 
 func (h *AuthHandler) GetSecurityQuestion(c *gin.Context) {

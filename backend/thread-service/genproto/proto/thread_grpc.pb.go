@@ -31,6 +31,7 @@ const (
 	ThreadService_GetFeedThreads_FullMethodName       = "/thread.ThreadService/GetFeedThreads"
 	ThreadService_GetUserThreads_FullMethodName       = "/thread.ThreadService/GetUserThreads"
 	ThreadService_GetBookmarkedThreads_FullMethodName = "/thread.ThreadService/GetBookmarkedThreads"
+	ThreadService_GetCommunityThreads_FullMethodName  = "/thread.ThreadService/GetCommunityThreads"
 )
 
 // ThreadServiceClient is the client API for ThreadService service.
@@ -48,6 +49,7 @@ type ThreadServiceClient interface {
 	GetFeedThreads(ctx context.Context, in *GetFeedThreadsRequest, opts ...grpc.CallOption) (*GetFeedThreadsResponse, error)
 	GetUserThreads(ctx context.Context, in *GetUserThreadsRequest, opts ...grpc.CallOption) (*GetUserThreadsResponse, error)
 	GetBookmarkedThreads(ctx context.Context, in *GetBookmarkedThreadsRequest, opts ...grpc.CallOption) (*GetBookmarkedThreadsResponse, error)
+	GetCommunityThreads(ctx context.Context, in *GetCommunityThreadsRequest, opts ...grpc.CallOption) (*GetCommunityThreadsResponse, error)
 }
 
 type threadServiceClient struct {
@@ -168,6 +170,16 @@ func (c *threadServiceClient) GetBookmarkedThreads(ctx context.Context, in *GetB
 	return out, nil
 }
 
+func (c *threadServiceClient) GetCommunityThreads(ctx context.Context, in *GetCommunityThreadsRequest, opts ...grpc.CallOption) (*GetCommunityThreadsResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(GetCommunityThreadsResponse)
+	err := c.cc.Invoke(ctx, ThreadService_GetCommunityThreads_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // ThreadServiceServer is the server API for ThreadService service.
 // All implementations must embed UnimplementedThreadServiceServer
 // for forward compatibility.
@@ -183,6 +195,7 @@ type ThreadServiceServer interface {
 	GetFeedThreads(context.Context, *GetFeedThreadsRequest) (*GetFeedThreadsResponse, error)
 	GetUserThreads(context.Context, *GetUserThreadsRequest) (*GetUserThreadsResponse, error)
 	GetBookmarkedThreads(context.Context, *GetBookmarkedThreadsRequest) (*GetBookmarkedThreadsResponse, error)
+	GetCommunityThreads(context.Context, *GetCommunityThreadsRequest) (*GetCommunityThreadsResponse, error)
 	mustEmbedUnimplementedThreadServiceServer()
 }
 
@@ -225,6 +238,9 @@ func (UnimplementedThreadServiceServer) GetUserThreads(context.Context, *GetUser
 }
 func (UnimplementedThreadServiceServer) GetBookmarkedThreads(context.Context, *GetBookmarkedThreadsRequest) (*GetBookmarkedThreadsResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method GetBookmarkedThreads not implemented")
+}
+func (UnimplementedThreadServiceServer) GetCommunityThreads(context.Context, *GetCommunityThreadsRequest) (*GetCommunityThreadsResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetCommunityThreads not implemented")
 }
 func (UnimplementedThreadServiceServer) mustEmbedUnimplementedThreadServiceServer() {}
 func (UnimplementedThreadServiceServer) testEmbeddedByValue()                       {}
@@ -445,6 +461,24 @@ func _ThreadService_GetBookmarkedThreads_Handler(srv interface{}, ctx context.Co
 	return interceptor(ctx, in, info, handler)
 }
 
+func _ThreadService_GetCommunityThreads_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetCommunityThreadsRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ThreadServiceServer).GetCommunityThreads(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: ThreadService_GetCommunityThreads_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ThreadServiceServer).GetCommunityThreads(ctx, req.(*GetCommunityThreadsRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // ThreadService_ServiceDesc is the grpc.ServiceDesc for ThreadService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -495,6 +529,10 @@ var ThreadService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "GetBookmarkedThreads",
 			Handler:    _ThreadService_GetBookmarkedThreads_Handler,
+		},
+		{
+			MethodName: "GetCommunityThreads",
+			Handler:    _ThreadService_GetCommunityThreads_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

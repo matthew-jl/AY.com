@@ -1,7 +1,9 @@
 <script lang="ts">
-  import { createEventDispatcher, onDestroy } from 'svelte';
-  import { api, ApiError, type CreateThreadRequestData, type MediaMetadata } from '../lib/api';
+  import { createEventDispatcher, onDestroy, onMount } from 'svelte';
+  import { api, ApiError, type CommunityListItem, type CreateThreadRequestData, type MediaMetadata } from '../lib/api';
   import { user } from '../stores/userStore';
+  import { CalendarIcon, ChartColumnBig, ImageIcon } from 'lucide-svelte';
+  import { user as currentUserStore } from '../stores/userStore';
 
   const dispatch = createEventDispatcher();
 
@@ -14,6 +16,27 @@
   let isLoading = false;
   let charCount = 0;
   const maxChars = 280;
+
+  let scheduledAtDateTime: string | null = null;
+  let postTarget: 'personal' | 'community' = 'personal';
+  let selectedCommunityId: number | null = null;
+  let replyRestriction: 'EVERYONE' | 'FOLLOWING' | 'VERIFIED' = 'EVERYONE';
+  
+  let selectedCategories: string[] = [];
+  const predefinedCategories = [
+      { value: 'world', label: 'World' },
+      { value: 'sports', label: 'Sports' },
+      { value: 'business', label: 'Business' },
+      { value: 'sci_tech', label: 'Sci/Tech' },
+  ];
+  let aiSuggestedCategoryValue: string | null = null;
+  let aiSuggestedCategoryLabel: string | null = null;
+  let isLoadingAISuggestion = false;
+  let aiSuggestionError: string | null = null;
+  let categorySuggestionDebounceTimer: number | undefined;
+
+  let joinedCommunities: CommunityListItem[] = [];
+  let isLoadingCommunities = false;
 
   $: charCount = content.length;
   $: progress = Math.min(100, (charCount / maxChars) * 100);
@@ -49,6 +72,60 @@
        if(fileInput) fileInput.value = '';
   }
 
+  function toggleCategory(categoryValue: string) {
+    const index = selectedCategories.indexOf(categoryValue);
+    if (index > -1) {
+        selectedCategories = selectedCategories.filter(c => c !== categoryValue);
+    } else {
+        if (selectedCategories.length < 3) {
+             selectedCategories = [...selectedCategories, categoryValue];
+        } else {
+            alert("You can select up to 3 categories.");
+        }
+    }
+  }
+
+  // AI Category Suggestion
+  function getCategorySuggestion() {
+    clearTimeout(categorySuggestionDebounceTimer);
+    aiSuggestionError = null;
+    if (!content.trim() || content.trim().length < 20) {
+      aiSuggestedCategoryLabel = null;
+      aiSuggestedCategoryValue = null;
+      isLoadingAISuggestion = false;
+      return;
+    }
+    isLoadingAISuggestion = true;
+    categorySuggestionDebounceTimer = window.setTimeout(async () => {
+      try {
+        const response = await api.suggestCategory({ text: content.trim() });
+        aiSuggestedCategoryLabel = response.predicted_category_name;
+        const foundCategory = predefinedCategories.find(cat => cat.label === response.predicted_category_name);
+        aiSuggestedCategoryValue = foundCategory ? foundCategory.value : null;
+
+        console.log("AI Suggested Category:", response.predicted_category_name, "Value:", aiSuggestedCategoryValue);
+
+        // Automatically add the AI suggestion if no categories are selected yet
+        if (aiSuggestedCategoryValue && selectedCategories.length === 0) {
+            if (!selectedCategories.includes(aiSuggestedCategoryValue)) {
+                toggleCategory(aiSuggestedCategoryValue);
+            }
+        }
+
+      } catch (err) {
+        console.error("Error getting category suggestion:", err);
+        aiSuggestedCategoryLabel = null;
+        aiSuggestedCategoryValue = null;
+        if (err instanceof ApiError) aiSuggestionError = `Suggestion error: ${err.message}`;
+        else aiSuggestionError = "Could not get category suggestion.";
+      } finally {
+        isLoadingAISuggestion = false;
+      }
+    }, 800); // 800ms debounce
+  }
+
+  // Call suggestion on content change (debounced)
+  $: if (content && typeof window !== 'undefined') getCategorySuggestion();
 
   async function handleCreateThread() {
     createError = null;
@@ -85,11 +162,24 @@
         }
         isUploading = false;
 
+        let scheduledAtISO: string | null = null;
+        if (scheduledAtDateTime) {
+            try {
+                scheduledAtISO = new Date(scheduledAtDateTime).toISOString();
+            } catch (e) {
+                createError = "Invalid schedule date/time format.";
+                isLoading = false; return;
+            }
+        }
+
         // --- Step 2: Create Thread with Content and Media IDs ---
         const threadData: CreateThreadRequestData = {
             content: content,
             media_ids: uploadedMediaIDs,
-            // TODO: Add reply_restriction, etc.
+            categories: selectedCategories.length > 0 ? selectedCategories : undefined,
+            scheduled_at: scheduledAtISO,
+            community_id: postTarget === 'community' ? selectedCommunityId : null,
+            reply_restriction: replyRestriction,
         };
 
         console.log("Creating thread with data:", threadData);
@@ -99,6 +189,10 @@
         dispatch('close');
         dispatch('threadcreated', createdThread);
         content = ''; selectedFiles = null; mediaPreviews = []; charCount = 0;
+        selectedCategories = [];
+        scheduledAtDateTime = null; postTarget = 'personal'; selectedCommunityId = null;
+        replyRestriction = 'EVERYONE';
+        aiSuggestedCategoryLabel = null; aiSuggestedCategoryValue = null;
 
     } catch (err) {
         console.error("Error during thread creation/upload:", err);
@@ -117,8 +211,30 @@
     }
   }
 
-  // --- Cleanup ---
+  async function fetchJoinedCommunities(userId: number) {
+    isLoadingCommunities = true;
+    try {
+        const response = await api.getJoinedCommunities(userId);
+        joinedCommunities = response.communities || [];
+    } catch (err) { console.error("Error fetching joined communities:", err); }
+    finally { isLoadingCommunities = false; }
+  }
+
+  onMount(async () => {
+    if ($currentUserStore) {
+        fetchJoinedCommunities($currentUserStore.id);
+    }
+    // Set min value for datetime-local input to now
+    const now = new Date();
+    now.setMinutes(now.getMinutes() - now.getTimezoneOffset()); // Adjust for local timezone
+    const scheduleInput = document.getElementById('schedule-datetime') as HTMLInputElement;
+    if (scheduleInput) {
+        scheduleInput.min = now.toISOString().slice(0, 16);
+    }
+  });
+  
   onDestroy(() => {
+      clearTimeout(categorySuggestionDebounceTimer);
       mediaPreviews.forEach(p => URL.revokeObjectURL(p.url));
   });
 
@@ -160,31 +276,92 @@
 
     <!-- Media Previews -->
     {#if mediaPreviews.length > 0}
-        <div class="media-preview-grid">
+        <div class="media-preview-grid large-preview">
             {#each mediaPreviews as preview (preview.url)}
                 <div class="media-preview-item">
-                     <!-- Use preview.url for image src -->
-                     <img src={preview.url} alt="Upload preview {preview.file.name}" />
-                     <!-- Remove button uses preview.url -->
-                    <button class="remove-media-btn" on:click={() => removePreview(preview.url)}>×</button>
+                 <img src={preview.url} alt="Upload preview {preview.file.name}" />
+                <button class="remove-media-btn" on:click={() => removePreview(preview.url)}>×</button>
                 </div>
             {/each}
         </div>
     {/if}
     {#if uploadError} <p class="error-text">{uploadError}</p> {/if}
 
+    <!-- Compact options layout, but keep old category-pills style -->
+    <div class="additional-options compact-options">
+      <div class="compact-row">
+        <div class="option-group compact">
+            <label for="postTarget">Post to:</label>
+            <select id="postTarget" bind:value={postTarget} on:change={() => { if (postTarget === 'personal') selectedCommunityId = null; }}>
+                <option value="personal">Personal</option>
+                <option value="community" disabled={joinedCommunities.length === 0}>Community</option>
+            </select>
+            {#if postTarget === 'community'}
+                <select id="communitySelect" bind:value={selectedCommunityId} required disabled={isLoadingCommunities}>
+                    <option value={null} disabled>Select community...</option>
+                    {#if isLoadingCommunities} <option disabled>Loading...</option> {/if}
+                    {#each joinedCommunities as community (community.id)}
+                        <option value={community.id}>{community.name}</option>
+                    {/each}
+                    {#if !isLoadingCommunities && joinedCommunities.length === 0}
+                        <option disabled>No communities</option>
+                    {/if}
+                </select>
+            {/if}
+        </div>
+        <div class="option-group compact">
+            <label for="replyRestriction">Who can reply?</label>
+            <select id="replyRestriction" bind:value={replyRestriction}>
+                <option value="EVERYONE">Everyone</option>
+                <option value="FOLLOWING">Following</option>
+                <option value="VERIFIED">Verified</option>
+            </select>
+        </div>
+      </div>
+      <div class="compact-row">
+        <div class="option-group compact">
+            <label for="categories">Categories:</label>
+            <!-- Keep the old .category-pills style here -->
+            <div class="category-pills">
+                {#each predefinedCategories as category (category.value)}
+                    <button
+                        type="button"
+                        class="category-pill"
+                        class:selected={selectedCategories.includes(category.value)}
+                        on:click={() => toggleCategory(category.value)}
+                        disabled={selectedCategories.length >= 3 && !selectedCategories.includes(category.value)}
+                    >
+                        {category.label}
+                    </button>
+                {/each}
+            </div>
+        </div>
+        <div class="option-group compact">
+            <label for="schedule-datetime">Schedule:</label>
+            <input type="datetime-local" id="schedule-datetime" bind:value={scheduledAtDateTime} />
+        </div>
+      </div>
+    </div>
+
 
     <div class="compose-actions">
         <div class="action-icons">
             <label for="file-input" class="icon-button" aria-label="Add media">
-                <!-- Simple Image Icon Placeholder -->
-                <svg viewBox="0 0 24 24"><g><path d="M19.75 2H4.25C3.01 2 2 3.01 2 4.25v15.5C2 20.99 3.01 22 4.25 22h15.5c1.24 0 2.25-1.01 2.25-2.25V4.25C22 3.01 20.99 2 19.75 2zM4.25 3.5h15.5c.41 0 .75.34.75.75v9.69l-3.31-3.29c-.3-.3-.77-.3-1.06 0l-2.77 2.79-1.94-1.93c-.3-.3-.77-.3-1.06 0L6.56 17H4.25V4.25c0-.41.34-.75.75-.75zm15.5 17H4.25c-.41 0-.75-.34-.75-.75V19h16.5v.75c0 .41-.34.75-.75.75zM8.5 8.5c.83 0 1.5-.67 1.5-1.5S9.33 5.5 8.5 5.5 7 6.17 7 7s.67 1.5 1.5 1.5z"></path></g></svg>
-                <input id="file-input" type="file" multiple accept="image/*,video/*" bind:files={selectedFiles} hidden/>
+              <ImageIcon />
+              <input id="file-input" type="file" multiple accept="image/*,video/*" bind:files={selectedFiles} hidden/>
             </label>
-             <!-- Placeholder icons for Poll, Emoji, Schedule -->
-             <button class="icon-button" aria-label="Add poll" disabled>📊</button>
-             <button class="icon-button" aria-label="Add emoji" disabled>😀</button>
-             <button class="icon-button" aria-label="Schedule post" disabled>📅</button>
+            <button class="icon-button" aria-label="Add poll" disabled>
+              <ChartColumnBig />
+            </button>
+            <button class="icon-button" aria-label="Schedule post" on:click={() => {
+                const scheduleInput = document.getElementById('schedule-datetime') as HTMLInputElement;
+                    if (scheduleInput) {
+                        if (scheduledAtDateTime) scheduledAtDateTime = null;
+                        else scheduleInput.click();
+                    }
+            }}>
+              <CalendarIcon />
+            </button>
         </div>
         <div class="post-controls">
             <!-- Circular Progress Counter -->
@@ -210,7 +387,7 @@
                  {/if}
             </div>
             <button class="btn btn-primary post-btn" on:click={handleCreateThread} disabled={isLoading || isUploading || isOverLimit || (!content && mediaPreviews.length === 0)}>
-                {isLoading ? 'Posting...' : 'Post'}
+              {isLoading ? 'Posting...' : 'Post'}
             </button>
         </div>
     </div>
@@ -319,6 +496,11 @@
       margin-bottom: 10px;
       max-height: 180px;
       overflow-y: auto;
+      &.large-preview {
+        grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+        max-height: 260px;
+        gap: 12px;
+      }
   }
 
   .media-preview-item {
@@ -497,6 +679,88 @@
       font-size: 15px;
       min-width: 70px;
       margin-top: 0;
+  }
+
+  .additional-options {
+      border-top: 1px solid var(--border-color);
+      margin-top: 15px;
+      padding-top: 15px;
+      display: flex;
+      flex-direction: column;
+      gap: 1rem;
+  }
+  .option-group {
+      display: flex;
+      flex-direction: column;
+      gap: 0.3rem;
+      label { font-size: 0.9rem; font-weight: 500; color: var(--secondary-text-color); }
+      select, input[type="datetime-local"] {
+          padding: 8px 10px;
+          border: 1px solid var(--border-color);
+          border-radius: 6px;
+          background-color: var(--input-bg);
+          color: var(--text-color);
+          font-size: 0.95rem;
+           &:focus { outline: none; border-color: var(--primary-color); }
+      }
+       select#communitySelect { margin-top: 0.3rem; }
+  }
+  .category-pills {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      .category-pill {
+          background-color: var(--section-hover-bg);
+          color: var(--text-color);
+          border: 1px solid var(--border-color);
+          padding: 5px 12px;
+          border-radius: 16px;
+          font-size: 0.85rem;
+          cursor: pointer;
+          transition: background-color 0.2s, border-color 0.2s;
+           &:hover { border-color: var(--primary-color); }
+           &.selected {
+               background-color: var(--primary-color-light, rgba(var(--primary-color-rgb),0.15));
+               color: var(--primary-color);
+               border-color: var(--primary-color);
+               font-weight: 600;
+           }
+           &:disabled {
+               opacity: 0.6; cursor: not-allowed;
+               background-color: var(--section-bg);
+               color: var(--secondary-text-color);
+           }
+      }
+  }
+
+  .compact-options {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    margin-top: 10px;
+    padding-top: 10px;
+    border-top: 1px solid var(--border-color);
+    .compact-row {
+      display: flex;
+      gap: 1rem;
+      flex-wrap: wrap;
+      > .option-group.compact {
+        flex: 1 1 0;
+        min-width: 120px;
+        margin-bottom: 0;
+        gap: 0.2rem;
+        label {
+          font-size: 0.85rem;
+          margin-bottom: 2px;
+        }
+        select,
+        input[type="datetime-local"] {
+          padding: 4px 7px;
+          font-size: 0.93rem;
+          min-width: 0;
+        }
+      }
+    }
   }
 
    .error-text { color: var(--error-color); font-size: 0.85rem; margin-top: 4px; }

@@ -10,7 +10,7 @@
     let activeTab: CommunityTab = 'discover'; // Default to discover
 
     let joinedCommunities: CommunityListItem[] = [];
-    let pendingJoinRequests: JoinRequestItem[] = []; // Store full request details
+    let pendingCommunities: CommunityListItem[] = [];
     let discoverCommunities: CommunityListItem[] = [];
 
     let isLoadingJoined = false;
@@ -35,11 +35,16 @@
           } catch (e) { error = "Could not load your communities."; console.error(e); }
           finally { isLoadingJoined = false; }
       } else if (tab === 'pending' && $currentUserStore) {
-          isLoadingPending = true; if (reset) pendingJoinRequests = [];
+          isLoadingPending = true; if (reset) pendingCommunities = [];
           try {
-              const response = await api.getUserJoinRequests(1, 20); // Add pagination later
-              pendingJoinRequests = reset ? response.requests || [] : [...pendingJoinRequests, ...(response.requests || [])];
-              // TODO: Hydrate community names for pendingJoinRequests if not done by backend
+              const response = await api.listCommunities(
+            'ALL_PUBLIC',
+            $currentUserStore.id,
+            1, 50 // You can adjust pagination as needed
+          );
+          pendingCommunities = (response.communities || []).filter(
+            c => c.has_pending_request_by_requester
+          );
           } catch (e) { error = "Could not load pending requests."; console.error(e); }
           finally { isLoadingPending = false; }
       } else if (tab === 'discover') {
@@ -167,13 +172,10 @@
       {#if activeTab === 'pending'}
           <section class="community-list-section">
               {#if isLoadingPending} <p>Loading your pending requests...</p>
-              {:else if pendingJoinRequests.length > 0}
+              {:else if pendingCommunities.length > 0}
                   <ul class="request-list">
-                  {#each pendingJoinRequests as request (request.request_id)}
-                      <li class="request-item">
-                          <span>Request to join <strong>{request.community_name || `Community ID ${request.community_id}`}</strong> is <em>{request.status}</em>.</span>
-                          <!-- TODO: Add link to community, cancel request option -->
-                      </li>
+                  {#each pendingCommunities as community (community.id)}
+                      <CommunityCard {community} />
                   {/each}
                   </ul>
               {:else} <p class="empty-list">You have no pending join requests.</p> {/if}

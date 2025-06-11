@@ -39,6 +39,7 @@ type CreateThreadPayload struct {
 	ScheduledAt      *string  `json:"scheduled_at,omitempty"`
 	CommunityID      *uint32  `json:"community_id,omitempty"`
 	MediaIDs         []uint32 `json:"media_ids,omitempty"`
+	Categories       []string `json:"categories,omitempty"`
 }
 
 type FrontendMediaMetadata struct {
@@ -81,6 +82,7 @@ type FrontendThreadData struct {
 	BookmarkCount               int32                 `json:"bookmark_count"`
 	IsLikedByCurrentUser        bool                  `json:"is_liked_by_current_user"`
 	IsBookmarkedByCurrentUser   bool                  `json:"is_bookmarked_by_current_user"`
+	Categories	   []string             `json:"categories,omitempty"`
 }
 
 type FrontendFeedResponse struct {
@@ -109,6 +111,7 @@ func (h *ThreadHandler) CreateThread(c *gin.Context) {
 		UserId:   userID,
 		Content:  payload.Content,
 		MediaIds: payload.MediaIDs,
+		Categories: payload.Categories,
 	}
 
 	grpcReq.ReplyRestriction = mapHTTPReplyRestrictionToProto(payload.ReplyRestriction)
@@ -824,6 +827,7 @@ func mapProtoThreadToFrontend(tProto *threadpb.Thread, authorsMap map[uint32]*us
 		BookmarkCount:               tProto.GetBookmarkCount(),
 		IsLikedByCurrentUser:        tProto.GetIsLikedByCurrentUser(),
 		IsBookmarkedByCurrentUser:   tProto.GetIsBookmarkedByCurrentUser(),
+		Categories: 				 tProto.GetCategories(),
 	}
 	if tProto.ParentThreadId != nil { val := tProto.GetParentThreadId(); feThread.ParentThreadID = &val }
 	if tProto.CommunityId != nil { val := tProto.GetCommunityId(); feThread.CommunityID = &val }
