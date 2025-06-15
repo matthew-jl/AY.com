@@ -14,6 +14,35 @@ import (
 	"gorm.io/gorm"
 )
 
+// for testing
+type IUserRepo interface {
+	CheckHealth(ctx context.Context) error
+	CreateUser(ctx context.Context, user *User, plainPassword string, plainSecurityAnswer string, verificationCode string) error
+	GetUserByEmail(ctx context.Context, email string) (*User, error)
+	GetUserByUsername(ctx context.Context, username string) (*User, error)
+	ActivateUserAccount(ctx context.Context, userID uint) error
+	UpdateVerificationCode(ctx context.Context, email string, newCode string) (*User, error)
+	UpdatePassword(ctx context.Context, userID uint, newPasswordHash string) error
+	UpdateUser(ctx context.Context, userID uint, updates map[string]interface{}) (*User, error)
+	GetUserByID(ctx context.Context, userID uint) (*User, error)
+	GetUsersByIDs(ctx context.Context, userIDs []uint) ([]User, error)
+	FollowUser(ctx context.Context, followerID, followedID uint) error
+	UnfollowUser(ctx context.Context, followerID, followedID uint) error
+	BlockUser(ctx context.Context, blockerID, blockedID uint) error
+	UnblockUser(ctx context.Context, blockerID, blockedID uint) error
+	GetFollowerCount(ctx context.Context, userID uint) (int64, error)
+	GetFollowingCount(ctx context.Context, userID uint) (int64, error)
+	GetFollowers(ctx context.Context, userID uint, limit, offset int) ([]uint, error)
+	GetFollowing(ctx context.Context, userID uint, limit, offset int) ([]uint, error)
+	IsFollowing(ctx context.Context, requestUserID, targetUserID uint) (bool, error)
+	HasBlocked(ctx context.Context, requestUserID, targetUserID uint) (bool, error)
+	IsBlockedBy(ctx context.Context, requestUserID, targetUserID uint) (bool, error)
+	GetBlockedUserIDs(ctx context.Context, userID uint, limit, offset int) ([]uint, error)
+	GetBlockingUserIDs(ctx context.Context, userID uint, limit, offset int) ([]uint, error)
+	GetFollowingIDs(ctx context.Context, userID uint, limit, offset int) ([]uint, error)
+}
+
+
 type User struct {
     gorm.Model
     Name                  string `gorm:"type:varchar(100);not null"`

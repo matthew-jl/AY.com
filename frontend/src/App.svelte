@@ -24,6 +24,9 @@
   import CommunitiesPage from "./routes/CommunitiesPage.svelte";
   import CreateCommunityPage from "./routes/CreateCommunityPage.svelte";
   import CommunityDetailPage from "./routes/CommunityDetailPage.svelte";
+  import PremiumPage from "./routes/PremiumPage.svelte";
+  import ThreadDetailPage from "./components/ThreadDetailPage.svelte";
+  import SettingsPage from "./routes/SettingsPage.svelte";
 
   export let url = "";
 
@@ -39,6 +42,8 @@
     if (/^\/profile\/[^/]+$/.test(path)) return true;
     // Match /community/:id
     if (/^\/community\/[^/]+$/.test(path)) return true;
+    // Match /thread/:id
+    if (/^\/thread\/[^/]+$/.test(path)) return true;
     return false;
   }
 
@@ -145,6 +150,9 @@
       <Route path="/explore">
          {#if isAuth} <ExplorePage /> {:else} <NoAccess /> {/if}
       </Route>
+      <Route path="/thread/:id" let:params>
+          <ThreadDetailPage threadId={params.id} />
+      </Route>
        <Route path="/notifications">
          {#if isAuth} <NotificationsPage /> {:else} <NoAccess /> {/if}
       </Route>
@@ -164,13 +172,13 @@
           <CommunityDetailPage id={params.id} />
       </Route>
        <Route path="/premium">
-         {#if isAuth} <Home /> <!-- Replace with Premium later --> {:else} <NoAccess /> {/if}
+         {#if isAuth} <PremiumPage /> {:else} <NoAccess /> {/if}
       </Route>
        <Route path="/profile/:username">
          {#if isAuth} <ProfilePage /> {:else} <NoAccess /> {/if}
       </Route>
        <Route path="/settings">
-         {#if isAuth} <Home /> <!-- Replace with Settings later --> {:else} <NoAccess /> {/if}
+         {#if isAuth} <SettingsPage /> {:else} <NoAccess /> {/if}
       </Route>
 
       <Route path="/*">

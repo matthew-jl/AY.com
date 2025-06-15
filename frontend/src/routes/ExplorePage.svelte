@@ -1,12 +1,13 @@
 <script lang="ts">
     import { onMount, onDestroy } from 'svelte';
-    import { api, ApiError, type ThreadData, type UserProfileBasic, type FeedResponse, type TrendingHashtagItem } from '../lib/api';
+    import { api, ApiError, type ThreadData, type UserProfileBasic, type FeedResponse, type TrendingHashtagItem, type CommunityListItem } from '../lib/api';
     import { currentPathname } from '../stores/locationStore';
     import { navigate, link } from 'svelte-routing';
     import ThreadComponent from '../components/ThreadComponent.svelte';
     import UserCard from '../components/UserCard.svelte';
+  import CommunityCard from '../components/CommunityCard.svelte';
   
-    type SearchTab = 'top' | 'latest' | 'people' | 'media'; // No communities for now
+    type SearchTab = 'top' | 'latest' | 'people' | 'media' | 'communities';
     const DEFAULT_TAB: SearchTab = 'top';
   
     // --- Search State ---
@@ -22,7 +23,7 @@
     let latestThreads: ThreadData[] = [];
     let peopleResults: UserProfileBasic[] = [];
     let mediaThreads: ThreadData[] = [];
-    // let communityResults = []; // For later
+    let communityResults: CommunityListItem[] = [];
   
     let isLoading = false;
     let currentError: string | null = null;
@@ -31,6 +32,15 @@
     // --- Trending Hashtags ---
     let trendingHashtags: TrendingHashtagItem[] = [];
     let isLoadingTrending = true;
+
+    let liveUserSuggestions: UserProfileBasic[] = [];
+    let showUserSuggestions = false;
+    let liveUserFetchTimer: number | undefined = undefined;
+    let searchBarFocused = false;
+
+    let communitiesCurrentPage = 1;
+    let communitiesHasMore = true;
+    let isLoadingMoreCommunities = false;
   
     // --- Lifecycle & Initial Load ---
     onMount(() => {
@@ -67,18 +77,22 @@
       saveRecentSearches();
     }
     function clearRecentSearches() {
+      console.log("Clearing recent searches");
       recentSearches = [];
       saveRecentSearches();
     }
     function searchFromRecent(term: string) {
         searchQuery = term;
         handleSearchInput(); // Trigger debounce and search
+        searchBarFocused = false;
     }
   
     // --- Debounce & Search Logic ---
     function handleSearchInput() {
       clearTimeout(debounceTimer);
       currentError = null;
+      fetchLiveUserSuggestions(searchQuery);
+
       debounceTimer = window.setTimeout(() => {
         debouncedSearchQuery = searchQuery.trim();
         if (debouncedSearchQuery) {
@@ -89,7 +103,7 @@
           clearResults();
           navigate('/explore', { replace: true });
         }
-      }, 500);
+      }, 900);
     }
   
     function clearSearch() {
@@ -101,11 +115,13 @@
     }
   
     function clearResults() {
-        topUsers = []; topThreads = []; latestThreads = []; peopleResults = []; mediaThreads = [];
+        topUsers = []; topThreads = []; latestThreads = []; 
+        peopleResults = []; mediaThreads = []; communityResults = [];
+        communitiesCurrentPage = 1; communitiesHasMore = true;
         currentError = null;
     }
   
-    async function performSearch(query: string, tab: SearchTab) {
+    async function performSearch(query: string, tab: SearchTab, page=1, append=false) {
       if (!query) return;
       isLoading = true;
       currentError = null;
@@ -120,9 +136,32 @@
         if (tab === 'top' || tab === 'latest' || tab === 'media') {
           const threadResp = await api.searchThreads(query, 1, 10);
           console.log("Thread search response:", threadResp.threads);
-          if(tab === 'latest') latestThreads = threadResp.threads || [];
-          else if(tab === 'media') mediaThreads = (threadResp.threads || []).filter(t => t.media_ids && t.media_ids.length > 0);
-          else if(tab === 'top') topThreads = threadResp.threads || [];
+          if(tab === 'latest') {
+            latestThreads = (threadResp.threads || []).slice().sort(
+              (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+            );
+          }
+          else if(tab === 'media') {
+            mediaThreads = (threadResp.threads || []).filter(t => t.media_ids && t.media_ids.length > 0);
+          }
+          else if(tab === 'top') {
+            topThreads = (threadResp.threads || []).slice().sort(
+              (a, b) => (b.like_count ?? 0) - (a.like_count ?? 0)
+            );
+          }
+        }
+        if (tab === 'communities') {
+          const commResp = await api.listCommunities(
+              'ALL_PUBLIC',
+              null,
+              page,
+              25,
+              query
+              // No categories
+          );
+          communityResults = append ? [...communityResults, ...(commResp.communities || [])] : (commResp.communities || []);
+          communitiesHasMore = commResp.has_more;
+          communitiesCurrentPage = page;
         }
       } catch (err) {
         console.error("Search error:", err);
@@ -158,6 +197,50 @@
       latestThreads = latestThreads.filter(t => t.id !== id);
       mediaThreads = mediaThreads.filter(t => t.id !== id);
     }
+
+    async function fetchLiveUserSuggestions(query: string) {
+      if (!query.trim()) {
+        liveUserSuggestions = [];
+        showUserSuggestions = false;
+        return;
+      }
+      if (liveUserFetchTimer) clearTimeout(liveUserFetchTimer);
+      liveUserFetchTimer = window.setTimeout(async () => {
+        try {
+          const resp = await api.searchUsers(query, 1, 5);
+          liveUserSuggestions = resp.users || [];
+          showUserSuggestions = liveUserSuggestions.length > 0;
+        } catch {
+          liveUserSuggestions = [];
+          showUserSuggestions = false;
+        }
+      }, 100);
+    }
+
+    function handleSuggestionClick(user: UserProfileBasic) {
+      searchQuery = user.username;
+      debouncedSearchQuery = user.username;
+      showUserSuggestions = false;
+      performSearch(user.username, 'people');
+      navigate(`/explore?q=${encodeURIComponent(user.username)}`, { replace: true });
+    }
+
+    function handleSearchBarBlur() {
+      searchBarFocused = false;
+      setTimeout(() => { showUserSuggestions = false; }, 150);
+    }
+
+    function handleSearchBarFocus() {
+      searchBarFocused = true;
+      if (liveUserSuggestions.length > 0) showUserSuggestions = true;
+    }
+
+    function handleJoinRequestForCommunityCard() {
+      // Refetch communities to update join status
+      if (activeTab === 'communities' && debouncedSearchQuery) {
+          performSearch(debouncedSearchQuery, 'communities', 1, false); 
+      }
+  }
   
   </script>
   
@@ -171,9 +254,38 @@
               bind:this={searchInputEl}
               bind:value={searchQuery}
               on:input={handleSearchInput}
+              on:focus={handleSearchBarFocus}
+              on:blur={handleSearchBarBlur}
+              autocomplete="off"
           />
           {#if searchQuery}
               <button class="clear-search-btn" on:click={clearSearch}>×</button>
+          {/if}
+
+          {#if searchBarFocused && !searchQuery && recentSearches.length > 0}
+            <div class="recent-searches-dropdown">
+              <div class="dropdown-header">
+                  <span>Recent</span>
+                  <button class="clear-btn-sidebar" on:mousedown={clearRecentSearches}>Clear all</button>
+              </div>
+                <ul>
+                    {#each recentSearches.slice(0,3) as term (term)}
+                        <li>
+                          <button class="recent-item-btn" on:mousedown={() => searchFromRecent(term)}>{term}</button>
+                        </li>
+                    {/each}
+                </ul>
+            </div>
+          {/if}
+
+          {#if showUserSuggestions && liveUserSuggestions.length > 0}
+            <div class="floating-user-suggestions">
+              {#each liveUserSuggestions as user (user.id)}
+                <div class="suggestion-row" on:mousedown={() => handleSuggestionClick(user)}>
+                  <UserCard {user} showFollowButton={false} />
+                </div>
+              {/each}
+            </div>
           {/if}
       </div>
       <!-- TODO: Add Filters button/modal -->
@@ -186,6 +298,7 @@
           <button class:active={activeTab === 'latest'} on:click={() => switchTab('latest')}>Latest</button>
           <button class:active={activeTab === 'people'} on:click={() => switchTab('people')}>People</button>
           <button class:active={activeTab === 'media'} on:click={() => switchTab('media')}>Media</button>
+          <button class:active={activeTab === 'communities'} on:click={() => switchTab('communities')}>Communities</button>
       </nav>
   
       <div class="search-results-content">
@@ -266,24 +379,28 @@
                   {/if}
                    <!-- TODO: Add infinite scroll for Media -->
               {/if}
+
+              {#if activeTab === 'communities'}
+                   {#if isLoading && communityResults.length === 0}
+                       <p>Searching communities...</p> <!-- TODO: Skeleton -->
+                   {:else if communityResults.length > 0}
+                       <div class="community-results-grid">
+                           {#each communityResults as community (community.id)}
+                               <CommunityCard {community} onJoinRequested={handleJoinRequestForCommunityCard} />
+                           {/each}
+                       </div>
+                       <!-- TODO: Add sentinel and "Load More" button for community pagination -->
+                       {#if isLoadingMoreCommunities} <p>Loading more communities...</p> {/if}
+                       {#if !communitiesHasMore && communityResults.length > 0} <p>No more communities found.</p> {/if}
+                   {:else if !isLoading}
+                       <p>No communities found matching "{debouncedSearchQuery}".</p>
+                   {/if}
+              {/if}
           {/if}
       </div>
   
     {:else}
       <!-- Default View: Recent Searches and Trending Hashtags -->
-      {#if recentSearches.length > 0}
-          <section class="recent-searches">
-              <div class="section-header">
-                  <h3>Recent</h3>
-                  <button class="clear-btn" on:click={clearRecentSearches}>Clear all</button>
-              </div>
-              <ul>
-                  {#each recentSearches as term (term)}
-                      <li><button class="recent-term-btn" on:click={() => searchFromRecent(term)}>{term}</button></li>
-                  {/each}
-              </ul>
-          </section>
-      {/if}
   
       <section class="trending-hashtags">
           <h3>Trends for you</h3>
@@ -355,6 +472,31 @@
           font-size: 14px; line-height: 18px; text-align: center; cursor: pointer;
           display: flex; align-items: center; justify-content: center;
           &:hover { background: var(--text-color); }
+      }
+      .floating-user-suggestions {
+        position: absolute;
+        top: 110%;
+        left: 0;
+        width: 100%;
+        background: var(--background);
+        border: 1px solid var(--border-color);
+        border-radius: 12px;
+        box-shadow: 0 4px 24px rgba(0,0,0,0.10);
+        z-index: 100;
+        padding: 4px 0;
+        max-height: 320px;
+        overflow-y: auto;
+        .suggestion-row {
+          padding: 0 8px;
+          cursor: pointer;
+          &:hover {
+            background: var(--section-hover-bg);
+          }
+          .user-card {
+            border-bottom: none;
+            padding: 8px 0;
+          }
+        }
       }
     }
   
@@ -499,5 +641,41 @@
       &:last-child {
           border-bottom: none;
       }
+  }
+
+  .recent-searches-dropdown {
+      background-color: var(--background);
+      border: 1px solid var(--border-color);
+      border-radius: 8px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+      margin-top: 4px;
+      position: absolute;
+      top: 110%;
+      width: 100%;
+      z-index: 101;
+      .dropdown-header {
+          display: flex; justify-content: space-between; align-items: center;
+          padding: 8px 12px; font-size: 15px; font-weight: bold;
+          border-bottom: 1px solid var(--border-color);
+          .clear-btn-sidebar {
+            background: none; border: none; color: var(--primary-color);
+            cursor: pointer; font-size: 14px; padding: 4px 0;
+            &:hover { text-decoration: underline; }
+          }
+      }
+      ul { list-style: none; margin: 0; padding: 0; }
+      li .recent-item-btn {
+          display: block; width: 100%; text-align: left;
+          padding: 10px 12px; background: none; border: none;
+          color: var(--text-color); cursor: pointer; font-size: 15px;
+          &:hover { background-color: var(--section-hover-bg); }
+      }
+  }
+
+  .community-results-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+      gap: 16px;
+      margin-top: 1rem;
   }
   </style>

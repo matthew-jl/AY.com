@@ -25,7 +25,7 @@ var (
 
 type UserHandler struct {
 	userpb.UnimplementedUserServiceServer
-	repo *postgres.UserRepository
+	repo postgres.IUserRepo
 }
 
 // matches notification-service event/consumer.go
@@ -35,7 +35,7 @@ type NewFollowerEventPayload struct {
     FollowerUsername string `json:"follower_username"`
 }
 
-func NewUserHandler(repo *postgres.UserRepository) *UserHandler {
+func NewUserHandler(repo postgres.IUserRepo) *UserHandler {
 	return &UserHandler{repo: repo}
 }
 

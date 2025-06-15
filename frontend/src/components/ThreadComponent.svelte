@@ -4,11 +4,12 @@
   import { user } from '../stores/userStore';
   import { createEventDispatcher } from 'svelte';
   import { link } from 'svelte-routing';
-  import { timeAgo } from '../lib/utils/timeAgo';
-  import { MessageSquare, Repeat2, Heart, Bookmark, Share2, MoreHorizontal } from 'lucide-svelte';
+  import { timeAgo } from '../lib/utils/timeAgo';  import { MessageSquare, Repeat2, Heart, Bookmark, Share2, MoreHorizontal } from 'lucide-svelte';
   import { linkifyContent } from '../lib/utils/richText';
+  import { navigate } from 'svelte-routing';
 
   export let thread: ThreadData;
+  export let disableNavigationClick = false; // Set to true when used in ThreadDetailPage
 
   const dispatch = createEventDispatcher();
 
@@ -19,11 +20,25 @@
 
   let interactionError: string | null = null;
   let isDeleting = false;
-
   $: isOwnThread = $user?.id === thread.user_id;
   $: author = thread.author;
 
   $: linkifiedThreadContent = linkifyContent(thread.content);
+  
+  // Handle navigation to thread detail page
+  function navigateToThread(event: Event) {
+    // Don't navigate if the click was on an interactive element
+    const target = event.target as HTMLElement;
+    const isInteractive = target.closest('button') || 
+                          target.closest('a') || 
+                          target.nodeName === 'A' || 
+                          target.nodeName === 'BUTTON';
+    
+    // Don't navigate if the click was on an interactive element or if navigation is disabled
+    if (!isInteractive && !disableNavigationClick) {
+      navigate(`/thread/${thread.id}`);
+    }
+  }
 
   // --- Interaction Handlers ---
   async function handleLike() {
@@ -87,10 +102,28 @@
     }
   }
 
-  // TODO: Add Reply and Repost handlers
+  // Handle media click and dispatch event to parent
+  function handleMediaClick(mediaIndex: number) {
+    if (thread.media && thread.media.length > 0) {
+      dispatch('mediaClick', {
+        media: thread.media,
+        index: mediaIndex
+      });
+    }
+  }
 </script>
 
 <article class="thread-card" aria-labelledby="thread-author-{thread.id}">
+    <!-- Invisible clickable overlay that covers the entire thread card except for interactive elements -->
+    <div 
+      class="thread-clickable-overlay" 
+      role="button"
+      tabindex="0"
+      aria-label="View thread details" 
+      on:click={navigateToThread}
+      on:keydown={(e) => e.key === 'Enter' && navigateToThread(e)}
+    ></div>
+    
     <div class="thread-avatar">
         <div class="avatar-img">
             {#if author?.profile_picture}
@@ -134,17 +167,30 @@
         <!-- Media Grid -->
         {#if thread.media && thread.media.length > 0}
             <div class="media-grid count-{thread.media.length}">
-                 {#each thread.media as media (media.id)}
+                {#each thread.media as media, index (media.id)}
                     <div class="media-item">
-                         {#if media.mime_type.startsWith('image/')}
-                             <img src={media.public_url} alt="Thread media" loading="lazy"/>
-                         {:else if media.mime_type.startsWith('video/')}
-                             <video controls preload="metadata" src={media.public_url}></video>
-                         {:else}
-                             <div class="file-placeholder">Unsupported Media</div>
-                         {/if}
+                        {#if media.mime_type.startsWith('image/')}
+                            <img 
+                                src={media.public_url} 
+                                alt="Thread media" 
+                                loading="lazy"
+                                on:click|stopPropagation={() => handleMediaClick(index)}
+                            />
+                        {:else if media.mime_type.startsWith('video/')}
+                            <video 
+                                controls 
+                                preload="metadata" 
+                                src={media.public_url}
+                                on:click|stopPropagation={() => handleMediaClick(index)}
+                            >
+                                <track kind="captions" src="" label="English" />
+                                Your browser does not support video playback.
+                            </video>
+                        {:else}
+                            <div class="file-placeholder">Unsupported Media</div>
+                        {/if}
                     </div>
-                 {/each}
+                {/each}
             </div>
         {/if}
 
@@ -176,26 +222,44 @@
 
 <style lang="scss">
   @use '../styles/variables' as *;
-
   .thread-card {
     display: flex;
     padding: 12px 16px;
     border-bottom: 1px solid var(--border-color);
     transition: background-color 0.15s ease-in-out;
+    position: relative; /* For positioning the overlay */
 
     &:hover {
       background-color: rgba(var(--text-color-rgb, 0, 0, 0), 0.03);
-       [data-theme="dark"] & {
-           background-color: rgba(var(--text-color-rgb, 255, 255, 255), 0.03);
-       }
+      
+      :global([data-theme="dark"]) & {
+          background-color: rgba(var(--text-color-rgb, 255, 255, 255), 0.03);
+      }
     }
   }
-
+  
+  .thread-clickable-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 1;
+    cursor: pointer;
+    
+    /* Visual feedback on focus for accessibility */
+    &:focus {
+      outline: 2px solid var(--primary-color);
+      outline-offset: -2px;
+    }
+  }
   .thread-avatar {
     margin-right: 12px;
     flex-shrink: 0;
     width: 40px;
     height: 40px;
+    position: relative;
+    z-index: 2; /* Higher than the overlay */
 
     .avatar-img {
         width: 100%;
@@ -210,11 +274,12 @@
           font-weight: bold; font-size: 1.1rem;
      }
   }
-
   .thread-content {
     flex-grow: 1;
     display: flex;
     flex-direction: column;
+    position: relative;
+    z-index: 2; /* Higher than the overlay to ensure all interactive elements work */
   }
 
   .thread-header {
@@ -255,12 +320,10 @@
      .more-options-btn {
          margin-left: auto;
          background: none; border: none; padding: 4px; border-radius: 50%; cursor: pointer;
-         display: flex; align-items: center; justify-content: center; color: var(--secondary-text-color);
-          &:hover {
+         display: flex; align-items: center; justify-content: center; color: var(--secondary-text-color);          &:hover {
               background-color: rgba(var(--primary-color-rgb), 0.1);
               color: var(--primary-color);
           }
-          svg { width: 18px; height: 18px; fill: currentColor; }
      }
   }
 

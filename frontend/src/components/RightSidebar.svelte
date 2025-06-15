@@ -41,7 +41,7 @@
   }
   function searchFromRecentSidebar(term: string) {
     addRecentSearch(term);
-    navigate(`/explore?q=${encodeURIComponent(term)}`);
+    navigate(`/explore?q=${encodeURIComponent(term)}`, { replace: true });
   }
 
   async function fetchTrending() {
@@ -92,11 +92,11 @@
         <div class="recent-searches-dropdown">
             <div class="dropdown-header">
                 <span>Recent</span>
-                <button class="clear-btn-sidebar" on:click={clearAllRecent}>Clear all</button>
+                <button class="clear-btn-sidebar" on:mousedown={clearAllRecent}>Clear all</button>
             </div>
             <ul>
                 {#each recentSearches.slice(0,3) as term (term)}
-                    <li><button class="recent-item-btn-sidebar" on:click={() => searchFromRecentSidebar(term)}>{term}</button></li>
+                    <li><button class="recent-item-btn-sidebar" on:mousedown={() => searchFromRecentSidebar(term)}>{term}</button></li>
                 {/each}
             </ul>
         </div>
