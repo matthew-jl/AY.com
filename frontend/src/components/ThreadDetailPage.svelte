@@ -412,7 +412,7 @@
     align-items: center;
     padding: 12px 16px;
     border-bottom: 1px solid var(--border-color);
-    background-color: rgba(var(--background-rgb, 255, 255, 255), 0.85);
+    background-color: var(--background);
     backdrop-filter: blur(12px);
     position: sticky;
     top: 0;

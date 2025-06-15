@@ -100,53 +100,194 @@
   </div>
   
   <style lang="scss">
-    @use '../styles/variables' as *;
+  @use '../styles/variables' as *;
+
+  .bookmarks-page { width: 100%; }
+
+  .page-header {
+    position: sticky; 
+    top: 0;
+    background-color: rgba(var(--background-rgb), 0.85);
+    backdrop-filter: blur(12px);
+    z-index: 10;
+    padding: 12px 16px;
+    border-bottom: 1px solid var(--border-color);
+
+    .header-content {
+      h2 { 
+        font-size: 20px; 
+        font-weight: 800; 
+        margin: 0 0 4px; 
+      }
+      .secondary-text { 
+        font-size: 13px; 
+        color: var(--secondary-text-color); 
+        margin: 0; 
+      }
+    }
+  }
+
+  .search-bar-bookmarks {
+    position: relative; 
+    display: flex; 
+    align-items: center; 
+    margin-top: 12px;
+    
+    .search-icon {
+      position: absolute; 
+      left: 12px; 
+      top: 50%; 
+      transform: translateY(-50%);
+      width: 18px; 
+      height: 18px; 
+      fill: var(--secondary-text-color);
+    }
+    
+    input[type="text"] {
+      width: 100%;
+      padding: 10px 12px 10px 40px;
+      border-radius: 9999px;
+      border: 1px solid transparent;
+      background-color: var(--search-bg);
+      color: var(--text-color);
+      font-size: 15px;
+      
+      &:focus {
+        outline: none; 
+        border-color: var(--primary-color);
+        background-color: var(--background);
+        box-shadow: 0 0 0 1px var(--primary-color);
+      }
+    }
+  }
+
+  .bookmarks-feed {
+    /* Basic styles for the feed container */
+  }
   
-    .bookmarks-page { width: 100%; }
+  .empty-feed {
+     text-align: center;
+     padding: 40px 20px;
+     color: var(--secondary-text-color);
+  }
   
+  .error-text { 
+    color: var(--error-color); 
+    font-size: 0.85rem; 
+    margin-top: 4px; 
+  }
+  
+  .api-error { 
+    margin-top: 1rem; 
+    text-align: center; 
+    font-weight: bold; 
+  }
+  
+  /* Skeleton loading styles */
+  @keyframes pulse { 
+    0% { background-color: var(--section-hover-bg); } 
+    50% { background-color: var(--border-color); } 
+    100% { background-color: var(--section-hover-bg); } 
+  }
+  
+  .skeleton-thread { 
+    display: flex; 
+    padding: 12px 16px; 
+    border-bottom: 1px solid var(--border-color); 
+    gap: 12px; 
+  }
+
+  /* Responsive styles */
+  @media (max-width: 1200px) {
+    /* Smaller desktop/large tablet */
     .page-header {
-      position: sticky; top: 0;
-      background-color: rgba(var(--background-rgb), 0.85);
-      backdrop-filter: blur(12px);
-      z-index: 10;
-      padding: 12px 16px;
-      border-bottom: 1px solid var(--border-color);
-  
-      .header-content {
-          h2 { font-size: 20px; font-weight: 800; margin: 0 0 4px; }
-          .secondary-text { font-size: 13px; color: var(--secondary-text-color); margin:0; }
-      }
+      padding: 10px 14px;
     }
+  }
   
-    .search-bar-bookmarks {
-      position: relative; display: flex; align-items: center; margin-top: 12px;
-      .search-icon {
-        position: absolute; left: 12px; top: 50%; transform: translateY(-50%);
-        width: 18px; height: 18px; fill: var(--secondary-text-color);
-      }
-      input[type="text"] {
-        width: 100%;
-        padding: 10px 12px 10px 40px;
-        border-radius: 9999px;
-        border: 1px solid transparent;
-        background-color: var(--search-bg);
-        color: var(--text-color);
-        font-size: 15px;
-        &:focus {
-          outline: none; border-color: var(--primary-color);
-          background-color: var(--background);
-          box-shadow: 0 0 0 1px var(--primary-color);
-        }
-      }
+  @media (max-width: 900px) {
+    /* Tablet/small tablet */
+    .page-header .header-content h2 {
+      font-size: 18px;
     }
+    
+    .search-bar-bookmarks input[type="text"] {
+      padding: 9px 12px 9px 36px;
+      font-size: 14px;
+    }
+    
+    .search-bar-bookmarks .search-icon {
+      width: 16px;
+      height: 16px;
+      left: 10px;
+    }
+  }
   
-    .bookmarks-feed {  }
+  @media (max-width: 768px) {
+    /* Large mobile */
+    .page-header {
+      padding: 10px 12px;
+    }
+    
     .empty-feed {
-       text-align: center;
-       padding: 40px 20px;
-       color: var(--secondary-text-color);
+      padding: 30px 16px;
+      font-size: 14px;
     }
-    .error-text { color: var(--error-color); font-size: 0.85rem; margin-top: 4px; }
-    .api-error { margin-top: 1rem; text-align: center; font-weight: bold; }
+  }
   
-  </style>
+  @media (max-width: 576px) {
+    /* Mobile */
+    .page-header .header-content h2 {
+      font-size: 16px;
+    }
+    
+    .search-bar-bookmarks {
+      margin-top: 10px;
+      
+      input[type="text"] {
+        padding: 8px 10px 8px 34px;
+        font-size: 14px;
+      }
+      
+      .search-icon {
+        width: 15px;
+        height: 15px;
+      }
+    }
+    
+    .empty-feed {
+      padding: 25px 12px;
+      font-size: 13px;
+    }
+    
+    .api-error {
+      font-size: 13px;
+    }
+  }
+  
+  @media (max-width: 400px) {
+    /* Small mobile */
+    .page-header {
+      padding: 8px 10px;
+    }
+    
+    .page-header .header-content h2 {
+      font-size: 15px;
+    }
+    
+    .search-bar-bookmarks {
+      margin-top: 8px;
+      
+      input[type="text"] {
+        padding: 7px 8px 7px 30px;
+        font-size: 13px;
+      }
+      
+      .search-icon {
+        width: 14px;
+        height: 14px;
+        left: 8px;
+      }
+    }
+  }
+</style>

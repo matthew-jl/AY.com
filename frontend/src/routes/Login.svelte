@@ -206,14 +206,63 @@
 <style lang="scss">
   @use '../styles/auth-forms.scss';
 
+
   .error-text {
-       color: var(--error-color);
-       font-size: 0.85rem;
-       margin-top: 4px;
-   }
-    .api-error {
-        margin-top: 1rem;
-        text-align: center;
-        font-weight: bold;
+    color: var(--error-color);
+    font-size: 0.85rem;
+    margin-top: 4px;
+  }
+  
+  .api-error {
+    margin-top: 1rem;
+    text-align: center;
+    font-weight: bold;
+  }
+
+  /* Media queries for responsive layout */
+  @media (max-width: 480px) {
+    :global(.auth-container) {
+      margin: 2rem auto;
+      padding: 1.5rem;
+      max-width: 90%;
+      border-radius: 12px;
     }
+    
+    :global(.recaptcha-container) {
+      display: flex;
+      justify-content: center;
+      transform: scale(0.9);
+      transform-origin: center;
+    }
+  }
+
+  @media (max-width: 350px) {
+    :global(.auth-container) {
+      margin: 1rem auto;
+      padding: 1rem;
+      box-shadow: none;
+      background-color: var(--sidebar-bg);
+      border-width: 0;
+    }
+
+    :global(h2) {
+      font-size: 1.5rem;
+      margin-bottom: 1rem;
+    }
+
+    :global(.form-group) {
+      gap: 0.5rem;
+    }
+
+    :global(.form-group input) {
+      padding: 0.6rem 0.7rem;
+      font-size: 0.95rem;
+    }
+    
+    :global(.recaptcha-container) {
+      transform: scale(0.85);
+      margin-left: -20px;
+      margin-right: -20px;
+    }
+  }
 </style>

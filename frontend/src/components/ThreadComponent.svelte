@@ -222,6 +222,7 @@
 
 <style lang="scss">
   @use '../styles/variables' as *;
+  
   .thread-card {
     display: flex;
     padding: 12px 16px;
@@ -430,4 +431,97 @@
       color: var(--error-color);
   }
 
+  /* Add responsive styling */
+  @media (max-width: 500px) {
+    .thread-card {
+      padding: 10px 12px;
+    }
+    
+    .thread-avatar {
+      width: 36px;
+      height: 36px;
+      margin-right: 10px;
+    }
+    
+    .thread-header {
+      font-size: 14px;
+      
+      .author-name {
+        max-width: 120px;
+      }
+      
+      .author-handle {
+        max-width: 100px;
+      }
+    }
+    
+    .thread-text {
+      font-size: 14px;
+      line-height: 1.3;
+      margin-bottom: 10px;
+    }
+    
+    .action-btn {
+      padding: 5px;
+      
+      svg {
+        width: 16px;
+        height: 16px;
+      }
+      
+      span {
+        font-size: 12px;
+      }
+    }
+  }
+  
+  @media (max-width: 380px) {
+    .thread-card {
+      padding: 8px 10px;
+    }
+    
+    .thread-avatar {
+      width: 32px;
+      height: 32px;
+      margin-right: 8px;
+      
+      .avatar-initials-placeholder {
+        font-size: 0.9rem;
+      }
+    }
+    
+    .thread-header {
+      font-size: 13px;
+      
+      .author-name {
+        max-width: 90px;
+      }
+      
+      .author-handle {
+        max-width: 80px;
+      }
+    }
+    
+    .thread-text {
+      font-size: 13px;
+    }
+    
+    .media-grid {
+      border-radius: 12px;
+    }
+    
+    .thread-actions {
+      margin-top: 6px;
+    }
+    
+    .action-btn {
+      padding: 4px;
+      gap: 3px;
+      
+      svg {
+        width: 15px;
+        height: 15px;
+      }
+    }
+  }
 </style>

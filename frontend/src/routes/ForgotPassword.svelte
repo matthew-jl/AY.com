@@ -175,26 +175,27 @@
 
 <style lang="scss">
   @use '../styles/auth-forms.scss';
-.error-text {
+  
+  .error-text {
     color: var(--error-color, #d93025);
     font-size: 0.85rem;
     margin-top: 4px;
-}
+  }
 
-.api-error {
+  .api-error {
     margin-top: 1rem;
     text-align: center;
     font-weight: bold;
-}
+  }
 
-.info-text {
+  .info-text {
     text-align: center;
     margin-bottom: 1.5rem;
     color: var(--secondary-text-color);
     line-height: 1.4;
-}
+  }
 
-.success-text {
+  .success-text {
     color: var(--success-color, #1e8e3e);
     background-color: var(--success-bg, #e6f4ea);
     padding: 1rem;
@@ -202,20 +203,20 @@
     text-align: center;
     margin: 1.5rem 0;
     font-weight: bold;
-}
+  }
 
-.button-row {
+  .button-row {
     display: flex;
     gap: 1rem;
     margin-top: 1.5rem;
 
     .btn {
-        margin-top: 0;
-        flex: 1;
+      margin-top: 0;
+      flex: 1;
     }
-}
+  }
 
-.question-text {
+  .question-text {
     font-style: italic;
     font-size: 1.1rem;
     color: var(--text-color);
@@ -223,5 +224,104 @@
     border-left: 3px solid var(--primary-color);
     padding-left: 1rem;
     min-height: 1.5em;
-}
+  }
+
+  /* Added responsive styles */
+  @media (max-width: 480px) {
+    :global(.auth-container) {
+      margin: 2rem auto;
+      padding: 1.5rem;
+      max-width: 90%;
+    }
+    
+    .button-row {
+      gap: 0.75rem;
+    }
+    
+    .question-text {
+      font-size: 1rem;
+      padding-left: 0.75rem;
+    }
+    
+    :global(h2) {
+      font-size: 1.6rem;
+    }
+  }
+
+  @media (max-width: 380px) {
+    :global(.auth-container) {
+      margin: 1.5rem auto;
+      padding: 1.2rem;
+      max-width: 95%;
+    }
+    
+    .info-text {
+      font-size: 0.95rem;
+      margin-bottom: 1.2rem;
+    }
+    
+    .button-row {
+      flex-direction: column;
+      gap: 0.6rem;
+    }
+    
+    .success-text {
+      padding: 0.8rem;
+      font-size: 0.95rem;
+    }
+    
+    :global(.form-group) {
+      margin-bottom: 1rem;
+    }
+    
+    :global(h2) {
+      font-size: 1.4rem;
+      margin-bottom: 1rem;
+    }
+    
+    .question-text {
+      font-size: 0.95rem;
+      padding-left: 0.6rem;
+      border-left-width: 2px;
+    }
+  }
+
+  /* For very small screens */
+  @media (max-width: 320px) {
+    :global(.auth-container) {
+      margin: 1rem auto;
+      padding: 1rem;
+      max-width: 100%;
+    }
+    
+    .info-text {
+      font-size: 0.9rem;
+      margin-bottom: 1rem;
+    }
+    
+    .button-row {
+      flex-direction: column;
+      gap: 0.5rem;
+    }
+    
+    .success-text {
+      padding: 0.7rem;
+      font-size: 0.9rem;
+    }
+    
+    :global(.form-group) {
+      margin-bottom: 0.8rem;
+    }
+    
+    :global(h2) {
+      font-size: 1.3rem;
+      margin-bottom: 0.8rem;
+    }
+    
+    .question-text {
+      font-size: 0.9rem;
+      padding-left: 0.5rem;
+      border-left-width: 2px;
+    }
+  }
 </style>

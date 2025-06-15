@@ -27,6 +27,7 @@
   import PremiumPage from "./routes/PremiumPage.svelte";
   import ThreadDetailPage from "./components/ThreadDetailPage.svelte";
   import SettingsPage from "./routes/SettingsPage.svelte";
+  import AdminPage from "./routes/AdminPage.svelte";
 
   export let url = "";
 
@@ -126,6 +127,20 @@
       setTimeout(() => navigate('/login', { replace: true }), 0);
     }
   }
+
+  // Add a function to determine if the current route should use the full-width layout
+  function isFullWidthRoute(path: string | null): boolean {
+    if (!path) return false;
+    
+    // Routes that should use full width (no sidebar margins)
+    return ['/login', '/register', '/forgot-password', '/admin'].includes(path) || 
+           path === '/' && !isAuth; // Landing page is full width only when not authenticated
+  }
+  
+  // Determine the CSS class for the main content area based on the route
+  $: mainContentClass = isFullWidthRoute(pathFromStore) 
+    ? "main-content-area-full" 
+    : "main-content-area";
 </script>
 
 <Router {url}>
@@ -136,7 +151,7 @@
       <LeftSidebar />
     {/if}
 
-    <main class="main-content-area">
+    <main class={mainContentClass}>
       <!-- Guest Routes -->
       <Route path="/"> {#if isAuth} <Home /> {:else} <Landing /> {/if} </Route>
       <Route path="/login"> {#if isAuth} <Home /> {:else} <Login /> {/if} </Route>
@@ -180,6 +195,9 @@
        <Route path="/settings">
          {#if isAuth} <SettingsPage /> {:else} <NoAccess /> {/if}
       </Route>
+       <Route path="/admin">
+         {#if isAuth} <AdminPage /> {:else} <NoAccess /> {/if}
+      </Route>
 
       <Route path="/*">
           {#if isAuth}
@@ -215,14 +233,28 @@
     color: var(--text-color);
   }
 
-  .main-content-area {
+  // Base styles for both classes
+  .main-content-area,
+  .main-content-area-full {
     flex-grow: 1;
     width: 100%;
     min-width: 0;
-    // padding: 0 16px;
     box-sizing: border-box;
   }
 
+  // Specific styles for standard layout with sidebar
+  .main-content-area {
+    // Apply specific styles for sidebar layout content
+  }
+
+  // Full-width pages with no sidebar margin
+  .main-content-area-full {
+    width: 100%;
+    max-width: 100%;
+    margin: 0 auto;
+  }
+
+  // Apply sidebar layout styles only to main-content-area
   .sidebar-layout .main-content-area {
     margin: 0 auto;
     border-left: 1px solid var(--border-color);
@@ -231,7 +263,6 @@
     margin-right: 0;
     max-width: 700px;
     min-width: 0;
-    // padding: 0 24px;
   }
 
   @media (max-width: 1200px) {
@@ -239,7 +270,6 @@
       margin-left: $left-sidebar-width;
       margin-right: 0;
       max-width: 100vw;
-      // padding: 0 12px;
     }
   }
 
@@ -248,29 +278,31 @@
       margin-left: 70px;
       margin-right: 0;
       max-width: 100vw;
-      // padding: 0 6px;
     }
   }
 
   @media (max-width: 600px) {
-    .main-content-area,
     .sidebar-layout .main-content-area {
       margin-left: 70px;
-      // padding: 0 2vw;
       border-left: none;
       border-right: none;
       max-width: 100vw;
     }
+    
+    // Always full width on mobile for all layouts
+    .main-content-area-full {
+      margin: 0;
+      max-width: 100%;
+    }
   }
 
   .not-found {
-      padding: 30px;
-      text-align: center;
-      a {
-          color: var(--primary-color);
-          text-decoration: none;
-           &:hover { text-decoration: underline; }
-      }
+    padding: 30px;
+    text-align: center;
+    a {
+      color: var(--primary-color);
+      text-decoration: none;
+      &:hover { text-decoration: underline; }
+    }
   }
-
 </style>

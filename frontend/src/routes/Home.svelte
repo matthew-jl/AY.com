@@ -199,15 +199,14 @@
 </div>
 
 <style lang='scss'>
-   @use '../styles/variables' as *;
+  @use '../styles/variables' as *;
 
   .home-container {
-    // padding: 20px 30px;
     width: 100%;
     box-sizing: border-box;
   }
 
-   .home-header {
+  .home-header {
     position: sticky;
     top: 0;
     background-color: rgba(var(--background-rgb), 0.85);
@@ -238,7 +237,7 @@
         transition: background-color 0.2s ease;
 
         &:hover {
-            background-color: var(--section-hover-bg);
+          background-color: var(--section-hover-bg);
         }
 
         &.active {
@@ -259,93 +258,230 @@
   }
 
   .create-thread-prompt {
-      display: flex;
-      align-items: flex-start;
-      padding: 12px 16px;
-      border-bottom: 1px solid var(--border-color);
-      gap: 12px;
+    display: flex;
+    align-items: flex-start;
+    padding: 12px 16px;
+    border-bottom: 1px solid var(--border-color);
+    gap: 12px;
 
-      .avatar-placeholder-small {
-           width: 40px; height: 40px; border-radius: 50%; background-color: var(--secondary-text-color);
-           color: var(--background); display: flex; align-items: center; justify-content: center;
-           font-weight: bold; flex-shrink: 0; font-size: 1.1rem;
+    .avatar-placeholder-small {
+      width: 40px; 
+      height: 40px; 
+      border-radius: 50%; 
+      background-color: var(--secondary-text-color);
+      color: var(--background); 
+      display: flex; 
+      align-items: center; 
+      justify-content: center;
+      font-weight: bold; 
+      flex-shrink: 0; 
+      font-size: 1.1rem;
+    }
+
+    .prompt-button {
+      flex-grow: 1;
+      text-align: left;
+      font-size: 20px;
+      color: var(--secondary-text-color);
+      background: none;
+      border: none;
+      padding: 8px 0;
+      cursor: pointer;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .btn {
+      display: block;
+      padding: 0.8rem 1rem;
+      border-radius: 9999px;
+      text-decoration: none;
+      font-weight: bold;
+      font-size: 1rem;
+      cursor: pointer;
+      border: 1px solid transparent;
+      transition: background-color 0.2s ease;
+      margin-top: 1rem;
+    }
+
+    .btn-primary {
+      background-color: var(--primary-color);
+      color: var(--primary-button-text);
+      border: 1px solid var(--border-color);
+      &:hover:not(:disabled) {
+        background-color: var(--primary-color-hover);
       }
-
-      .prompt-button {
-          flex-grow: 1;
-          text-align: left;
-          font-size: 20px;
-          color: var(--secondary-text-color);
-          background: none;
-          border: none;
-          padding: 8px 0;
-          cursor: pointer;
-           &:hover { }
+      &:disabled {
+        opacity: 0.6;
+        cursor: not-allowed;
       }
+    }
 
-      .btn {
-        display: block;
-        padding: 0.8rem 1rem;
-        border-radius: 9999px;
-        text-decoration: none;
-        font-weight: bold;
-        font-size: 1rem;
-        cursor: pointer;
-        border: 1px solid transparent;
-        transition: background-color 0.2s ease;
-        margin-top: 1rem;
-        //   width: 100%;
-        }
-
-        .btn-primary {
-        background-color: var(--primary-color);
-        color: var(--primary-button-text);
-        border: 1px solid var(--border-color);
-            &:hover:not(:disabled) {
-                background-color: var(--primary-color-hover);
-            }
-            &:disabled {
-                opacity: 0.6;
-                cursor: not-allowed;
-            }
-        }
-
-       .post-btn-inline {
-            padding: 8px 16px;
-            margin-top: 4px;
-       }
+    .post-btn-inline {
+      padding: 8px 16px;
+      margin-top: 4px;
+    }
   }
 
 
   .feed {
-      /* Feed container styles */
+    /* Feed container styles remain the same */
   }
 
-   .feed-status {
-       text-align: center;
-       padding: 20px;
-       color: var(--secondary-text-color);
-       font-size: 14px;
-   }
-    .empty-feed {
-       text-align: center;
-       padding: 40px 20px;
-       color: var(--secondary-text-color);
+  .feed-status {
+    text-align: center;
+    padding: 20px;
+    color: var(--secondary-text-color);
+    font-size: 14px;
+  }
+  
+  .empty-feed {
+    text-align: center;
+    padding: 40px 20px;
+    color: var(--secondary-text-color);
+  }
+
+  @keyframes pulse { 
+    0% { background-color: var(--section-hover-bg); } 
+    50% { background-color: var(--border-color); } 
+    100% { background-color: var(--section-hover-bg); } 
+  }
+  
+  .skeleton-thread { 
+    display: flex; 
+    padding: 12px 16px; 
+    border-bottom: 1px solid var(--border-color); 
+    gap: 12px; 
+  }
+  
+  .skeleton-avatar { 
+    width: 40px; 
+    height: 40px; 
+    border-radius: 50%; 
+    background-color: var(--section-hover-bg); 
+    animation: pulse 1.5s infinite ease-in-out; 
+    flex-shrink: 0; 
+  }
+  
+  .skeleton-content { 
+    flex-grow: 1; 
+    display: flex; 
+    flex-direction: column; 
+    gap: 8px; 
+    padding-top: 4px; 
+  }
+  
+  .skeleton-line { 
+    height: 10px; 
+    border-radius: 4px; 
+    background-color: var(--section-hover-bg); 
+    animation: pulse 1.5s infinite ease-in-out; 
+  }
+  
+  .skeleton-line.short { width: 30%; }
+  .skeleton-line.medium { width: 60%; }
+  .skeleton-line.long { width: 90%; }
+
+  .error-text { 
+    color: var(--error-color); 
+    font-size: 0.85rem; 
+    margin-top: 4px; 
+  }
+  
+  .api-error { 
+    margin-top: 1rem; 
+    text-align: center; 
+    font-weight: bold; 
+  }
+
+  /* Responsive styles */
+  @media (max-width: 768px) {
+    .home-header h1 {
+      padding: 10px 12px;
+      font-size: 18px;
     }
 
-    /* Basic Skeleton Styles */
-    @keyframes pulse { 0% { background-color: var(--section-hover-bg); } 50% { background-color: var(--border-color); } 100% { background-color: var(--section-hover-bg); } }
-    .skeleton-thread { display: flex; padding: 12px 16px; border-bottom: 1px solid var(--border-color); gap: 12px; }
-    .skeleton-avatar { width: 40px; height: 40px; border-radius: 50%; background-color: var(--section-hover-bg); animation: pulse 1.5s infinite ease-in-out; flex-shrink: 0; }
-    .skeleton-content { flex-grow: 1; display: flex; flex-direction: column; gap: 8px; padding-top: 4px; }
-    .skeleton-line { height: 10px; border-radius: 4px; background-color: var(--section-hover-bg); animation: pulse 1.5s infinite ease-in-out; }
-    .skeleton-line.short { width: 30%; }
-    .skeleton-line.medium { width: 60%; }
-    .skeleton-line.long { width: 90%; }
+    .home-header .tabs button {
+      padding: 14px 8px;
+      font-size: 14px;
+    }
+  }
 
+  @media (max-width: 600px) {
+    .create-thread-prompt {
+      padding: 10px 12px;
+      gap: 8px;
+      
+      .prompt-button {
+        font-size: 16px;
+        padding: 6px 0;
+      }
+      
+      .post-btn-inline {
+        padding: 6px 12px;
+        font-size: 14px;
+      }
+    }
+    
+    .skeleton-thread {
+      padding: 10px 12px;
+      gap: 8px;
+    }
+    
+    .skeleton-avatar {
+      width: 36px;
+      height: 36px;
+    }
+    
+    .feed-status {
+      padding: 15px 10px;
+    }
+    
+    .empty-feed {
+      padding: 30px 15px;
+    }
+  }
 
-  /* Error message styles */
-  .error-text { color: var(--error-color); font-size: 0.85rem; margin-top: 4px; }
-  .api-error { margin-top: 1rem; text-align: center; font-weight: bold; }
+  @media (max-width: 480px) {
+    .home-header h1 {
+      font-size: 16px;
+      padding: 8px 10px;
+    }
 
+    .home-header .tabs button {
+      padding: 12px 6px;
+      font-size: 13px;
+    }
+    
+    .create-thread-prompt {
+      .avatar-placeholder-small {
+        width: 32px;
+        height: 32px;
+        font-size: 0.9rem;
+      }
+      
+      .prompt-button {
+        font-size: 14px;
+      }
+      
+      .post-btn-inline {
+        padding: 4px 10px;
+        margin-top: 2px;
+        font-size: 13px;
+      }
+    }
+    
+    .feed-status, .empty-feed {
+      font-size: 13px;
+    }
+  }
+
+  /* For very small screens */
+  @media (max-width: 320px) {
+    .create-thread-prompt .prompt-button {
+      max-width: 140px;
+      text-overflow: ellipsis;
+    }
+  }
 </style>

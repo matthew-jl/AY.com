@@ -143,8 +143,8 @@
 
 <div class="premium-page">
   <header class="premium-header">
-    <div class="premium-icon"><Star size={28} /></div>
-    <h1>AY.com Premium</h1>
+    <!-- <div class="premium-icon"><Star size={28} /></div> -->
+    <h1>Premium</h1>
   </header>
   
   {#if isLoading}

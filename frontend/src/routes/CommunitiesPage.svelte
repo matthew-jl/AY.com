@@ -205,7 +205,7 @@
   
     .communities-page-container {
       width: 100%;
-      // padding: 16px;
+      min-height: 100vh;
     }
   
     .page-header {
@@ -262,41 +262,60 @@
     }
 
     .communities-tabs {
-      display: flex; border-bottom: 1px solid var(--border-color);
+      display: flex; 
+      border-bottom: 1px solid var(--border-color);
       background-color: var(--background);
       position: sticky;
       top: 57px; /* Adjust based on main header height */
       z-index: 9;
+      
       button {
         flex: 1;
         padding: 16px;
-        background: none; border: none;
+        background: none; 
+        border: none;
         color: var(--secondary-text-color);
-        font-weight: bold; font-size: 15px;
-        cursor: pointer; position: relative;
+        font-weight: bold; 
+        font-size: 15px;
+        cursor: pointer; 
+        position: relative;
         transition: background-color 0.2s ease;
         &:hover { background-color: var(--section-hover-bg); }
         &.active {
           color: var(--text-color);
           &::after {
-            content: ''; position: absolute; bottom: 0; left: 0; right: 0;
-            height: 4px; background-color: var(--primary-color); border-radius: 2px;
+            content: ''; 
+            position: absolute; 
+            bottom: 0; 
+            left: 0; 
+            right: 0;
+            height: 4px; 
+            background-color: var(--primary-color); 
+            border-radius: 2px;
           }
         }
       }
     }
+    
     .community-grid {
-        display: grid;
-        grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-        gap: 16px;
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+      gap: 16px;
     }
-    .request-list { list-style: none; padding: 0; }
+    
+    .request-list { 
+      list-style: none; 
+      padding: 0; 
+    }
+    
     .request-item {
-        padding: 10px; border-bottom: 1px solid var(--border-color);
-        font-size: 0.95rem; color: var(--text-color);
-        &:last-child { border-bottom: none; }
-        strong { font-weight: 600; }
-        em { color: var(--secondary-text-color); }
+      padding: 10px; 
+      border-bottom: 1px solid var(--border-color);
+      font-size: 0.95rem; 
+      color: var(--text-color);
+      &:last-child { border-bottom: none; }
+      strong { font-weight: 600; }
+      em { color: var(--secondary-text-color); }
     }
 
     .discover-filters {
@@ -318,24 +337,26 @@
         &:focus { outline: none; border-color: var(--primary-color); }
       }
     }
+    
     .category-filter-toggle {
-        position: relative;
-        .btn-link {
-            background: none;
-            border: none;
-            color: var(--primary-color);
-            font-weight: bold;
-            cursor: pointer;
-            padding: 4px 8px;
-            border-radius: 6px;
-            font-size: 15px;
-            transition: background 0.15s;
-            &:hover, &:focus {
-              background: var(--section-hover-bg);
-              outline: none;
-            }
+      position: relative;
+      .btn-link {
+        background: none;
+        border: none;
+        color: var(--primary-color);
+        font-weight: bold;
+        cursor: pointer;
+        padding: 4px 8px;
+        border-radius: 6px;
+        font-size: 15px;
+        transition: background 0.15s;
+        &:hover, &:focus {
+          background: var(--section-hover-bg);
+          outline: none;
         }
+      }
     }
+    
     .category-dropdown {
       position: absolute;
       top: 100%;
@@ -358,6 +379,141 @@
         font-size: 14px;
         input[type="checkbox"] { margin-right: 8px; accent-color: var(--primary-color); }
         &:hover { background-color: var(--section-hover-bg); }
+      }
+    }
+    
+    /* Responsive styles */
+    @media (max-width: 1200px) {
+      .community-grid {
+        grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+      }
+    }
+    
+    @media (max-width: 900px) {
+      .community-grid {
+        grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+        gap: 12px;
+      }
+      
+      .communities-tabs button {
+        padding: 14px 8px;
+        font-size: 14px;
+      }
+      
+      .page-header .header-content h2 {
+        font-size: 18px;
+      }
+    }
+    
+    @media (max-width: 767px) {
+      .communities-tabs {
+        top: 53px; /* Adjust sticky positioning for smaller header */
+      }
+      
+      .community-grid {
+        grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+        gap: 10px;
+      }
+      
+      .discover-filters {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 10px;
+        padding: 10px;
+        
+        .discover-search-input {
+          width: 100%;
+        }
+        
+        .category-filter-toggle {
+          width: 100%;
+          
+          .btn-link {
+            width: 100%;
+            text-align: left;
+            display: flex;
+            justify-content: space-between;
+          }
+          
+          .category-dropdown {
+            width: 100%;
+            right: auto;
+            left: 0;
+          }
+        }
+      }
+    }
+    
+    @media (max-width: 576px) {
+      .page-header {
+        padding: 10px 12px;
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 8px;
+      }
+      
+      .create-community-btn {
+        width: 100%;
+        padding: 6px 12px;
+        text-align: center;
+      }
+      
+      .communities-tabs {
+        top: 85px; /* Adjust for taller header */
+        
+        button {
+          padding: 12px 8px;
+          font-size: 13px;
+        }
+      }
+      
+      .communities-content {
+        padding: 12px;
+        margin-top: 8px;
+      }
+      
+      .community-grid {
+        grid-template-columns: 1fr;
+        gap: 10px;
+      }
+      
+      .empty-list, .error-text {
+        padding: 15px;
+        font-size: 14px;
+      }
+      
+      .category-dropdown {
+        max-height: 200px;
+        
+        label {
+          padding: 8px;
+          font-size: 13px;
+        }
+      }
+    }
+    
+    @media (max-width: 400px) {
+      .page-header .header-content h2 {
+        font-size: 16px;
+      }
+      
+      .communities-tabs {
+        top: 80px;
+        
+        button {
+          padding: 10px 4px;
+          font-size: 12px;
+        }
+      }
+      
+      .discover-filters .discover-search-input {
+        padding: 6px 10px;
+        font-size: 14px;
+      }
+      
+      .category-filter-toggle .btn-link {
+        font-size: 13px;
+        padding: 4px 6px;
       }
     }
   </style>

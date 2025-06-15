@@ -105,13 +105,13 @@ func (h *AuthHandler) Register(c *gin.Context) {
 		return
 	}
 
-    // success, err := gwUtils.VerifyRecaptcha(payload.RecaptchaToken, c.ClientIP())
-    // if err != nil || !success {
-    //     errMsg := "reCAPTCHA verification failed"
-    //     if err != nil { errMsg = err.Error() }
-    //     c.JSON(http.StatusForbidden, gin.H{"error": errMsg})
-    //     return
-    // }
+    success, err := gwUtils.VerifyRecaptcha(payload.RecaptchaToken, c.ClientIP())
+    if err != nil || !success {
+        errMsg := "reCAPTCHA verification failed"
+        if err != nil { errMsg = err.Error() }
+        c.JSON(http.StatusForbidden, gin.H{"error": errMsg})
+        return
+    }
 
 	// Prepare gRPC request (without reCAPTCHA token)
 	grpcReq := &userpb.RegisterRequest{
@@ -185,13 +185,13 @@ func (h *AuthHandler) Login(c *gin.Context) {
 		return
 	}
 
-	// success, err := gwUtils.VerifyRecaptcha(payload.RecaptchaToken, c.ClientIP())
-    // if err != nil || !success {
-    //     errMsg := "reCAPTCHA verification failed"
-    //     if err != nil { errMsg = err.Error() }
-    //     c.JSON(http.StatusForbidden, gin.H{"error": errMsg})
-    //     return
-    // }
+	success, err := gwUtils.VerifyRecaptcha(payload.RecaptchaToken, c.ClientIP())
+    if err != nil || !success {
+        errMsg := "reCAPTCHA verification failed"
+        if err != nil { errMsg = err.Error() }
+        c.JSON(http.StatusForbidden, gin.H{"error": errMsg})
+        return
+    }
 
 	grpcReq := &userpb.LoginRequest{
 		Email:    payload.Email,
