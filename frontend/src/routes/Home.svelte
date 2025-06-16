@@ -2,8 +2,9 @@
   import { onMount, onDestroy } from 'svelte';
   import { api, ApiError, type ThreadData } from '../lib/api';
   import ThreadComponent from '../components/ThreadComponent.svelte';
-  import { openCreateThreadModal } from '../stores/modalStore';
+  import { closeCreateThreadModal, isCreateThreadModalOpen, openCreateThreadModal } from '../stores/modalStore';
   import { user } from '../stores/userStore';
+  import CreateThreadModal from '../components/CreateThreadModal.svelte';
 
   type FeedTab = 'foryou' | 'following';
 
@@ -57,6 +58,14 @@
       } finally {
           isLoading = false;
       }
+  }
+
+  function handleNewThreadCreated(event: CustomEvent<ThreadData>) {
+    const newThread = event.detail;
+    if (activeTab === 'foryou' || (activeTab === 'following' && newThread.user_id === $user?.id /* or check if followed */)) {
+        threads = [newThread, ...threads];
+    }
+    console.log("New thread added to Home feed:", newThread);
   }
 
   function handleThreadDelete(event: CustomEvent<{ id: number }>) {
@@ -197,6 +206,15 @@
   </section>
 
 </div>
+
+{#if $isCreateThreadModalOpen}
+  <CreateThreadModal
+    on:close={closeCreateThreadModal}
+    on:threadcreated={handleNewThreadCreated}
+    parentThreadId={null}
+    replyingToUsername={null}
+  />
+{/if}
 
 <style lang='scss'>
   @use '../styles/variables' as *;

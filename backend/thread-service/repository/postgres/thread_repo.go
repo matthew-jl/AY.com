@@ -368,3 +368,23 @@ func (r *ThreadRepository) GetBookmarkedThreadsByUser(ctx context.Context, userI
 	}
 	return threads, nil
 }
+
+func (r *ThreadRepository) GetRepliesForThread(ctx context.Context, parentThreadID uint, limit, offset int, excludeUserIDs []uint) ([]Thread, error) {
+	var threads []Thread
+	query := r.db.WithContext(ctx).
+		Where("threads.parent_thread_id = ?", parentThreadID). // Key filter
+		Order("threads.posted_at ASC, threads.id ASC").          // Replies usually shown oldest to newest
+		Limit(limit). // Use limit from arguments
+		Offset(offset) // Use offset from arguments
+
+    // Apply block exclusions
+    if len(excludeUserIDs) > 0 {
+        query = query.Where("threads.user_id NOT IN ?", excludeUserIDs)
+    }
+
+	err := query.Find(&threads).Error
+	if err != nil {
+		return nil, fmt.Errorf("failed to get replies for thread %d: %w", parentThreadID, err)
+	}
+	return threads, nil
+}

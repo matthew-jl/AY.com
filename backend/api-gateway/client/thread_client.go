@@ -72,3 +72,7 @@ func (c *ThreadClient) GetCommunityThreads(ctx context.Context, req *threadpb.Ge
 func (c *ThreadClient) GetBookmarkedThreads(ctx context.Context, req *threadpb.GetBookmarkedThreadsRequest) (*threadpb.GetBookmarkedThreadsResponse, error) {
 	return c.client.GetBookmarkedThreads(ctx, req)
 }
+
+func (c *ThreadClient) GetReplies(ctx context.Context, req *threadpb.GetRepliesRequest) (*threadpb.GetRepliesResponse, error) {
+	return c.client.GetReplies(ctx, req)
+}

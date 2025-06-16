@@ -216,9 +216,9 @@
       <RightSidebar />
     {/if}
 
-    {#if $isCreateThreadModalOpen}
+    <!-- {#if $isCreateThreadModalOpen}
       <CreateThreadModal on:close={closeCreateThreadModal} on:threadcreated={() => console.log('Maybe refresh feed?')} />
-    {/if}
+    {/if} -->
 
   </div>
 </Router>

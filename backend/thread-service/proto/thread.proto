@@ -20,6 +20,7 @@ service ThreadService {
   rpc GetUserThreads(GetUserThreadsRequest) returns (GetUserThreadsResponse);
   rpc GetBookmarkedThreads(GetBookmarkedThreadsRequest) returns (GetBookmarkedThreadsResponse); 
   rpc GetCommunityThreads(GetCommunityThreadsRequest) returns (GetCommunityThreadsResponse);
+  rpc GetReplies(GetRepliesRequest) returns (GetRepliesResponse);
 }
 
 message HealthResponse { string status = 1; }
@@ -132,6 +133,19 @@ message GetBookmarkedThreadsRequest {
 }
 
 message GetBookmarkedThreadsResponse {
+  repeated Thread threads = 1;
+  bool has_more = 2;
+}
+
+message GetRepliesRequest {
+  uint32 parent_thread_id = 1;
+  optional uint32 requester_user_id = 2;
+  int32 page = 3;
+  int32 limit = 4;
+  repeated uint32 exclude_user_ids = 5;
+}
+
+message GetRepliesResponse {
   repeated Thread threads = 1;
   bool has_more = 2;
 }

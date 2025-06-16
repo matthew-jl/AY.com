@@ -1083,6 +1083,134 @@ func (x *GetBookmarkedThreadsResponse) GetHasMore() bool {
 	return false
 }
 
+type GetRepliesRequest struct {
+	state           protoimpl.MessageState `protogen:"open.v1"`
+	ParentThreadId  uint32                 `protobuf:"varint,1,opt,name=parent_thread_id,json=parentThreadId,proto3" json:"parent_thread_id,omitempty"`
+	RequesterUserId *uint32                `protobuf:"varint,2,opt,name=requester_user_id,json=requesterUserId,proto3,oneof" json:"requester_user_id,omitempty"`
+	Page            int32                  `protobuf:"varint,3,opt,name=page,proto3" json:"page,omitempty"`
+	Limit           int32                  `protobuf:"varint,4,opt,name=limit,proto3" json:"limit,omitempty"`
+	ExcludeUserIds  []uint32               `protobuf:"varint,5,rep,packed,name=exclude_user_ids,json=excludeUserIds,proto3" json:"exclude_user_ids,omitempty"`
+	unknownFields   protoimpl.UnknownFields
+	sizeCache       protoimpl.SizeCache
+}
+
+func (x *GetRepliesRequest) Reset() {
+	*x = GetRepliesRequest{}
+	mi := &file_proto_thread_proto_msgTypes[14]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GetRepliesRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GetRepliesRequest) ProtoMessage() {}
+
+func (x *GetRepliesRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_thread_proto_msgTypes[14]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GetRepliesRequest.ProtoReflect.Descriptor instead.
+func (*GetRepliesRequest) Descriptor() ([]byte, []int) {
+	return file_proto_thread_proto_rawDescGZIP(), []int{14}
+}
+
+func (x *GetRepliesRequest) GetParentThreadId() uint32 {
+	if x != nil {
+		return x.ParentThreadId
+	}
+	return 0
+}
+
+func (x *GetRepliesRequest) GetRequesterUserId() uint32 {
+	if x != nil && x.RequesterUserId != nil {
+		return *x.RequesterUserId
+	}
+	return 0
+}
+
+func (x *GetRepliesRequest) GetPage() int32 {
+	if x != nil {
+		return x.Page
+	}
+	return 0
+}
+
+func (x *GetRepliesRequest) GetLimit() int32 {
+	if x != nil {
+		return x.Limit
+	}
+	return 0
+}
+
+func (x *GetRepliesRequest) GetExcludeUserIds() []uint32 {
+	if x != nil {
+		return x.ExcludeUserIds
+	}
+	return nil
+}
+
+type GetRepliesResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Threads       []*Thread              `protobuf:"bytes,1,rep,name=threads,proto3" json:"threads,omitempty"`
+	HasMore       bool                   `protobuf:"varint,2,opt,name=has_more,json=hasMore,proto3" json:"has_more,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *GetRepliesResponse) Reset() {
+	*x = GetRepliesResponse{}
+	mi := &file_proto_thread_proto_msgTypes[15]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GetRepliesResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GetRepliesResponse) ProtoMessage() {}
+
+func (x *GetRepliesResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_thread_proto_msgTypes[15]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GetRepliesResponse.ProtoReflect.Descriptor instead.
+func (*GetRepliesResponse) Descriptor() ([]byte, []int) {
+	return file_proto_thread_proto_rawDescGZIP(), []int{15}
+}
+
+func (x *GetRepliesResponse) GetThreads() []*Thread {
+	if x != nil {
+		return x.Threads
+	}
+	return nil
+}
+
+func (x *GetRepliesResponse) GetHasMore() bool {
+	if x != nil {
+		return x.HasMore
+	}
+	return false
+}
+
 var File_proto_thread_proto protoreflect.FileDescriptor
 
 const file_proto_thread_proto_rawDesc = "" +
@@ -1182,12 +1310,22 @@ const file_proto_thread_proto_rawDesc = "" +
 	"\x12_requester_user_id\"c\n" +
 	"\x1cGetBookmarkedThreadsResponse\x12(\n" +
 	"\athreads\x18\x01 \x03(\v2\x0e.thread.ThreadR\athreads\x12\x19\n" +
+	"\bhas_more\x18\x02 \x01(\bR\ahasMore\"\xd8\x01\n" +
+	"\x11GetRepliesRequest\x12(\n" +
+	"\x10parent_thread_id\x18\x01 \x01(\rR\x0eparentThreadId\x12/\n" +
+	"\x11requester_user_id\x18\x02 \x01(\rH\x00R\x0frequesterUserId\x88\x01\x01\x12\x12\n" +
+	"\x04page\x18\x03 \x01(\x05R\x04page\x12\x14\n" +
+	"\x05limit\x18\x04 \x01(\x05R\x05limit\x12(\n" +
+	"\x10exclude_user_ids\x18\x05 \x03(\rR\x0eexcludeUserIdsB\x14\n" +
+	"\x12_requester_user_id\"Y\n" +
+	"\x12GetRepliesResponse\x12(\n" +
+	"\athreads\x18\x01 \x03(\v2\x0e.thread.ThreadR\athreads\x12\x19\n" +
 	"\bhas_more\x18\x02 \x01(\bR\ahasMore*`\n" +
 	"\x10ReplyRestriction\x12!\n" +
 	"\x1dREPLY_RESTRICTION_UNSPECIFIED\x10\x00\x12\f\n" +
 	"\bEVERYONE\x10\x01\x12\r\n" +
 	"\tFOLLOWING\x10\x02\x12\f\n" +
-	"\bVERIFIED\x10\x032\x8c\a\n" +
+	"\bVERIFIED\x10\x032\xd1\a\n" +
 	"\rThreadService\x12=\n" +
 	"\vHealthCheck\x12\x16.google.protobuf.Empty\x1a\x16.thread.HealthResponse\x12;\n" +
 	"\fCreateThread\x12\x1b.thread.CreateThreadRequest\x1a\x0e.thread.Thread\x125\n" +
@@ -1201,7 +1339,9 @@ const file_proto_thread_proto_rawDesc = "" +
 	"\x0eGetFeedThreads\x12\x1d.thread.GetFeedThreadsRequest\x1a\x1e.thread.GetFeedThreadsResponse\x12O\n" +
 	"\x0eGetUserThreads\x12\x1d.thread.GetUserThreadsRequest\x1a\x1e.thread.GetUserThreadsResponse\x12a\n" +
 	"\x14GetBookmarkedThreads\x12#.thread.GetBookmarkedThreadsRequest\x1a$.thread.GetBookmarkedThreadsResponse\x12^\n" +
-	"\x13GetCommunityThreads\x12\".thread.GetCommunityThreadsRequest\x1a#.thread.GetCommunityThreadsResponseBCZAgithub.com/Acad600-TPA/WEB-MJ-242/backend/thread-service/genprotob\x06proto3"
+	"\x13GetCommunityThreads\x12\".thread.GetCommunityThreadsRequest\x1a#.thread.GetCommunityThreadsResponse\x12C\n" +
+	"\n" +
+	"GetReplies\x12\x19.thread.GetRepliesRequest\x1a\x1a.thread.GetRepliesResponseBCZAgithub.com/Acad600-TPA/WEB-MJ-242/backend/thread-service/genprotob\x06proto3"
 
 var (
 	file_proto_thread_proto_rawDescOnce sync.Once
@@ -1216,7 +1356,7 @@ func file_proto_thread_proto_rawDescGZIP() []byte {
 }
 
 var file_proto_thread_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
-var file_proto_thread_proto_msgTypes = make([]protoimpl.MessageInfo, 14)
+var file_proto_thread_proto_msgTypes = make([]protoimpl.MessageInfo, 16)
 var file_proto_thread_proto_goTypes = []any{
 	(ReplyRestriction)(0),                // 0: thread.ReplyRestriction
 	(*HealthResponse)(nil),               // 1: thread.HealthResponse
@@ -1233,49 +1373,54 @@ var file_proto_thread_proto_goTypes = []any{
 	(*GetCommunityThreadsResponse)(nil),  // 12: thread.GetCommunityThreadsResponse
 	(*GetBookmarkedThreadsRequest)(nil),  // 13: thread.GetBookmarkedThreadsRequest
 	(*GetBookmarkedThreadsResponse)(nil), // 14: thread.GetBookmarkedThreadsResponse
-	(*timestamppb.Timestamp)(nil),        // 15: google.protobuf.Timestamp
-	(*emptypb.Empty)(nil),                // 16: google.protobuf.Empty
+	(*GetRepliesRequest)(nil),            // 15: thread.GetRepliesRequest
+	(*GetRepliesResponse)(nil),           // 16: thread.GetRepliesResponse
+	(*timestamppb.Timestamp)(nil),        // 17: google.protobuf.Timestamp
+	(*emptypb.Empty)(nil),                // 18: google.protobuf.Empty
 }
 var file_proto_thread_proto_depIdxs = []int32{
 	0,  // 0: thread.Thread.reply_restriction:type_name -> thread.ReplyRestriction
-	15, // 1: thread.Thread.scheduled_at:type_name -> google.protobuf.Timestamp
-	15, // 2: thread.Thread.posted_at:type_name -> google.protobuf.Timestamp
-	15, // 3: thread.Thread.created_at:type_name -> google.protobuf.Timestamp
+	17, // 1: thread.Thread.scheduled_at:type_name -> google.protobuf.Timestamp
+	17, // 2: thread.Thread.posted_at:type_name -> google.protobuf.Timestamp
+	17, // 3: thread.Thread.created_at:type_name -> google.protobuf.Timestamp
 	0,  // 4: thread.CreateThreadRequest.reply_restriction:type_name -> thread.ReplyRestriction
-	15, // 5: thread.CreateThreadRequest.scheduled_at:type_name -> google.protobuf.Timestamp
+	17, // 5: thread.CreateThreadRequest.scheduled_at:type_name -> google.protobuf.Timestamp
 	2,  // 6: thread.GetFeedThreadsResponse.threads:type_name -> thread.Thread
 	2,  // 7: thread.GetUserThreadsResponse.threads:type_name -> thread.Thread
 	2,  // 8: thread.GetCommunityThreadsResponse.threads:type_name -> thread.Thread
 	2,  // 9: thread.GetBookmarkedThreadsResponse.threads:type_name -> thread.Thread
-	16, // 10: thread.ThreadService.HealthCheck:input_type -> google.protobuf.Empty
-	3,  // 11: thread.ThreadService.CreateThread:input_type -> thread.CreateThreadRequest
-	4,  // 12: thread.ThreadService.GetThread:input_type -> thread.GetThreadRequest
-	5,  // 13: thread.ThreadService.DeleteThread:input_type -> thread.DeleteThreadRequest
-	6,  // 14: thread.ThreadService.LikeThread:input_type -> thread.InteractThreadRequest
-	6,  // 15: thread.ThreadService.UnlikeThread:input_type -> thread.InteractThreadRequest
-	6,  // 16: thread.ThreadService.BookmarkThread:input_type -> thread.InteractThreadRequest
-	6,  // 17: thread.ThreadService.UnbookmarkThread:input_type -> thread.InteractThreadRequest
-	7,  // 18: thread.ThreadService.GetFeedThreads:input_type -> thread.GetFeedThreadsRequest
-	9,  // 19: thread.ThreadService.GetUserThreads:input_type -> thread.GetUserThreadsRequest
-	13, // 20: thread.ThreadService.GetBookmarkedThreads:input_type -> thread.GetBookmarkedThreadsRequest
-	11, // 21: thread.ThreadService.GetCommunityThreads:input_type -> thread.GetCommunityThreadsRequest
-	1,  // 22: thread.ThreadService.HealthCheck:output_type -> thread.HealthResponse
-	2,  // 23: thread.ThreadService.CreateThread:output_type -> thread.Thread
-	2,  // 24: thread.ThreadService.GetThread:output_type -> thread.Thread
-	16, // 25: thread.ThreadService.DeleteThread:output_type -> google.protobuf.Empty
-	16, // 26: thread.ThreadService.LikeThread:output_type -> google.protobuf.Empty
-	16, // 27: thread.ThreadService.UnlikeThread:output_type -> google.protobuf.Empty
-	16, // 28: thread.ThreadService.BookmarkThread:output_type -> google.protobuf.Empty
-	16, // 29: thread.ThreadService.UnbookmarkThread:output_type -> google.protobuf.Empty
-	8,  // 30: thread.ThreadService.GetFeedThreads:output_type -> thread.GetFeedThreadsResponse
-	10, // 31: thread.ThreadService.GetUserThreads:output_type -> thread.GetUserThreadsResponse
-	14, // 32: thread.ThreadService.GetBookmarkedThreads:output_type -> thread.GetBookmarkedThreadsResponse
-	12, // 33: thread.ThreadService.GetCommunityThreads:output_type -> thread.GetCommunityThreadsResponse
-	22, // [22:34] is the sub-list for method output_type
-	10, // [10:22] is the sub-list for method input_type
-	10, // [10:10] is the sub-list for extension type_name
-	10, // [10:10] is the sub-list for extension extendee
-	0,  // [0:10] is the sub-list for field type_name
+	2,  // 10: thread.GetRepliesResponse.threads:type_name -> thread.Thread
+	18, // 11: thread.ThreadService.HealthCheck:input_type -> google.protobuf.Empty
+	3,  // 12: thread.ThreadService.CreateThread:input_type -> thread.CreateThreadRequest
+	4,  // 13: thread.ThreadService.GetThread:input_type -> thread.GetThreadRequest
+	5,  // 14: thread.ThreadService.DeleteThread:input_type -> thread.DeleteThreadRequest
+	6,  // 15: thread.ThreadService.LikeThread:input_type -> thread.InteractThreadRequest
+	6,  // 16: thread.ThreadService.UnlikeThread:input_type -> thread.InteractThreadRequest
+	6,  // 17: thread.ThreadService.BookmarkThread:input_type -> thread.InteractThreadRequest
+	6,  // 18: thread.ThreadService.UnbookmarkThread:input_type -> thread.InteractThreadRequest
+	7,  // 19: thread.ThreadService.GetFeedThreads:input_type -> thread.GetFeedThreadsRequest
+	9,  // 20: thread.ThreadService.GetUserThreads:input_type -> thread.GetUserThreadsRequest
+	13, // 21: thread.ThreadService.GetBookmarkedThreads:input_type -> thread.GetBookmarkedThreadsRequest
+	11, // 22: thread.ThreadService.GetCommunityThreads:input_type -> thread.GetCommunityThreadsRequest
+	15, // 23: thread.ThreadService.GetReplies:input_type -> thread.GetRepliesRequest
+	1,  // 24: thread.ThreadService.HealthCheck:output_type -> thread.HealthResponse
+	2,  // 25: thread.ThreadService.CreateThread:output_type -> thread.Thread
+	2,  // 26: thread.ThreadService.GetThread:output_type -> thread.Thread
+	18, // 27: thread.ThreadService.DeleteThread:output_type -> google.protobuf.Empty
+	18, // 28: thread.ThreadService.LikeThread:output_type -> google.protobuf.Empty
+	18, // 29: thread.ThreadService.UnlikeThread:output_type -> google.protobuf.Empty
+	18, // 30: thread.ThreadService.BookmarkThread:output_type -> google.protobuf.Empty
+	18, // 31: thread.ThreadService.UnbookmarkThread:output_type -> google.protobuf.Empty
+	8,  // 32: thread.ThreadService.GetFeedThreads:output_type -> thread.GetFeedThreadsResponse
+	10, // 33: thread.ThreadService.GetUserThreads:output_type -> thread.GetUserThreadsResponse
+	14, // 34: thread.ThreadService.GetBookmarkedThreads:output_type -> thread.GetBookmarkedThreadsResponse
+	12, // 35: thread.ThreadService.GetCommunityThreads:output_type -> thread.GetCommunityThreadsResponse
+	16, // 36: thread.ThreadService.GetReplies:output_type -> thread.GetRepliesResponse
+	24, // [24:37] is the sub-list for method output_type
+	11, // [11:24] is the sub-list for method input_type
+	11, // [11:11] is the sub-list for extension type_name
+	11, // [11:11] is the sub-list for extension extendee
+	0,  // [0:11] is the sub-list for field type_name
 }
 
 func init() { file_proto_thread_proto_init() }
@@ -1290,13 +1435,14 @@ func file_proto_thread_proto_init() {
 	file_proto_thread_proto_msgTypes[8].OneofWrappers = []any{}
 	file_proto_thread_proto_msgTypes[10].OneofWrappers = []any{}
 	file_proto_thread_proto_msgTypes[12].OneofWrappers = []any{}
+	file_proto_thread_proto_msgTypes[14].OneofWrappers = []any{}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_proto_thread_proto_rawDesc), len(file_proto_thread_proto_rawDesc)),
 			NumEnums:      1,
-			NumMessages:   14,
+			NumMessages:   16,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

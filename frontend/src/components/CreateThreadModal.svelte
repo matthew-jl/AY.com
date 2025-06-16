@@ -43,7 +43,8 @@
   $: charsLeft = maxChars - charCount;
   $: isOverLimit = charCount > maxChars;
 
-  // TODO: Add state for reply restriction, schedule, community
+  export let parentThreadId: number | null = null; // ID of the thread being replied to
+  export let replyingToUsername: string | null = null; // For placeholder text
 
   function handleFileSelectionChange() {
     if (!selectedFiles) return;
@@ -53,7 +54,7 @@
 
     const filesArray = Array.from(selectedFiles);
 
-    // TODO: Add validation for file count, size, type here if needed
+    // TODO: Add validation for file count, size, type
 
     filesArray.forEach(file => {
         // Create object URLs for previewing
@@ -175,6 +176,7 @@
         // --- Step 2: Create Thread with Content and Media IDs ---
         const threadData: CreateThreadRequestData = {
             content: content,
+            parent_thread_id: parentThreadId,
             media_ids: uploadedMediaIDs,
             categories: selectedCategories.length > 0 ? selectedCategories : undefined,
             scheduled_at: scheduledAtISO,
@@ -231,6 +233,8 @@
     if (scheduleInput) {
         scheduleInput.min = now.toISOString().slice(0, 16);
     }
+
+    console.log(parentThreadId, replyingToUsername);
   });
   
   onDestroy(() => {
@@ -268,8 +272,8 @@
         </div>
         <textarea
             bind:value={content}
-            placeholder="What's happening?!"
-            rows="4"
+            placeholder={parentThreadId && replyingToUsername ? `Replying to @${replyingToUsername}...` : "What's happening?!"}
+            rows={parentThreadId ? 3 : 4}
             maxlength={maxChars + 50}
         ></textarea>
     </div>

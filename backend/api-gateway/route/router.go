@@ -129,6 +129,7 @@ func SetupRouter(
 		threads.GET("/feed", threadHandler.GetFeed)
 		threads.GET("/bookmarked", threadHandler.GetBookmarkedThreadsHTTP)
 		threads.GET("/:threadId", threadHandler.GetThread)
+		threads.GET("/:threadId/replies", threadHandler.GetRepliesHTTP)
 
 		threads.DELETE("/:threadId", threadHandler.DeleteThread)
 

@@ -1080,4 +1080,14 @@ export const api = {
         "/users/me/premium-application/status",
         { method: "GET" }
       ),
+
+  getRepliesForThread: (
+    parentThreadId: number,
+    page: number = 1,
+    limit: number = 10
+  ): Promise<FeedResponse> =>
+    apiFetch<FeedResponse>(
+      `/threads/${parentThreadId}/replies?page=${page}&limit=${limit}`,
+      { method: "GET" }
+    ),
 };

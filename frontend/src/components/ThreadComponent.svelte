@@ -44,6 +44,10 @@
   }
 
   // --- Interaction Handlers ---
+  function handleReplyClick() {
+    dispatch('replyto', thread);
+  }
+
   async function handleLike() {
     interactionError = null;
     const originalLiked = isLiked;
@@ -211,7 +215,7 @@
         {/if}
 
         <div class="thread-actions">
-            <button class="action-btn reply" aria-label="Reply">
+            <button class="action-btn reply" aria-label="Reply" on:click|stopPropagation={handleReplyClick}>
                 <MessageSquare size={18} />
                 <span>{thread.reply_count > 0 ? thread.reply_count : ''}</span>
             </button>

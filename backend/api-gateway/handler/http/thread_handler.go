@@ -730,6 +730,86 @@ func (h *ThreadHandler) GetBookmarkedThreadsHTTP(c *gin.Context) {
 	})
 }
 
+func (h *ThreadHandler) GetRepliesHTTP(c *gin.Context) {
+	parentThreadID, ok := getUint32Param(c, "threadId")
+	if !ok { return }
+
+	requesterUserID, _ := getUserIDFromContext(c)
+	page, limit := parsePagination(c)
+
+	excludeUserIDs, err := h.getFeedExclusionIDs(c.Request.Context(), requesterUserID)
+	if err != nil {
+		log.Printf("GetRepliesHTTP: Error getting exclusion IDs: %v", err)
+		excludeUserIDs = []uint32{}
+	}
+
+	grpcReq := &threadpb.GetRepliesRequest{
+		ParentThreadId:  parentThreadID,
+		RequesterUserId: &requesterUserID,
+		Page:            page,
+		Limit:           limit,
+		ExcludeUserIds:  excludeUserIDs,
+	}
+
+	threadServiceResp, err := h.threadClient.GetReplies(c.Request.Context(), grpcReq)
+	if err != nil {
+		handleGRPCError(c, "get replies", err)
+		return
+	}
+
+	if len(threadServiceResp.GetThreads()) == 0 {
+		c.JSON(http.StatusOK, FrontendFeedResponse{Threads: []FrontendThreadData{}, HasMore: false})
+		return
+	}
+
+	authorIDsSet := make(map[uint32]bool)
+	mediaIDsSet := make(map[uint32]bool)
+	for _, t := range threadServiceResp.GetThreads() {
+		if t.GetUserId() != 0 { authorIDsSet[t.GetUserId()] = true }
+		for _, mediaID := range t.GetMediaIds() { if mediaID != 0 { mediaIDsSet[mediaID] = true } }
+	}
+	var authorIDs []uint32
+	for id := range authorIDsSet { authorIDs = append(authorIDs, id) }
+	var mediaIDs []uint32
+	for id := range mediaIDsSet { mediaIDs = append(mediaIDs, id) }
+	var wg sync.WaitGroup
+	var authorsMap map[uint32]*userpb.User
+	var mediaMap map[uint32]*mediapb.Media
+	var userErr, mediaErr error
+
+	if len(authorIDs) > 0 && h.userClient != nil {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			resp, err := h.userClient.GetUserProfilesByIds(c.Request.Context(), &userpb.GetUserProfilesByIdsRequest{UserIds: authorIDs})
+			if err != nil { userErr = err; return }
+			authorsMap = resp.GetUsers()
+		}()
+	}
+	if len(mediaIDs) > 0 && h.mediaClient != nil {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			resp, err := h.mediaClient.GetMultipleMediaMetadata(c.Request.Context(), &mediapb.GetMultipleMediaMetadataRequest{MediaIds: mediaIDs})
+			if err != nil { mediaErr = err; return }
+			mediaMap = resp.GetMediaItems()
+		}()
+	}
+	wg.Wait()
+	if userErr != nil { log.Printf("Error fetching authors for replies: %v", userErr) }
+	if mediaErr != nil { log.Printf("Error fetching media for replies: %v", mediaErr) }
+	hydratedThreads := make([]FrontendThreadData, 0, len(threadServiceResp.GetThreads()))
+	for _, tProto := range threadServiceResp.GetThreads() {
+		feThread := mapProtoThreadToFrontend(tProto, authorsMap, mediaMap)
+		hydratedThreads = append(hydratedThreads, feThread)
+	}
+
+	c.JSON(http.StatusOK, FrontendFeedResponse{
+		Threads: hydratedThreads,
+		HasMore: threadServiceResp.GetHasMore(),
+	})
+}
+
 // --- Helper Functions ---
 // Helper to get combined list of users to exclude (blocked by me + blocking me)
 func (h *ThreadHandler) getFeedExclusionIDs(ctx context.Context, requesterID uint32) ([]uint32, error) {

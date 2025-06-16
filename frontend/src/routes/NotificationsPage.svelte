@@ -64,7 +64,19 @@
       ws.onmessage = (event) => {
         console.log("WebSocket message received:", event.data);
         try {
-          const notification = JSON.parse(event.data as string) as NotificationData;
+          const rawNotification = JSON.parse(event.data as string);
+    
+          // Convert the WebSocket format to match NotificationData interface
+          const notification: NotificationData = {
+            id: rawNotification.ID,
+            user_id: rawNotification.UserID,
+            type: rawNotification.Type,
+            message: rawNotification.Message,
+            is_read: rawNotification.IsRead,
+            entity_id: rawNotification.EntityID,
+            actor_id: rawNotification.ActorID,
+            created_at: rawNotification.CreatedAt,
+          };
           notifications = [notification, ...notifications];
           unreadCount++;
           // TODO: Show a browser notification if permission granted

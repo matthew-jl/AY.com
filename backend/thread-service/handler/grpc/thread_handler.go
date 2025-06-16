@@ -597,6 +597,66 @@ func (h *ThreadHandler) GetBookmarkedThreads(ctx context.Context, req *threadpb.
 	return &threadpb.GetBookmarkedThreadsResponse{Threads: protoThreads, HasMore: hasMore}, nil
 }
 
+func (h *ThreadHandler) GetReplies(ctx context.Context, req *threadpb.GetRepliesRequest) (*threadpb.GetRepliesResponse, error) {
+	log.Printf("ThreadSvc: GetReplies for ParentThreadID: %d, Requester: %d, Page: %d",
+		req.ParentThreadId, req.GetRequesterUserId(), req.Page)
+
+	if req.ParentThreadId == 0 {
+		return nil, status.Errorf(codes.InvalidArgument, "Parent Thread ID is required")
+	}
+	limit, offset := getLimitOffset(req.Page, req.Limit) // Use existing helper
+
+	dbReplies, err := h.repo.GetRepliesForThread(
+        ctx,
+        uint(req.ParentThreadId),
+        limit,
+        offset,
+        uint32SliceToUint(req.GetExcludeUserIds()), // Pass exclude IDs
+    )
+	if err != nil {
+		log.Printf("ThreadSvc: Failed to get replies from repo for parent %d: %v", req.ParentThreadId, err)
+		return nil, status.Errorf(codes.Internal, "Could not retrieve replies")
+	}
+
+	protoReplies := make([]*threadpb.Thread, 0, len(dbReplies))
+	if len(dbReplies) > 0 {
+		replyIDs := make([]uint, len(dbReplies))
+		for i, t := range dbReplies {
+			replyIDs[i] = t.ID
+		}
+
+		countsMap, errCounts := h.repo.GetInteractionCountsForMultipleThreads(ctx, replyIDs)
+		if errCounts != nil {
+			log.Printf("Error fetching batch interaction counts for replies: %v", errCounts)
+		}
+
+		userInteractionsMap := make(map[uint]map[string]bool)
+		if req.GetRequesterUserId() != 0 {
+			userInteractionsMap, err = h.repo.CheckUserInteractionsForMultipleThreads(ctx, uint(req.GetRequesterUserId()), replyIDs)
+			if err != nil {
+				log.Printf("Error fetching batch user interactions for replies: %v", err)
+			}
+		}
+
+		for i := range dbReplies {
+			tProto := mapThreadToProto(&dbReplies[i])
+			if threadCounts, ok := countsMap[dbReplies[i].ID]; ok {
+				tProto.LikeCount = int32(threadCounts["like"])
+				tProto.BookmarkCount = int32(threadCounts["bookmark"])
+			}
+			if userThreadInteractions, ok := userInteractionsMap[dbReplies[i].ID]; ok {
+				tProto.IsLikedByCurrentUser = userThreadInteractions["like"]
+				tProto.IsBookmarkedByCurrentUser = userThreadInteractions["bookmark"]
+			}
+			protoReplies = append(protoReplies, tProto)
+		}
+	}
+
+	hasMore := len(dbReplies) == limit
+	log.Printf("ThreadSvc: Returning %d hydrated replies for parent thread %d.", len(protoReplies), req.ParentThreadId)
+	return &threadpb.GetRepliesResponse{Threads: protoReplies, HasMore: hasMore}, nil
+}
+
 // --- Helper Functions ---
 
 func mapThreadToProto(t *postgres.Thread) *threadpb.Thread {

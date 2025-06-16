@@ -1,10 +1,13 @@
 <script lang="ts">    import { onMount } from 'svelte';
     import { link, navigate } from 'svelte-routing';
-    import { api, ApiError, type ThreadData, type MediaMetadata } from '../lib/api';
+    import { api, ApiError, type ThreadData, type MediaMetadata, type FeedResponse } from '../lib/api';
     import { user as currentUserStore } from '../stores/userStore';
     import ThreadComponent from '../components/ThreadComponent.svelte';
     // import CreateThreadForm from '../components/CreateThreadForm.svelte';
-    import { ArrowLeft, X } from 'lucide-svelte';
+    import { ArrowLeft, Bookmark, Heart, MessageSquare, Repeat2, Share2, X } from 'lucide-svelte';
+  import { closeCreateThreadModal, isCreateThreadModalOpen, openCreateThreadModal } from '../stores/modalStore';
+  import CreateThreadModal from './CreateThreadModal.svelte';
+  import ShareThreadModal from './ShareThreadModal.svelte';
   
     export let threadId: string;
   
@@ -20,6 +23,8 @@
     let showMediaOverlay = false;
     let mediaOverlayItems: MediaMetadata[] = [];
     let currentMediaIndex = 0;
+
+    let parentThreadToReplyTo: ThreadData | null = null;
   
   // --- Data Fetching ---
     async function fetchThreadDetails(id: number) {
@@ -33,9 +38,11 @@
         if (response) {
           mainThread = response;
           console.log("Thread fetched:", mainThread);
-          
-          // After fetching the main thread, fetch its replies
-          fetchReplies(id);
+          // Fetch replies
+          currentPage = 1; // Reset page for replies
+          replies = []; // Clear old replies
+          hasMoreReplies = true; // Assume has more initially
+          fetchReplies(mainThread.id, 1, false);
         } else {
           error = "Thread not found or returned invalid data.";
         }
@@ -52,34 +59,26 @@
     }
     async function fetchReplies(parentId: number, page = 1, append = false) {
       if (isLoadingReplies && !append) return;
+      if (!hasMoreReplies && append) return;
       
       isLoadingReplies = true;
-      const limit = 10; // Number of replies per page
+      const limit = 10; // replies per page
       
       try {
-        // Using the actual API to fetch thread replies
-        // Note: This assumes api.getThreadReplies exists. If not, modify accordingly.
-        // For example, you might need a different endpoint like 
-        // api.searchThreads(`parent_thread_id:${parentId}`, page, limit)
-        
-        // Option 1: If api.getThreadReplies exists:
-        // const response = await api.getThreadReplies(parentId, page, limit);
-        // const loadedReplies = response.threads;
-        // hasMoreReplies = response.has_more;
-        
-        // Option 2: If using search API:
-        const response = await api.searchThreads(`parent:${parentId}`, page, limit);
-        const loadedReplies = response.threads;
-        hasMoreReplies = response.has_more;
-        
-        // Update replies list
-        replies = append ? [...replies, ...loadedReplies] : loadedReplies;
+        const response: FeedResponse = await api.getRepliesForThread(parentId, page, limit);
+        const loadedReplies = response.threads || [];
+
+        if (append) {
+            replies = [...replies, ...loadedReplies];
+        } else {
+            replies = loadedReplies;
+        }
         currentPage = page;
-        
-        console.log(`Loaded ${loadedReplies.length} replies for thread ${parentId}`);
+        hasMoreReplies = response.has_more ?? (loadedReplies.length === limit);
+
+        console.log(`Loaded ${loadedReplies.length} replies for thread ${parentId}, page ${page}. HasMore: ${hasMoreReplies}`);
       } catch (err) {
         console.error("Error fetching replies:", err);
-        error = "Failed to load replies.";
         hasMoreReplies = false;
       } finally {
         isLoadingReplies = false;
@@ -92,27 +91,40 @@
       }
     }
   
-    // Initialize thread fetch on mount
-    onMount(() => {
-      if (threadId && !isNaN(parseInt(threadId))) {
+    // Initialize thread fetch on mount or when threadId changes
+    $: if (threadId && !isNaN(parseInt(threadId))) {
+        const numId = parseInt(threadId);
+        if (!mainThread || mainThread.id !== numId) {
+            fetchThreadDetails(numId);
+        }
+    } else if (threadId && mainThread && mainThread.id !== parseInt(threadId)) {
         fetchThreadDetails(parseInt(threadId));
-      } else {
-        error = "Invalid thread ID";
-        isLoadingThread = false;
-      }
-    });
+    }
+
+    function openReplyModal(threadToReply: ThreadData) {
+        parentThreadToReplyTo = threadToReply;
+        openCreateThreadModal();
+    }
   
     function handleReplyCreated(event: CustomEvent<ThreadData>) {
-      if (!mainThread) return;
-      
-      // Optimistic update
-      mainThread = {
-        ...mainThread,
-        reply_count: (mainThread.reply_count || 0) + 1
-      };
-      
-      // Add new reply to the top
-      replies = [event.detail, ...replies];
+        const newReply = event.detail;
+        if (!mainThread) return;
+
+        // Add new reply to the top of the replies list
+        replies = [newReply, ...replies];
+
+        // Increment reply count on the parent thread (main or another reply)
+        if (newReply.parent_thread_id === mainThread.id) {
+            mainThread = { ...mainThread, reply_count: (mainThread.reply_count || 0) + 1 };
+        } else {
+            // If replying to a reply, find and update that reply's count
+            replies = replies.map(r =>
+                r.id === newReply.parent_thread_id
+                    ? { ...r, reply_count: (r.reply_count || 0) + 1 }
+                    : r
+            );
+        }
+        closeCreateThreadModal();
     }
   
     function handleThreadInteractionUpdate(event: CustomEvent<{ id: number; interactionType: string; newState: boolean; newCount: number }>) {
@@ -142,6 +154,21 @@
       // Update in replies if it matches any
       replies = replies.map(reply => updateThread(reply));
     }
+
+    function handleThreadDelete(event: CustomEvent<{ id: number }>) {
+      const idToDelete = event.detail.id;
+      if (mainThread && mainThread.id === idToDelete) { navigate('/home', { replace: true }); }
+      else {
+        replies = replies.filter(r => r.id !== idToDelete);
+        if (mainThread && mainThread.reply_count && mainThread.reply_count > 0) {
+          // If a reply to the main thread was deleted
+          if (replies.find(r => r.parent_thread_id === mainThread?.id && r.id === idToDelete) === undefined) {
+             mainThread = { ...mainThread, reply_count: mainThread.reply_count - 1 };
+          }
+        }
+      }
+    }
+
     // --- Media Overlay Functions ---
     function openMediaOverlay(event: CustomEvent<{ media: MediaMetadata[], index: number }>) {
       const { media, index } = event.detail;
@@ -190,24 +217,6 @@
       }
     }
 
-    function handleThreadDelete(event: CustomEvent<{ id: number }>) {
-      const idToDelete = event.detail.id;
-      
-      if (mainThread && mainThread.id === idToDelete) {
-        // Main thread deleted, navigate away
-        navigate('/home', { replace: true });
-      } else {
-        // Update replies list and main thread reply count
-        replies = replies.filter(r => r.id !== idToDelete);
-        
-        if (mainThread && mainThread.reply_count && mainThread.reply_count > 0) {
-          mainThread = {
-            ...mainThread,
-            reply_count: mainThread.reply_count - 1
-          };
-        }
-      }
-    }
     // Media navigation shorthand
     function navigateMedia(direction: 'prev' | 'next') {
       if (direction === 'prev') {
@@ -216,6 +225,95 @@
         goToNextMedia();
       }
     }
+  // Add these variables and functions to handle thread interactions in overlay
+  let overlayShareModalOpen = false;
+  let overlayThreadToShare: ThreadData | null = null;
+  
+  async function handleOverlayAction(action: 'like' | 'bookmark' | 'reply' | 'share') {
+    if (!mainThread) return;
+    
+    switch (action) {
+      case 'like':
+        await handleOverlayLike();
+        break;
+      case 'bookmark':
+        await handleOverlayBookmark();
+        break;
+      case 'reply':
+        closeMediaOverlay();
+        openReplyModal(mainThread);
+        break;
+      case 'share':
+        overlayThreadToShare = mainThread;
+        overlayShareModalOpen = true;
+        break;
+    }
+  }
+
+  async function handleOverlayLike() {
+    if (!mainThread) return;
+    
+    const originalLiked = mainThread.is_liked_by_current_user || false;
+    const originalCount = mainThread.like_count || 0;
+    
+    // Optimistic update
+    mainThread = {
+      ...mainThread,
+      is_liked_by_current_user: !originalLiked,
+      like_count: originalLiked ? originalCount - 1 : originalCount + 1
+    };
+
+    try {
+      if (!originalLiked) {
+        await api.likeThread(mainThread.id);
+      } else {
+        await api.unlikeThread(mainThread.id);
+      }
+    } catch (err) {
+      console.error("Like/Unlike error in overlay:", err);
+      // Revert optimistic update on error
+      mainThread = {
+        ...mainThread,
+        is_liked_by_current_user: originalLiked,
+        like_count: originalCount
+      };
+    }
+  }
+
+  async function handleOverlayBookmark() {
+    if (!mainThread) return;
+    
+    const originalBookmarked = mainThread.is_bookmarked_by_current_user || false;
+    const originalCount = mainThread.bookmark_count || 0;
+    
+    // Optimistic update
+    mainThread = {
+      ...mainThread,
+      is_bookmarked_by_current_user: !originalBookmarked,
+      bookmark_count: originalBookmarked ? originalCount - 1 : originalCount + 1
+    };
+
+    try {
+      if (!originalBookmarked) {
+        await api.bookmarkThread(mainThread.id);
+      } else {
+        await api.unbookmarkThread(mainThread.id);
+      }
+    } catch (err) {
+      console.error("Bookmark error in overlay:", err);
+      // Revert optimistic update on error
+      mainThread = {
+        ...mainThread,
+        is_bookmarked_by_current_user: originalBookmarked,
+        bookmark_count: originalCount
+      };
+    }
+  }
+  
+  function handleOverlayThreadSent(event: CustomEvent<{chatIds: number[]}>) {
+    console.log(`Thread ${mainThread?.id} sent to chats from overlay:`, event.detail.chatIds);
+    overlayShareModalOpen = false;
+  }
 </script>
 
 <div class="thread-detail-page">
@@ -253,16 +351,18 @@
         on:delete={handleThreadDelete}
         on:interaction={handleThreadInteractionUpdate}
         on:mediaClick={openMediaOverlay}
+        on:replyto={() => openReplyModal(mainThread!)}
       />
     </div>    <!-- Reply Input Section -->
     {#if $currentUserStore}
-      <div class="reply-form-section">
-        <!-- <CreateThreadForm
-          isReply={true}
-          parentThreadId={mainThread.id}
-          placeholder="Post your reply"
-          on:threadcreated={handleReplyCreated}
-        /> -->
+      <div class="reply-form-prompt">
+        <div class="avatar-placeholder-small">
+            {#if $currentUserStore.profile_picture} <img src={$currentUserStore.profile_picture} alt="Your avatar" class="avatar-image"/>
+            {:else} {$currentUserStore.name.charAt(0).toUpperCase()} {/if}
+        </div>
+        <button class="prompt-to-reply-btn" on:click={() => openReplyModal(mainThread!)}>
+            Post your reply...
+        </button>
       </div>
     {:else}
       <div class="login-to-reply">
@@ -299,6 +399,7 @@
               on:delete={handleThreadDelete}
               on:interaction={handleThreadInteractionUpdate}
               on:mediaClick={openMediaOverlay}
+              on:replyto={() => openReplyModal(reply)}
             />
           {/each}
         </div>
@@ -324,6 +425,16 @@
     <p class="error-text">Thread could not be loaded.</p>
   {/if}
 </div>
+
+<!-- Create Thread Modal -->
+{#if $isCreateThreadModalOpen && parentThreadToReplyTo}
+  <CreateThreadModal
+      parentThreadId={parentThreadToReplyTo.id}
+      replyingToUsername={parentThreadToReplyTo.author?.username}
+      on:close={closeCreateThreadModal}
+      on:threadcreated={handleReplyCreated}
+  />
+{/if}
 
 <!-- Media Overlay -->
 {#if showMediaOverlay && mediaOverlayItems.length > 0}
@@ -373,6 +484,48 @@
         {/if}
       </div>
       
+      <!-- Add thread interaction buttons in media overlay -->
+      {#if mainThread}
+        <div class="media-overlay-thread-actions">
+          <button class="action-btn reply" aria-label="Reply" on:click|stopPropagation={() => handleOverlayAction('reply')}>
+            <MessageSquare size={20} />
+          </button>
+          <button class="action-btn repost" aria-label="Repost">
+            <Repeat2 size={20} />
+            <span>{mainThread.repost_count > 0 ? mainThread.repost_count : ''}</span>
+          </button>
+          <button 
+            class="action-btn like" 
+            class:liked={mainThread.is_liked_by_current_user} 
+            on:click|stopPropagation={() => handleOverlayAction('like')}
+            aria-pressed={mainThread.is_liked_by_current_user} 
+            aria-label={mainThread.is_liked_by_current_user ? 'Unlike' : 'Like'}>
+            <Heart 
+              size={20} 
+              fill={mainThread.is_liked_by_current_user ? '#f91880' : 'none'} 
+              stroke={mainThread.is_liked_by_current_user ? '#f91880' : 'white'}
+            />
+            <span>{mainThread.like_count > 0 ? mainThread.like_count : ''}</span>
+          </button>
+          <button 
+            class="action-btn bookmark" 
+            class:bookmarked={mainThread.is_bookmarked_by_current_user} 
+            on:click|stopPropagation={() => handleOverlayAction('bookmark')} 
+            aria-pressed={mainThread.is_bookmarked_by_current_user} 
+            aria-label={mainThread.is_bookmarked_by_current_user ? 'Remove bookmark' : 'Bookmark'}>
+            <Bookmark 
+              size={20} 
+              fill={mainThread.is_bookmarked_by_current_user ? 'var(--primary-color)' : 'none'} 
+              stroke={mainThread.is_bookmarked_by_current_user ? 'var(--primary-color)' : 'white'} 
+            />
+            <span>{mainThread.bookmark_count > 0 ? mainThread.bookmark_count : ''}</span>
+          </button>
+          <button class="action-btn share" aria-label="Share" on:click|stopPropagation={() => handleOverlayAction('share')}>
+            <Share2 size={20} />
+          </button>
+        </div>
+      {/if}
+      
       {#if mediaOverlayItems.length > 1}
         <div class="media-navigation">
           <button 
@@ -396,6 +549,14 @@
       {/if}
     </div>
   </div>
+{/if}
+
+{#if overlayShareModalOpen && overlayThreadToShare}
+  <ShareThreadModal 
+    threadToShare={overlayThreadToShare} 
+    on:close={() => overlayShareModalOpen = false} 
+    on:sent={handleOverlayThreadSent} 
+  />
 {/if}
 
 <style lang="scss">
@@ -460,13 +621,45 @@
     border-bottom: 1px solid var(--border-color);
     /* ThreadComponent handles its own padding */
   }
-  .reply-form-section {
-    padding: 12px 16px 16px;
-    border-bottom: 10px solid var(--section-bg);
-    
-    :global([data-theme="dark"]) & {
-      border-bottom-color: var(--border-color);
-    }
+
+  .reply-form-prompt {
+      display: flex;
+      align-items: center;
+      padding: 12px 16px;
+      border-bottom: 10px solid var(--section-bg);
+      gap: 10px;
+       [data-theme="dark"] & { border-bottom-color: var(--border-color); }
+       .avatar-placeholder-small {
+          width: 40px;
+          height: 40px;
+          border-radius: 50%;
+          background-color: var(--secondary-text-color);
+          color: var(--background);
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          font-weight: bold;
+          flex-shrink: 0;
+          overflow: hidden;
+          .avatar-image {
+            width: 100%;
+            height: 100%;
+            border-radius: 50%;
+            object-fit: cover;
+          }
+        }
+       .prompt-to-reply-btn {
+           flex-grow: 1;
+           text-align: left;
+           padding: 10px 12px;
+           border-radius: 20px;
+           border: 1px solid var(--border-color);
+           background-color: var(--input-bg);
+           color: var(--secondary-text-color);
+           font-size: 15px;
+           cursor: text;
+           &:hover { border-color: var(--primary-color); }
+       }
   }
 
   .login-to-reply {
@@ -772,6 +965,58 @@
       text-align: center;
     }
   }
+
+  
+  .media-overlay-thread-actions {
+    display: flex;
+    justify-content: space-around;
+    width: 100%;
+    max-width: 500px;
+    margin: 16px auto 0;
+    background-color: rgba(0, 0, 0, 0.5);
+    border-radius: 30px;
+    padding: 10px;
+    position: absolute;
+    bottom: 20px;
+    left: 50%;
+    transform: translateX(-50%);
+  }
+  
+  .media-overlay-thread-actions .action-btn {
+    background: none;
+    border: none;
+    color: white;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    font-size: 14px;
+    padding: 8px 12px;
+    border-radius: 50%;
+    transition: color 0.2s ease, background-color 0.2s ease;
+    
+    svg {
+      width: 20px;
+      height: 20px;
+    }
+    
+    span {
+      color: white;
+    }
+    
+    &:hover {
+      background-color: rgba(255, 255, 255, 0.2);
+    }
+    
+    &.like.liked {
+      color: #f91880;
+    }
+    
+    &.bookmark.bookmarked {
+      color: var(--primary-color);
+    }
+  }
+  
   
   /* Enhanced responsive styles */
   @media (max-width: 768px) {
@@ -779,13 +1024,31 @@
       width: 95%;
     }
     
-    .media-navigation {
-      bottom: -45px;
-    }
-    
     .media-display .media-image,
     .media-display .media-video {
       max-height: 80vh;
+    }
+    .media-overlay-thread-actions {
+      bottom: 10px;
+      padding: 8px;
+      max-width: 400px;
+    }
+    
+    .media-overlay-thread-actions .action-btn {
+      padding: 6px 10px;
+      
+      svg {
+        width: 18px;
+        height: 18px;
+      }
+      
+      span {
+        font-size: 12px;
+      }
+    }
+    
+    .media-navigation {
+      bottom: -50px;
     }
   }
 
@@ -813,5 +1076,24 @@
     .media-display .media-video {
       max-height: 65vh;
     }
+    .media-overlay-thread-actions {
+      bottom: 5px;
+      padding: 5px;
+      max-width: 300px;
+    }
+    
+    .media-overlay-thread-actions .action-btn {
+      padding: 5px 8px;
+      
+      svg {
+        width: 16px;
+        height: 16px;
+      }
+      
+      span {
+        display: none;
+      }
+    }
   }
+
 </style>
