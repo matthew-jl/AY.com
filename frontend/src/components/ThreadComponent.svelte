@@ -4,9 +4,10 @@
   import { user } from '../stores/userStore';
   import { createEventDispatcher } from 'svelte';
   import { link } from 'svelte-routing';
-  import { timeAgo } from '../lib/utils/timeAgo';  import { MessageSquare, Repeat2, Heart, Bookmark, Share2, MoreHorizontal } from 'lucide-svelte';
+  import { timeAgo } from '../lib/utils/timeAgo';  import { MessageSquare, Repeat2, Heart, Bookmark, Share2, MoreHorizontal, BadgeCheckIcon } from 'lucide-svelte';
   import { linkifyContent } from '../lib/utils/richText';
   import { navigate } from 'svelte-routing';
+  import ShareThreadModal from './ShareThreadModal.svelte';
 
   export let thread: ThreadData;
   export let disableNavigationClick = false; // Set to true when used in ThreadDetailPage
@@ -24,6 +25,8 @@
   $: author = thread.author;
 
   $: linkifiedThreadContent = linkifyContent(thread.content);
+
+  let showShareModal = false;
   
   // Handle navigation to thread detail page
   function navigateToThread(event: Event) {
@@ -111,6 +114,14 @@
       });
     }
   }
+
+  function openShareModal() {
+    showShareModal = true;
+  }
+  function handleThreadSentToChats(event: CustomEvent<{chatIds: number[]}>) {
+      console.log(`Thread ${thread.id} sent to chats:`, event.detail.chatIds);
+  }
+  
 </script>
 
 <article class="thread-card" aria-labelledby="thread-author-{thread.id}">
@@ -143,6 +154,11 @@
             {#if author}
                 <a href="/profile/{author.username}" use:link class="author-link" id="thread-author-{thread.id}">
                     <span class="author-name">{author.name}</span>
+                    {#if author.is_verified}
+                        <span class="verified-badge-small" title="Verified">
+                            <BadgeCheckIcon size={14} />
+                        </span>
+                    {/if}
                     <span class="author-handle">@{author.username}</span>
                 </a>
             {:else}
@@ -211,8 +227,7 @@
                  <Bookmark size={18} fill={isBookmarked ? 'var(--primary-color)' : 'none'} stroke={isBookmarked ? 'var(--primary-color)' : 'currentColor'} />
                  <span>{bookmarkCount > 0 ? bookmarkCount : ''}</span>
             </button>
-            <!-- Share Button Placeholder -->
-             <button class="action-btn share" aria-label="Share">
+             <button class="action-btn share" aria-label="Share" on:click|stopPropagation={openShareModal}>
                   <Share2 size={18} />
              </button>
         </div>
@@ -220,9 +235,20 @@
     </div>
 </article>
 
+{#if showShareModal}
+    <ShareThreadModal threadToShare={thread} on:close={() => showShareModal = false} on:sent={handleThreadSentToChats} />
+{/if}
+
 <style lang="scss">
   @use '../styles/variables' as *;
   
+  .verified-badge-small {
+      color: var(--primary-color);
+      display: inline-flex;
+      align-items: center;
+      margin-left: 1px;
+  }
+
   .thread-card {
     display: flex;
     padding: 12px 16px;

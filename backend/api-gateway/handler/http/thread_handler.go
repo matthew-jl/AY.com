@@ -60,6 +60,7 @@ type FrontendUserProfile struct {
 	Email          string `json:"email"`
 	ProfilePicture string `json:"profile_picture,omitempty"`
 	AccountPrivacy string `json:"account_privacy,omitempty"`
+	IsVerified	bool   `json:"is_verified"`
 }
 
 type FrontendThreadData struct {
@@ -838,6 +839,7 @@ func mapProtoThreadToFrontend(tProto *threadpb.Thread, authorsMap map[uint32]*us
 			feThread.Author = &FrontendUserProfile{
 				ID: authorProto.GetId(), Name: authorProto.GetName(), Username: authorProto.GetUsername(),
 				Email: authorProto.GetEmail(), ProfilePicture: authorProto.GetProfilePicture(), AccountPrivacy: authorProto.GetAccountPrivacy(),
+				IsVerified: authorProto.GetIsVerified(),
 			}
 		}
 	}

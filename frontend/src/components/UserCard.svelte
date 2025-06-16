@@ -3,6 +3,7 @@
     import { link, navigate } from 'svelte-routing';
     import { api } from '../lib/api';
     import { user as currentUserStore } from '../stores/userStore';
+  import { BadgeCheckIcon } from 'lucide-svelte';
   
     export let user: UserProfileBasic;
     export let showFollowButton = true;
@@ -43,7 +44,11 @@
     <div class="user-card-info">
       <div class="name-group">
         <span class="user-card-name">{user.name}</span>
-        <!-- Optional: Verified Badge -->
+        {#if user.is_verified}
+          <span class="verified-badge" title="Verified Account">
+            <BadgeCheckIcon size={16} />
+          </span>
+        {/if}
       </div>
       <span class="user-card-username">@{user.username}</span>
       {#if user.bio}
@@ -64,6 +69,13 @@
     @use '../styles/variables' as *;
     @use '../styles/auth-forms.scss';
   
+    .verified-badge {
+      color: var(--primary-color);
+      display: inline-flex;
+      align-items: center;
+      line-height: 1;
+    }
+
     .user-card {
       display: flex;
       padding: 12px 16px;

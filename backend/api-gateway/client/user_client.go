@@ -124,3 +124,7 @@ func (c *UserClient) IsBlockedBy(ctx context.Context, req *userpb.BlockCheckRequ
 func (c *UserClient) IsFollowing(ctx context.Context, req *userpb.FollowCheckRequest) (*userpb.BlockStatusResponse, error) {
 	return c.client.IsFollowing(ctx, req)
 }
+
+func (c *UserClient) ApplyForPremium(ctx context.Context, req *userpb.ApplyForPremiumRequest) (*emptypb.Empty, error) {
+	return c.client.ApplyForPremium(ctx, req)
+}

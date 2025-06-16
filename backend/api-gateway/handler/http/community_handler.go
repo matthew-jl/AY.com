@@ -476,6 +476,7 @@ func (h *CommunityHandler) GetTopCommunityMembersHTTP(c *gin.Context) {
 				ProfilePicture: pbUser.GetProfilePicture(),
                 Email:          pbUser.GetEmail(),
                 AccountPrivacy: pbUser.GetAccountPrivacy(),
+				IsVerified:   pbUser.GetIsVerified(),
 			})
 		}
 	}

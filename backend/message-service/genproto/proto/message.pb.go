@@ -74,9 +74,9 @@ type Chat struct {
 	Name          *string                `protobuf:"bytes,3,opt,name=name,proto3,oneof" json:"name,omitempty"` // For group chats
 	CreatorId     uint32                 `protobuf:"varint,4,opt,name=creator_id,json=creatorId,proto3" json:"creator_id,omitempty"`
 	CreatedAt     *timestamppb.Timestamp `protobuf:"bytes,5,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`
-	UpdatedAt     *timestamppb.Timestamp `protobuf:"bytes,6,opt,name=updated_at,json=updatedAt,proto3" json:"updated_at,omitempty"`             // When last message was sent
-	Participants  []*UserSummary         `protobuf:"bytes,7,rep,name=participants,proto3" json:"participants,omitempty"`                        // Summary of participants
-	LastMessage   *Message               `protobuf:"bytes,8,opt,name=last_message,json=lastMessage,proto3,oneof" json:"last_message,omitempty"` // Snippet of the last message
+	UpdatedAt     *timestamppb.Timestamp `protobuf:"bytes,6,opt,name=updated_at,json=updatedAt,proto3" json:"updated_at,omitempty"` // When last message was sent
+	Participants  []*UserSummary         `protobuf:"bytes,7,rep,name=participants,proto3" json:"participants,omitempty"`
+	LastMessage   *Message               `protobuf:"bytes,8,opt,name=last_message,json=lastMessage,proto3,oneof" json:"last_message,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -507,9 +507,10 @@ func (x *GetOrCreateDirectChatRequest) GetUserId2() uint32 {
 type SendMessageRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	ChatId        uint32                 `protobuf:"varint,1,opt,name=chat_id,json=chatId,proto3" json:"chat_id,omitempty"`
-	SenderId      uint32                 `protobuf:"varint,2,opt,name=sender_id,json=senderId,proto3" json:"sender_id,omitempty"` // From JWT
+	SenderId      uint32                 `protobuf:"varint,2,opt,name=sender_id,json=senderId,proto3" json:"sender_id,omitempty"`
 	Content       string                 `protobuf:"bytes,3,opt,name=content,proto3" json:"content,omitempty"`
-	MediaIds      []uint32               `protobuf:"varint,4,rep,packed,name=media_ids,json=mediaIds,proto3" json:"media_ids,omitempty"` // Optional
+	MediaIds      []uint32               `protobuf:"varint,4,rep,packed,name=media_ids,json=mediaIds,proto3" json:"media_ids,omitempty"`
+	Type          *string                `protobuf:"bytes,6,opt,name=type,proto3,oneof" json:"type,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -572,10 +573,17 @@ func (x *SendMessageRequest) GetMediaIds() []uint32 {
 	return nil
 }
 
+func (x *SendMessageRequest) GetType() string {
+	if x != nil && x.Type != nil {
+		return *x.Type
+	}
+	return ""
+}
+
 type GetMessagesRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	ChatId        uint32                 `protobuf:"varint,1,opt,name=chat_id,json=chatId,proto3" json:"chat_id,omitempty"`
-	UserId        uint32                 `protobuf:"varint,2,opt,name=user_id,json=userId,proto3" json:"user_id,omitempty"` // For auth check (is user part of chat)
+	UserId        uint32                 `protobuf:"varint,2,opt,name=user_id,json=userId,proto3" json:"user_id,omitempty"`
 	Page          int32                  `protobuf:"varint,3,opt,name=page,proto3" json:"page,omitempty"`
 	Limit         int32                  `protobuf:"varint,4,opt,name=limit,proto3" json:"limit,omitempty"`
 	unknownFields protoimpl.UnknownFields
@@ -695,7 +703,7 @@ func (x *GetMessagesResponse) GetHasMore() bool {
 type DeleteMessageRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	MessageId     uint32                 `protobuf:"varint,1,opt,name=message_id,json=messageId,proto3" json:"message_id,omitempty"`
-	UserId        uint32                 `protobuf:"varint,2,opt,name=user_id,json=userId,proto3" json:"user_id,omitempty"` // User attempting delete (must be sender)
+	UserId        uint32                 `protobuf:"varint,2,opt,name=user_id,json=userId,proto3" json:"user_id,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -746,7 +754,7 @@ func (x *DeleteMessageRequest) GetUserId() uint32 {
 
 type GetUserChatsRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
-	UserId        uint32                 `protobuf:"varint,1,opt,name=user_id,json=userId,proto3" json:"user_id,omitempty"` // Authenticated user
+	UserId        uint32                 `protobuf:"varint,1,opt,name=user_id,json=userId,proto3" json:"user_id,omitempty"`
 	Page          int32                  `protobuf:"varint,2,opt,name=page,proto3" json:"page,omitempty"`
 	Limit         int32                  `protobuf:"varint,3,opt,name=limit,proto3" json:"limit,omitempty"`
 	unknownFields protoimpl.UnknownFields
@@ -1082,12 +1090,14 @@ const file_proto_message_proto_rawDesc = "" +
 	" \x01(\v2\x14.message.UserSummaryR\rsenderSummary\"T\n" +
 	"\x1cGetOrCreateDirectChatRequest\x12\x19\n" +
 	"\buser_id1\x18\x01 \x01(\rR\auserId1\x12\x19\n" +
-	"\buser_id2\x18\x02 \x01(\rR\auserId2\"\x81\x01\n" +
+	"\buser_id2\x18\x02 \x01(\rR\auserId2\"\xa3\x01\n" +
 	"\x12SendMessageRequest\x12\x17\n" +
 	"\achat_id\x18\x01 \x01(\rR\x06chatId\x12\x1b\n" +
 	"\tsender_id\x18\x02 \x01(\rR\bsenderId\x12\x18\n" +
 	"\acontent\x18\x03 \x01(\tR\acontent\x12\x1b\n" +
-	"\tmedia_ids\x18\x04 \x03(\rR\bmediaIds\"p\n" +
+	"\tmedia_ids\x18\x04 \x03(\rR\bmediaIds\x12\x17\n" +
+	"\x04type\x18\x06 \x01(\tH\x00R\x04type\x88\x01\x01B\a\n" +
+	"\x05_type\"p\n" +
 	"\x12GetMessagesRequest\x12\x17\n" +
 	"\achat_id\x18\x01 \x01(\rR\x06chatId\x12\x17\n" +
 	"\auser_id\x18\x02 \x01(\rR\x06userId\x12\x12\n" +
@@ -1209,6 +1219,7 @@ func file_proto_message_proto_init() {
 		return
 	}
 	file_proto_message_proto_msgTypes[1].OneofWrappers = []any{}
+	file_proto_message_proto_msgTypes[6].OneofWrappers = []any{}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{

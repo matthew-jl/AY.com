@@ -82,6 +82,7 @@ message SendMessageRequest {
   uint32 sender_id = 2;
   string content = 3;
   repeated uint32 media_ids = 4;
+  optional string type = 6;
 }
 
 message GetMessagesRequest {

@@ -26,6 +26,7 @@ export interface UserProfileBasic {
   created_at: string;
   subscribed_to_newsletter: boolean;
   bio: string;
+  is_verified: boolean;
 }
 
 export interface UserProfileResponseData {
@@ -391,11 +392,22 @@ export interface MessageData {
   chat_id: number;
   sender_id: number;
   content: string;
-  type: string; // "text", "image", "video", "gif"
+  type: string; // "text", "image", "video", "shared_thread"
   media_items?: MediaMetadata[];
   sent_at: string;
   is_deleted: boolean;
   sender_summary?: UserSummary | null;
+}
+
+export interface SharedThreadContent {
+  is_shared_thread: true;
+  thread_id: number;
+  thread_author_name: string;
+  thread_author_username: string;
+  thread_author_avatar: string | null;
+  thread_content_snippet: string; // First N chars of thread content
+  // Optional: first media item thumbnail URL if available
+  thread_first_media_thumbnail?: string | null;
 }
 
 export interface ChatData {
@@ -420,6 +432,7 @@ export interface GetOrCreateDirectChatRequestData {
 export interface SendMessageRequestData {
   content: string;
   media_ids?: number[];
+  type?: string; // 'text', 'shared_thread', 'media'
 }
 
 export interface GetMessagesApiResponse {
@@ -562,6 +575,23 @@ export interface AISuggestionResponse {
   predicted_class_index: number; // 0, 1, 2, 3
   predicted_category_name: string; // "World", "Sports"
   original_text_snippet?: string;
+}
+
+export interface ApplyForPremiumRequestData {
+  national_identity_card_no: string; // Frontend will send raw, backend will hash
+  reason: string;
+  face_picture_url: string; // URL of already uploaded face picture
+}
+
+export interface PremiumApplicationStatusResponse {
+  user_id: number;
+  status: "none" | "pending" | "approved" | "rejected";
+  reason?: string;
+  face_picture_url?: string;
+  submitted_at?: string;
+  reviewed_at?: string | null;
+  admin_notes?: string | null;
+  is_user_verified: boolean;
 }
 
 // --- API Methods ---
@@ -770,14 +800,21 @@ export const api = {
   searchThreads: (
     query: string,
     page: number = 1,
-    limit: number = 10
-  ): Promise<SearchThreadsApiResponse> =>
-    apiFetch<SearchThreadsApiResponse>(
-      `/search/threads?q=${encodeURIComponent(
-        query
-      )}&page=${page}&limit=${limit}`,
-      { method: "GET" }
-    ),
+    limit: number = 10,
+    userFilter: string = "everyone",
+    categories: string[] = []
+  ): Promise<SearchThreadsApiResponse> => {
+    let url = `/search/threads?q=${encodeURIComponent(
+      query
+    )}&page=${page}&limit=${limit}`;
+    if (userFilter !== "everyone") {
+      url += `&user_filter=${userFilter}`;
+    }
+    if (categories.length > 0) {
+      url += `&categories=${categories.join(",")}`;
+    }
+    return apiFetch<SearchThreadsApiResponse>(url, { method: "GET" });
+  },
 
   getTrendingHashtags: (
     limit: number = 10
@@ -1030,4 +1067,17 @@ export const api = {
       method: "POST",
       body: JSON.stringify(data),
     }),
+
+  applyForPremium: (data: ApplyForPremiumRequestData): Promise<void> =>
+    apiFetch<void>("/users/me/premium-application", {
+      method: "POST",
+      body: JSON.stringify(data),
+    }),
+
+  getMyPremiumApplicationStatus:
+    (): Promise<PremiumApplicationStatusResponse> =>
+      apiFetch<PremiumApplicationStatusResponse>(
+        "/users/me/premium-application/status",
+        { method: "GET" }
+      ),
 };

@@ -8,6 +8,7 @@
     import { timeAgo, timeAgoProfile } from '../lib/utils/timeAgo';
   import EditProfileModal from '../components/EditProfileModal.svelte';
   import ProfilePicturePreviewModal from '../components/ProfilePicturePreviewModal.svelte';
+  import { BadgeCheckIcon } from 'lucide-svelte';
   
     let profileUser: UserProfileResponseData | null = null;
     let profileThreads: ThreadData[] = [];
@@ -292,7 +293,14 @@
           </div>
   
           <div class="profile-details">
-              <h1 class="profile-name">{pUser.name}</h1>
+            <div class="profile-name-line">
+                <h1 class="profile-name">{pUser.name}</h1>
+                {#if pUser.is_verified}
+                    <span class="verified-badge-large" title="Verified Account">
+                        <BadgeCheckIcon size={20} />
+                    </span>
+                {/if}
+            </div>
               <p class="profile-username">@{pUser.username}</p>
               {#if pUser.bio}
                   <p class="profile-bio">{pUser.bio}</p>
@@ -455,6 +463,16 @@
       font-size: 20px;
       font-weight: 800;
       margin: 0;
+    }
+    .profile-name-line {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+    }
+    .verified-badge-large {
+        color: var(--primary-color);
+        display: inline-flex;
+        align-items: center;
     }
     .profile-username {
       font-size: 15px;

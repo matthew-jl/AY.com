@@ -7,7 +7,7 @@
   import { clearUser, user } from '../stores/userStore';
   import { openCreateThreadModal } from '../stores/modalStore';
 
-  import { Home, Search, Bell, Mail, Bookmark, Users, Star, User, Settings, Moon, Sun } from 'lucide-svelte';
+  import { Home, Search, Bell, Mail, Bookmark, Users, Star, User, Settings, Moon, Sun, BadgeCheckIcon } from 'lucide-svelte';
 
   let theme: 'light' | 'dark' = 'light';
   let showLogout = false;
@@ -106,7 +106,14 @@
         </div>
         {#if !isCompact}
         <div class="user-details">
+          <div class="user-name-line">
             <span class="user-name">{$user.name}</span>
+              {#if $user.is_verified}
+                  <span class="verified-badge" title="Verified Account">
+                      <BadgeCheckIcon size={16} />
+                  </span>
+              {/if}
+          </div>
             <span class="user-handle">@{$user.username}</span>
         </div>
         {/if}
@@ -201,7 +208,7 @@
 
     &.active {
       font-weight: 700;
-      color: var(--sidebar-active-text);
+      color: var(--primary-color);
       background-color: var(--sidebar-hover-bg);
     }
   }
@@ -315,6 +322,18 @@
       flex-direction: column;
       overflow: hidden;
       line-height: 1.3;
+  }
+
+  .user-name-line {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+  }
+  
+  .verified-badge {
+      color: var(--primary-color);
+      display: inline-flex;
+      align-items: center;
   }
 
   .user-name {

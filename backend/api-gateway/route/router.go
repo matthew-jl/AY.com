@@ -102,6 +102,8 @@ func SetupRouter(
 
 		users.PUT("/me/profile", authHandler.UpdateOwnUserProfile)
 
+		users.POST("/me/premium-application", profileHandler.ApplyForPremiumHTTP)
+
 		users.GET("community-join-requests", communityHandler.GetUserJoinRequestsHTTP)
 	}
 

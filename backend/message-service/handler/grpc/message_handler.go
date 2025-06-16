@@ -82,8 +82,10 @@ func (h *MessageHandler) SendMessage(ctx context.Context, req *messagepb.SendMes
 		MediaIDs: uint32SliceToInt64ArrayMsg(req.MediaIds), // Helper
 		Type:     "text", // Default, determine based on content/media
 	}
-	if len(req.MediaIds) > 0 {
-		dbMessage.Type = "media" // Or more specific based on first media item
+	if req.GetType() != "" {
+		dbMessage.Type = req.GetType()
+	} else if len(req.GetMediaIds()) > 0 {
+		dbMessage.Type = "media"
 	}
 
 

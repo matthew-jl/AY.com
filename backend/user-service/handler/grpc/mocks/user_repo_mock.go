@@ -131,3 +131,23 @@ func (m *MockUserRepo) GetFollowingIDs(ctx context.Context, userID uint, limit, 
 	args := m.Called(ctx, userID, limit, offset)
 	return args.Get(0).([]uint), args.Error(1)
 }
+
+func (m *MockUserRepo) CreatePremiumApplication(ctx context.Context, app *postgres.PremiumApplication) error {
+	args := m.Called(ctx, app)
+	return args.Error(0)
+}
+
+func (m *MockUserRepo) GetPremiumApplicationByUserID(ctx context.Context, userID uint) (*postgres.PremiumApplication, error) {
+	args := m.Called(ctx, userID)
+	return args.Get(0).(*postgres.PremiumApplication), args.Error(1)
+}
+
+func (m *MockUserRepo) ApprovePremiumApplication(ctx context.Context, applicationID uint, adminUserID uint) error {
+	args := m.Called(ctx, applicationID, adminUserID)
+	return args.Error(0)
+}
+
+func (m *MockUserRepo) RejectPremiumApplication(ctx context.Context, applicationID uint, adminUserID uint, adminNotes string) error {
+	args := m.Called(ctx, applicationID, adminUserID, adminNotes)
+	return args.Error(0)
+}

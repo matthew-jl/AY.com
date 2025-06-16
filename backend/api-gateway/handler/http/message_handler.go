@@ -27,6 +27,7 @@ type GetOrCreateDirectChatPayload struct {
 type SendMessagePayload struct {
 	Content  string   `json:"content"`
 	MediaIDs []uint32 `json:"media_ids,omitempty"`
+	Type *string `json:"type,omitempty"` // Optional: "text", "shared_thread"
 }
 
 type CreateGroupChatPayload struct {
@@ -81,6 +82,9 @@ func (h *MessageHandler) SendMessageHTTP(c *gin.Context) {
 		Content:  payload.Content,
 		MediaIds: payload.MediaIDs,
 	}
+	if payload.Type != nil {
+        grpcReq.Type = payload.Type
+    }
 	sentMessage, err := h.messageClient.SendMessage(c.Request.Context(), grpcReq)
 	if err != nil { handleGRPCError(c, "send message", err); return }
 

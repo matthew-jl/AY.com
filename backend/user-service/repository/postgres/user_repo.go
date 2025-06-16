@@ -40,6 +40,10 @@ type IUserRepo interface {
 	GetBlockedUserIDs(ctx context.Context, userID uint, limit, offset int) ([]uint, error)
 	GetBlockingUserIDs(ctx context.Context, userID uint, limit, offset int) ([]uint, error)
 	GetFollowingIDs(ctx context.Context, userID uint, limit, offset int) ([]uint, error)
+	CreatePremiumApplication(ctx context.Context, app *PremiumApplication) error
+	GetPremiumApplicationByUserID(ctx context.Context, userID uint) (*PremiumApplication, error)
+	ApprovePremiumApplication(ctx context.Context, applicationID uint, adminUserID uint) error
+	RejectPremiumApplication(ctx context.Context, applicationID uint, adminUserID uint, adminNotes string) error
 }
 
 
@@ -60,6 +64,7 @@ type User struct {
 	AccountPrivacy 	   	  string `gorm:"type:varchar(10);default:'public';not null"`
 	SubscribedToNewsletter bool   `gorm:"default:false;not null"`
 	Bio				   string `gorm:"type:text"`
+	IsVerified			   bool   `gorm:"default:false;not null;index"`
 }
 
 type Follow struct {
@@ -73,6 +78,22 @@ type Block struct {
 	BlockedID uint `gorm:"primaryKey;autoIncrement:false"` 
 	CreatedAt time.Time
 }
+
+type PremiumApplication struct {
+	ID                     uint      `gorm:"primaryKey"`
+	UserID                 uint      `gorm:"not null;uniqueIndex:idx_user_premium_application"`
+	User                   User      `gorm:"foreignKey:UserID"`                                
+	NationalIdentityCardNo string    `gorm:"type:varchar(255);not null"`                     
+	Reason                 string    `gorm:"type:text;not null"`
+	FacePictureURL         string    `gorm:"type:varchar(255);not null"`
+	Status                 string    `gorm:"type:varchar(20);default:'pending';not null"`     
+	SubmittedAt            time.Time `gorm:"default:current_timestamp"`
+	ReviewedAt             *time.Time
+	ReviewedBy             *uint
+	AdminNotes             string    `gorm:"type:text"`
+}
+
+func (PremiumApplication) TableName() string { return "premium_applications" }
 
 func (Follow) TableName() string { return "follows" }
 func (Block) TableName() string  { return "blocks" }
@@ -91,7 +112,7 @@ func NewUserRepository() (*UserRepository, error) {
 		return nil, err
 	}
 
-	if err := db.AutoMigrate(&User{}, &Follow{}, &Block{}); err != nil {
+	if err := db.AutoMigrate(&User{}, &Follow{}, &Block{}, &PremiumApplication{}); err != nil {
 		return nil, err
 	}
 
@@ -397,4 +418,92 @@ func (r *UserRepository) GetFollowingIDs(ctx context.Context, userID uint, limit
     var followedIDs []uint
     err := r.db.WithContext(ctx).Model(&Follow{}).Where("follower_id = ?", userID).Order("created_at DESC").Limit(limit).Offset(offset).Pluck("followed_id", &followedIDs).Error
     return followedIDs, err
+}
+
+func (r *UserRepository) CreatePremiumApplication(ctx context.Context, app *PremiumApplication) error {
+	// Check if user already has a pending or approved application
+	var existingAppCount int64
+	r.db.WithContext(ctx).Model(&PremiumApplication{}).
+		Where("user_id = ? AND (status = 'pending' OR status = 'approved')", app.UserID).
+		Count(&existingAppCount)
+	if existingAppCount > 0 {
+		return errors.New("user already has a pending or approved premium application")
+	}
+
+	// Check if user is already verified
+	var user User
+	if err := r.db.WithContext(ctx).Select("is_verified").First(&user, app.UserID).Error; err == nil && user.IsVerified {
+		return errors.New("user is already verified")
+	}
+
+
+	result := r.db.WithContext(ctx).Create(app)
+	if result.Error != nil {
+		return fmt.Errorf("failed to create premium application: %w", result.Error)
+	}
+	log.Printf("Premium application submitted for UserID: %d", app.UserID)
+	return nil
+}
+
+func (r *UserRepository) GetPremiumApplicationByUserID(ctx context.Context, userID uint) (*PremiumApplication, error) {
+    var app PremiumApplication
+    err := r.db.WithContext(ctx).Where("user_id = ?", userID).Order("submitted_at DESC").First(&app).Error // Get latest
+    if err != nil {
+        if errors.Is(err, gorm.ErrRecordNotFound) {
+            return nil, errors.New("no premium application found for this user")
+        }
+        return nil, err
+    }
+    return &app, nil
+}
+
+func (r *UserRepository) ApprovePremiumApplication(ctx context.Context, applicationID uint, adminUserID uint) error {
+	return r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		var app PremiumApplication
+		if err := tx.First(&app, applicationID).Error; err != nil {
+			return errors.New("application not found")
+		}
+		if app.Status != "pending" {
+			return errors.New("application is not pending approval")
+		}
+
+		// Update application status
+		appUpdates := map[string]interface{}{
+			"status":      "approved",
+			"reviewed_at": time.Now(),
+			"reviewed_by": &adminUserID,
+		}
+		if err := tx.Model(&app).Updates(appUpdates).Error; err != nil {
+			return fmt.Errorf("failed to update application status: %w", err)
+		}
+
+		// Update user's IsVerified status
+		if err := tx.Model(&User{}).Where("id = ?", app.UserID).Update("is_verified", true).Error; err != nil {
+			return fmt.Errorf("failed to update user verified status: %w", err)
+		}
+		log.Printf("Premium application ID %d for UserID %d approved by AdminID %d", applicationID, app.UserID, adminUserID)
+		return nil
+	})
+}
+
+// RejectPremiumApplication (called by an admin)
+func (r *UserRepository) RejectPremiumApplication(ctx context.Context, applicationID uint, adminUserID uint, adminNotes string) error {
+    var app PremiumApplication
+    if err := r.db.WithContext(ctx).First(&app, applicationID).Error; err != nil {
+        return errors.New("application not found")
+    }
+    if app.Status != "pending" {
+        return errors.New("application is not pending approval")
+    }
+    appUpdates := map[string]interface{}{
+        "status":      "rejected",
+        "reviewed_at": time.Now(),
+        "reviewed_by": &adminUserID,
+        "admin_notes": adminNotes,
+    }
+    if err := r.db.WithContext(ctx).Model(&app).Updates(appUpdates).Error; err != nil {
+        return fmt.Errorf("failed to reject application: %w", err)
+    }
+    log.Printf("Premium application ID %d for UserID %d rejected by AdminID %d", applicationID, app.UserID, adminUserID)
+    return nil
 }

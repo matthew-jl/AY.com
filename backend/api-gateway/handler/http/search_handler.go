@@ -4,6 +4,7 @@ import (
 	"log"
 	"net/http"
 	"strconv"
+	"strings"
 	"sync"
 
 	"github.com/Acad600-TPA/WEB-MJ-242/backend/api-gateway/client"
@@ -82,8 +83,7 @@ func (h *SearchHandler) SearchUsersHTTP(c *gin.Context) {
 				Username:       fullProfile.GetUsername(),
 				Email:          fullProfile.GetEmail(), // Decide if this should be public
 				ProfilePicture: fullProfile.GetProfilePicture(),
-                // Bio:            fullProfile.GetBio(),
-                // Add other fields from UserProfileBasic/UserCoreData
+				IsVerified:   fullProfile.GetIsVerified(),
 			})
 		}
 	}
@@ -102,6 +102,18 @@ func (h *SearchHandler) SearchThreadsHTTP(c *gin.Context) {
 	}
 	page, limit := parsePagination(c)
     requesterUserID, _ := getUserIDFromContext(c)
+
+	// --- Get Filters from Query Params ---
+	categoryFiltersQuery := c.Query("categories") // comma-separated string
+	var selectedCategories []string
+	if categoryFiltersQuery != "" {
+		selectedCategories = strings.Split(categoryFiltersQuery, ",")
+		for i, cat := range selectedCategories { // Normalize, trim spaces
+			selectedCategories[i] = strings.ToLower(strings.TrimSpace(cat))
+		}
+	}
+    // "filter_by_user_type": "following", "verified", "everyone"
+    filterByUserType := strings.ToLower(c.DefaultQuery("user_filter", "everyone"))
 
 	// 1. Get Thread ID Results from Search Service
 	searchServiceResp, err := h.searchClient.SearchThreads(c.Request.Context(), &searchpb.SearchRequest{Query: query, Page: page, Limit: limit})
@@ -235,8 +247,72 @@ func (h *SearchHandler) SearchThreadsHTTP(c *gin.Context) {
 		}
 	}
 
+    finalFilteredThreads := []FrontendThreadData{}
+    var usersRequesterFollows []uint32 // Store IDs of users the requester follows
+
+    // Fetch following list if "People you follow" filter is active
+    if filterByUserType == "following" && requesterUserID != 0 {
+        followingResp, errFollow := h.userClient.GetFollowingIDs(c.Request.Context(), &userpb.SocialListRequest{UserId: requesterUserID, Limit: 10000}) // Fetch all
+        if errFollow != nil {
+            log.Printf("SearchThreadsHTTP: Error fetching following list for filter: %v", errFollow)
+            // Decide how to handle: error or proceed without this filter? For now, proceed.
+        } else if followingResp != nil {
+            usersRequesterFollows = followingResp.GetUserIds()
+        }
+    }
+
+
+    for _, feThread := range frontendThreads {
+        passesAllFilters := true
+
+        // Category Filter
+        if len(selectedCategories) > 0 {
+            passesCategoryFilter := false
+            for _, reqCat := range selectedCategories {
+                for _, threadCat := range feThread.Categories { // feThread.Categories comes from threadpb.Thread
+                    if strings.ToLower(threadCat) == reqCat {
+                        passesCategoryFilter = true
+                        break
+                    }
+                }
+                if passesCategoryFilter { break } // If one category matches, that's enough if OR logic for categories
+            }
+            if !passesCategoryFilter { passesAllFilters = false }
+        }
+
+        // User Type Filter
+        if passesAllFilters && filterByUserType != "everyone" {
+            if feThread.Author == nil { // Cannot apply user filter if author is missing
+                passesAllFilters = false
+            } else {
+                if filterByUserType == "following" {
+                    if requesterUserID == 0 { // Can't use "following" if not logged in
+                        passesAllFilters = false
+                    } else {
+                        isFollowingAuthor := false
+                        for _, followedID := range usersRequesterFollows {
+                            if followedID == feThread.Author.ID {
+                                isFollowingAuthor = true
+                                break
+                            }
+                        }
+                        if !isFollowingAuthor { passesAllFilters = false }
+                    }
+                } else if filterByUserType == "verified" {
+                    // TODO: Add is_verified field to UserProfileBasic/userpb.User
+                    // if !feThread.Author.IsVerified { passesAllFilters = false; }
+                    log.Println("SearchThreadsHTTP: 'verified' filter placeholder used.")
+                }
+            }
+        }
+
+        if passesAllFilters {
+            finalFilteredThreads = append(finalFilteredThreads, feThread)
+        }
+    }
+
 	c.JSON(http.StatusOK, SearchThreadsAPIResponse{
-		Threads: frontendThreads,
+		Threads: finalFilteredThreads,
 		HasMore: searchServiceResp.GetHasMore(),
 	})
 }
@@ -300,6 +376,7 @@ func (h *SearchHandler) GetTopUsersToFollowHTTP(c *gin.Context) {
 						Name:           fullProfile.GetName(),
 						Username:       fullProfile.GetUsername(),
 						ProfilePicture: fullProfile.GetProfilePicture(),
+						IsVerified:   fullProfile.GetIsVerified(),
 					})
 				}
 			}

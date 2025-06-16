@@ -1,22 +1,22 @@
 <script lang="ts">
   import { onMount } from 'svelte';
-  import { Badge, CheckCircle, Shield, Star, Upload, AlertCircle } from 'lucide-svelte';
-  import { api } from '../lib/api';
-  import { user as currentUserStore } from '../stores/userStore';
-  import { link } from 'svelte-routing';
+  import { Badge, CheckCircle, Shield, Star, Upload, AlertCircle, BadgeCheckIcon } from 'lucide-svelte';
+  import { api, ApiError, type ApplyForPremiumRequestData } from '../lib/api';
+  import { user as currentUserStore, setUser } from '../stores/userStore';
+  import { link, navigate } from 'svelte-routing';
   
   // State for premium status
-  let isPremium = false;
-  let isPendingVerification = false;
-  let isLoading = true;
+  let isUserVerified = false;
+  let applicationStatus: 'none' | 'pending' | 'approved' | 'rejected' = 'none';
+  let isLoadingStatus = true;
   let isSubmitting = false;
-  let error: string | null = null;
+  let submissionError: string | null = null;
   let successMessage: string | null = null;
   
   // Form data
   let identityCardNumber = '';
   let verificationReason = '';
-  let faceImage: File | null = null;
+  let faceImageFile: File | null = null;
   let faceImagePreview: string | null = null;
   
   // Form validation
@@ -27,20 +27,40 @@
   };
 
   onMount(async () => {
-    try {
-      // TODO: API call to check user premium status
-      // const response = await api.getUserPremiumStatus();
-      // isPremium = response.isPremium;
-      // isPendingVerification = response.isPendingVerification;
-      
-      // For demo purposes
-      isPremium = false;
-      isPendingVerification = false;
-    } catch (err) {
-      console.error("Error fetching premium status:", err);
-      error = "Failed to load premium status. Please try again.";
-    } finally {
-      isLoading = false;
+    if (!$currentUserStore) {
+      navigate('/login?redirect=/premium');
+      return;
+    }
+    isUserVerified = $currentUserStore.is_verified || false; // Initial state from store
+
+    // Fetch current application status if user is not already verified
+    if (!isUserVerified) {
+        try {
+            isLoadingStatus = true;
+            const statusResponse = await api.getMyPremiumApplicationStatus();
+            applicationStatus = statusResponse.status;
+            isUserVerified = statusResponse.is_user_verified; // Sync with server's view
+
+            // If user became verified, update local store
+            if (isUserVerified && $currentUserStore && !$currentUserStore.is_verified) {
+                setUser({ ...$currentUserStore, is_verified: true });
+            }
+
+            console.log("Fetched premium app status:", statusResponse);
+        } catch (err) {
+            if (err instanceof ApiError && err.status === 404) {
+                // 404 means no application found, which is fine, user can apply
+                applicationStatus = 'none';
+                console.log("No existing premium application found.");
+            } else {
+                console.error("Error fetching premium status:", err);
+                submissionError = "Failed to load your premium status. Please try again later.";
+            }
+        } finally {
+            isLoadingStatus = false;
+        }
+    } else {
+        isLoadingStatus = false; // Already verified, no need to fetch app status
     }
   });
 
@@ -62,7 +82,7 @@
         return;
       }
       
-      faceImage = file;
+      faceImageFile = file;
       formErrors.faceImage = '';
       
       // Create preview
@@ -97,7 +117,7 @@
     }
     
     // Validate image
-    if (!faceImage) {
+    if (!faceImageFile) {
       formErrors.faceImage = 'Please upload an identity verification photo.';
       isValid = false;
     }
@@ -109,32 +129,48 @@
     if (!validateForm()) return;
     
     isSubmitting = true;
-    error = null;
+    submissionError = null;
     successMessage = null;
     
     try {
-      // TODO: API call to submit premium verification request
-      // const formData = new FormData();
-      // formData.append('identityCardNumber', identityCardNumber);
-      // formData.append('verificationReason', verificationReason);
-      // if (faceImage) formData.append('faceImage', faceImage);
-      // await api.submitPremiumVerification(formData);
-      
-      // For demo purposes
-      await new Promise(resolve => setTimeout(resolve, 1500)); // Simulate API delay
-      
-      successMessage = "Your premium verification has been submitted successfully! We'll review it shortly.";
-      isPendingVerification = true;
-      
+      // Step 1: Upload face image to Media Service
+      let facePicUrl = '';
+      if (faceImageFile) {
+        console.log("Uploading face image...");
+        const formData = new FormData();
+        formData.append('media_file', faceImageFile);
+        const mediaResponse = await api.uploadMedia(formData);
+        facePicUrl = mediaResponse.media.public_url;
+        console.log("Face image uploaded:", facePicUrl);
+      } else { // Should be caught by validateForm, but defensive check
+          submissionError = "Face image is required.";
+          isSubmitting = false;
+          return;
+      }
+
+      // Step 2: Submit premium application with the URL and other data
+      // IMPORTANT: Send RAW identityCardNumber. Backend will hash/encrypt.
+      const applicationData: ApplyForPremiumRequestData = {
+        national_identity_card_no: identityCardNumber.trim(), // Send raw
+        reason: verificationReason.trim(),
+        face_picture_url: facePicUrl,
+      };
+
+      console.log("Submitting premium application:", applicationData);
+      await api.applyForPremium(applicationData);
+
+      successMessage = "Your premium verification application has been submitted successfully! We'll review it shortly.";
+      applicationStatus = 'pending'; // Optimistically update status
+
       // Reset form
-      identityCardNumber = '';
-      verificationReason = '';
-      faceImage = null;
-      faceImagePreview = null;
-      
+      identityCardNumber = ''; verificationReason = '';
+      faceImageFile = null; faceImagePreview = null;
+
     } catch (err) {
       console.error("Error submitting premium verification:", err);
-      error = "Failed to submit verification. Please try again.";
+      if (err instanceof ApiError) { submissionError = `Submission failed: ${err.message}`; }
+      else if (err instanceof Error) { submissionError = `Error: ${err.message}`; }
+      else { submissionError = "Failed to submit verification. Please try again."; }
     } finally {
       isSubmitting = false;
     }
@@ -147,12 +183,12 @@
     <h1>Premium</h1>
   </header>
   
-  {#if isLoading}
+  {#if isLoadingStatus}
     <div class="loading-state">
       <div class="loading-spinner"></div>
       <p>Loading your premium status...</p>
     </div>
-  {:else if isPremium}
+  {:else if isUserVerified || applicationStatus === 'approved'}
     <div class="premium-status verified">
       <CheckCircle size={48} />
       <h2>You're verified!</h2>
@@ -162,7 +198,7 @@
         <h3>Your Premium Benefits</h3>
         <ul>
           <li>
-            <Badge size={20} />
+            <BadgeCheckIcon size={20} />
             <span>Blue verification checkmark on your profile</span>
           </li>
           <li>
@@ -176,7 +212,7 @@
         </ul>
       </div>
     </div>
-  {:else if isPendingVerification}
+  {:else if applicationStatus === 'pending'}
     <div class="premium-status pending">
       <AlertCircle size={48} />
       <h2>Verification In Progress</h2>
@@ -208,7 +244,7 @@
         
         <div class="benefits-grid">
           <div class="benefit-card">
-            <Badge size={24} />
+            <BadgeCheckIcon size={24} />
             <h3>Blue Verification Badge</h3>
             <p>Stand out with an official verification mark on your profile</p>
           </div>
@@ -228,8 +264,8 @@
       <div class="verification-form">
         <h2>Submit Verification Request</h2>
         
-        {#if error}
-          <p class="error-text api-error">{error}</p>
+        {#if submissionError}
+          <p class="error-text api-error">{submissionError}</p>
         {/if}
         
         {#if successMessage}
@@ -278,7 +314,7 @@
                   <button 
                     type="button" 
                     class="remove-image-btn" 
-                    on:click={() => {faceImage = null; faceImagePreview = null;}}
+                    on:click={() => {faceImageFile = null; faceImagePreview = null;}}
                     disabled={isSubmitting}
                   >×</button>
                 </div>

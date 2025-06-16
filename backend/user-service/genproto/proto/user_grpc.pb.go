@@ -43,6 +43,7 @@ const (
 	UserService_IsBlockedBy_FullMethodName            = "/user.UserService/IsBlockedBy"
 	UserService_HasBlocked_FullMethodName             = "/user.UserService/HasBlocked"
 	UserService_IsFollowing_FullMethodName            = "/user.UserService/IsFollowing"
+	UserService_ApplyForPremium_FullMethodName        = "/user.UserService/ApplyForPremium"
 )
 
 // UserServiceClient is the client API for UserService service.
@@ -72,6 +73,7 @@ type UserServiceClient interface {
 	IsBlockedBy(ctx context.Context, in *BlockCheckRequest, opts ...grpc.CallOption) (*BlockStatusResponse, error)
 	HasBlocked(ctx context.Context, in *BlockCheckRequest, opts ...grpc.CallOption) (*BlockStatusResponse, error)
 	IsFollowing(ctx context.Context, in *FollowCheckRequest, opts ...grpc.CallOption) (*BlockStatusResponse, error)
+	ApplyForPremium(ctx context.Context, in *ApplyForPremiumRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
 }
 
 type userServiceClient struct {
@@ -312,6 +314,16 @@ func (c *userServiceClient) IsFollowing(ctx context.Context, in *FollowCheckRequ
 	return out, nil
 }
 
+func (c *userServiceClient) ApplyForPremium(ctx context.Context, in *ApplyForPremiumRequest, opts ...grpc.CallOption) (*emptypb.Empty, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(emptypb.Empty)
+	err := c.cc.Invoke(ctx, UserService_ApplyForPremium_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // UserServiceServer is the server API for UserService service.
 // All implementations must embed UnimplementedUserServiceServer
 // for forward compatibility.
@@ -339,6 +351,7 @@ type UserServiceServer interface {
 	IsBlockedBy(context.Context, *BlockCheckRequest) (*BlockStatusResponse, error)
 	HasBlocked(context.Context, *BlockCheckRequest) (*BlockStatusResponse, error)
 	IsFollowing(context.Context, *FollowCheckRequest) (*BlockStatusResponse, error)
+	ApplyForPremium(context.Context, *ApplyForPremiumRequest) (*emptypb.Empty, error)
 	mustEmbedUnimplementedUserServiceServer()
 }
 
@@ -417,6 +430,9 @@ func (UnimplementedUserServiceServer) HasBlocked(context.Context, *BlockCheckReq
 }
 func (UnimplementedUserServiceServer) IsFollowing(context.Context, *FollowCheckRequest) (*BlockStatusResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method IsFollowing not implemented")
+}
+func (UnimplementedUserServiceServer) ApplyForPremium(context.Context, *ApplyForPremiumRequest) (*emptypb.Empty, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method ApplyForPremium not implemented")
 }
 func (UnimplementedUserServiceServer) mustEmbedUnimplementedUserServiceServer() {}
 func (UnimplementedUserServiceServer) testEmbeddedByValue()                     {}
@@ -853,6 +869,24 @@ func _UserService_IsFollowing_Handler(srv interface{}, ctx context.Context, dec 
 	return interceptor(ctx, in, info, handler)
 }
 
+func _UserService_ApplyForPremium_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ApplyForPremiumRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(UserServiceServer).ApplyForPremium(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: UserService_ApplyForPremium_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(UserServiceServer).ApplyForPremium(ctx, req.(*ApplyForPremiumRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // UserService_ServiceDesc is the grpc.ServiceDesc for UserService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -951,6 +985,10 @@ var UserService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "IsFollowing",
 			Handler:    _UserService_IsFollowing_Handler,
+		},
+		{
+			MethodName: "ApplyForPremium",
+			Handler:    _UserService_ApplyForPremium_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

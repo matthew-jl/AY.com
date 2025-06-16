@@ -36,6 +36,9 @@ func main() {
 	utils.InitRabbitMQPublisher()
 	defer utils.CloseRabbitMQPublisher()
 
+	// Redis
+	utils.InitRedis()
+
 	s := grpc.NewServer()
 	userpb.RegisterUserServiceServer(s, userhandler.NewUserHandler(repo))
 	reflection.Register(s)

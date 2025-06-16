@@ -1,16 +1,31 @@
 <script lang="ts">
-  import type { MessageData } from '../lib/api';
+  import type { MessageData, SharedThreadContent } from '../lib/api';
   import { user as currentUserStore } from '../stores/userStore';
   import { linkifyContent } from '../lib/utils/richText';
   import { getTimeFromProtoTimestamp, timeAgo } from '../lib/utils/timeAgo';
   import { createEventDispatcher } from 'svelte';
   import { Trash } from 'lucide-svelte';
+  import SharedThreadBubble from './SharedThreadBubble.svelte';
   
   export let message: MessageData;
   
   $: isOwn = message.sender_id === $currentUserStore?.id;
   $: senderName = isOwn ? 'You' : message.sender_summary?.name || 'Unknown User';
-  $: linkifiedMessageContent = linkifyContent(message.content);
+
+  let sharedThreadData: SharedThreadContent | null = null;
+  $: {
+    if (message.type === 'shared_thread' && message.content) {
+      try {
+        sharedThreadData = JSON.parse(message.content) as SharedThreadContent;
+      } catch (e) {
+        console.error("Failed to parse shared thread content:", e, message.content);
+        sharedThreadData = null;
+      }
+    } else {
+      sharedThreadData = null;
+    }
+  }
+  $: linkifiedMessageContent = message.type !== 'shared_thread' ? linkifyContent(message.content) : '';
 
   const dispatch = createEventDispatcher<{unsend: number}>(); // number is message.id
 
@@ -57,12 +72,14 @@
         <p class="sender-name">{senderName}</p>
       {/if}
   
-      {#if message.content}
+      {#if message.type === 'shared_thread' && sharedThreadData}
+        <SharedThreadBubble sharedContent={sharedThreadData} />
+      {:else if message.content}
           <p class="message-text">{@html linkifiedMessageContent}</p>
       {/if}
   
       <!-- Display Media -->
-      {#if message.media_items && message.media_items.length > 0}
+      {#if message.type !== 'shared_thread' && message.media_items && message.media_items.length > 0}
           <div class="message-media-grid count-{message.media_items.length}">
               {#each message.media_items as media (media.id)}
                   <div class="msg-media-item">

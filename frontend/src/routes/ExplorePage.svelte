@@ -5,7 +5,9 @@
     import { navigate, link } from 'svelte-routing';
     import ThreadComponent from '../components/ThreadComponent.svelte';
     import UserCard from '../components/UserCard.svelte';
-  import CommunityCard from '../components/CommunityCard.svelte';
+    import CommunityCard from '../components/CommunityCard.svelte';
+    import { ChevronDownIcon } from 'lucide-svelte';
+    import { user as currentUserStore } from '../stores/userStore';
   
     type SearchTab = 'top' | 'latest' | 'people' | 'media' | 'communities';
     const DEFAULT_TAB: SearchTab = 'top';
@@ -16,6 +18,17 @@
     let searchInputEl: HTMLInputElement;
     let recentSearches: string[] = [];
     let activeTab: SearchTab = DEFAULT_TAB;
+
+    // --- Filters ---
+    type UserFilterType = 'everyone' | 'following' | 'verified';
+    let selectedUserFilter: UserFilterType = 'everyone';
+    let selectedCategoryFilters: string[] = []; // Stores values like "world", "sports"
+    const predefinedCategories = [
+        { value: 'world', label: 'World' }, { value: 'sports', label: 'Sports' },
+        { value: 'business', label: 'Business' }, { value: 'sci_tech', label: 'Sci/Tech' },
+    ];
+    let showCategoryFilterDropdown = false;
+    let showUserFilterDropdown = false;
   
     // --- Results State ---
     let topUsers: UserProfileBasic[] = [];
@@ -50,10 +63,16 @@
       // Check for initial query from URL (e.g., from hashtag click)
       const urlParams = new URLSearchParams(window.location.search);
       const initialQuery = urlParams.get('q');
-      if (initialQuery) {
-        searchQuery = initialQuery;
-        debouncedSearchQuery = initialQuery;
-        performSearch(initialQuery, activeTab);
+      const initialCats = urlParams.get('categories');
+      const initialUserFilter = urlParams.get('user_filter') as UserFilterType | null;
+
+      if (initialQuery) { searchQuery = initialQuery; debouncedSearchQuery = initialQuery; }
+      if (initialCats) { selectedCategoryFilters = initialCats.split(','); }
+      if (initialUserFilter && ['everyone', 'following', 'verified'].includes(initialUserFilter)) {
+          selectedUserFilter = initialUserFilter;
+      }
+      if (initialQuery || initialCats || initialUserFilter) {
+          performSearch(debouncedSearchQuery, activeTab);
       }
   
       return () => {
@@ -96,14 +115,25 @@
       debounceTimer = window.setTimeout(() => {
         debouncedSearchQuery = searchQuery.trim();
         if (debouncedSearchQuery) {
-          addRecentSearch(debouncedSearchQuery);
-          performSearch(debouncedSearchQuery, activeTab);
-          navigate(`/explore?q=${encodeURIComponent(debouncedSearchQuery)}`, { replace: true });
+          updateUrlAndSearch();
         } else {
           clearResults();
           navigate('/explore', { replace: true });
         }
       }, 900);
+    }
+
+    function updateUrlAndSearch() {
+      if (debouncedSearchQuery) addRecentSearch(debouncedSearchQuery);
+      performSearch(debouncedSearchQuery, activeTab);
+
+      const params = new URLSearchParams();
+      if (debouncedSearchQuery) params.set('q', debouncedSearchQuery);
+      if (selectedCategoryFilters.length > 0) params.set('categories', selectedCategoryFilters.join(','));
+      if (selectedUserFilter !== 'everyone') params.set('user_filter', selectedUserFilter);
+
+      const queryString = params.toString();
+      navigate(queryString ? `/explore?${queryString}` : '/explore', { replace: true });
     }
   
     function clearSearch() {
@@ -134,7 +164,7 @@
           if(tab === 'people') peopleResults = userResp.users || []; else topUsers = userResp.users || [];
         }
         if (tab === 'top' || tab === 'latest' || tab === 'media') {
-          const threadResp = await api.searchThreads(query, 1, 10);
+          const threadResp = await api.searchThreads(query, 1, 10, selectedUserFilter, selectedCategoryFilters);
           console.log("Thread search response:", threadResp.threads);
           if(tab === 'latest') {
             latestThreads = (threadResp.threads || []).slice().sort(
@@ -186,9 +216,7 @@
     function switchTab(newTab: SearchTab) {
       if (activeTab === newTab) return;
       activeTab = newTab;
-      if (debouncedSearchQuery) {
-        performSearch(debouncedSearchQuery, activeTab);
-      }
+      updateUrlAndSearch();
     }
   
     function handleThreadDelete(event: CustomEvent<{ id: number }>) {
@@ -240,7 +268,19 @@
       if (activeTab === 'communities' && debouncedSearchQuery) {
           performSearch(debouncedSearchQuery, 'communities', 1, false); 
       }
-  }
+    }
+
+    function toggleCategoryFilter(category: string) {
+      const index = selectedCategoryFilters.indexOf(category);
+      if (index > -1) selectedCategoryFilters = selectedCategoryFilters.filter(c => c !== category);
+      else selectedCategoryFilters = [...selectedCategoryFilters, category];
+      updateUrlAndSearch(); // Refetch with new category filter
+    }
+    function selectUserFilter(filter: UserFilterType) {
+      selectedUserFilter = filter;
+      showUserFilterDropdown = false; // Close dropdown
+      updateUrlAndSearch(); // Refetch with new user filter
+    }
   
   </script>
   
@@ -288,7 +328,42 @@
             </div>
           {/if}
       </div>
-      <!-- TODO: Add Filters button/modal -->
+      <div class="explore-filters">
+          <!-- User Filter Dropdown -->
+          <div class="filter-dropdown-container">
+              <button class="filter-btn" on:click={() => showUserFilterDropdown = !showUserFilterDropdown}>
+                  Filter By: {selectedUserFilter.charAt(0).toUpperCase() + selectedUserFilter.slice(1)} <ChevronDownIcon size={16}/>
+              </button>
+              {#if showUserFilterDropdown}
+                  <div class="dropdown-menu user-filter-dropdown">
+                      <button on:click={() => selectUserFilter('everyone')} class:active={selectedUserFilter === 'everyone'}>Everyone</button>
+                      <button on:click={() => selectUserFilter('following')} class:active={selectedUserFilter === 'following'} disabled={!$currentUserStore}>People you follow</button>
+                      <button on:click={() => selectUserFilter('verified')} class:active={selectedUserFilter === 'verified'} disabled>Verified accounts only</button> <!-- Disabled until implemented -->
+                  </div>
+              {/if}
+          </div>
+          <!-- Category Filter Dropdown -->
+          <div class="filter-dropdown-container">
+              <button class="filter-btn" on:click={() => showCategoryFilterDropdown = !showCategoryFilterDropdown}>
+                  Categories {selectedCategoryFilters.length > 0 ? `(${selectedCategoryFilters.length})` : ''} <ChevronDownIcon size={16}/>
+              </button>
+              {#if showCategoryFilterDropdown}
+              <div class="dropdown-menu category-filter-dropdown">
+                  {#each predefinedCategories as category (category.value)}
+                      <label>
+                          <input
+                              type="checkbox"
+                              value={category.value}
+                              checked={selectedCategoryFilters.includes(category.value)}
+                              on:change={() => toggleCategoryFilter(category.value)}
+                          />
+                          {category.label}
+                      </label>
+                  {/each}
+              </div>
+              {/if}
+          </div>
+      </div>
     </header>
   
     {#if debouncedSearchQuery}
@@ -568,6 +643,54 @@
         }
       }
     }
+  }
+
+  .explore-filters {
+      display: flex;
+      gap: 10px;
+      margin-top: 10px;
+      padding: 0 0 10px 0; /* Add padding below filters if search bar is above */
+  }
+  .filter-dropdown-container {
+      position: relative;
+  }
+  .filter-btn {
+      background-color: var(--input-bg);
+      border: 1px solid var(--border-color);
+      color: var(--text-color);
+      padding: 6px 12px;
+      border-radius: 16px;
+      font-size: 14px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      &:hover { border-color: var(--secondary-text-color); }
+  }
+  .dropdown-menu {
+    position: absolute; top: 110%;
+    left: 0;
+    background-color: var(--background);
+    border: 1px solid var(--border-color);
+    border-radius: 8px; box-shadow: 0 3px 10px rgba(0,0,0,0.1);
+    padding: 8px; z-index: 20; min-width: 200px;
+    max-height: 250px; overflow-y: auto;
+
+    button, label {
+      display: block; width: 100%; text-align: left;
+      padding: 8px 10px; background: none; border: none;
+      color: var(--text-color); cursor: pointer; font-size: 14px;
+      border-radius: 4px;
+      input[type="checkbox"] { margin-right: 8px; accent-color: var(--primary-color); }
+      &:hover { background-color: var(--section-hover-bg); }
+      &.active { background-color: var(--primary-color-light); color: var(--primary-color); font-weight: bold;}
+    }
+  }
+  .user-filter-dropdown button:disabled {
+      color: var(--secondary-text-color);
+      opacity: 0.6;
+      cursor: not-allowed;
+      &:hover { background: none; }
   }
 
   .explore-tabs {

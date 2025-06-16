@@ -31,6 +31,7 @@ service UserService {
   rpc IsBlockedBy(BlockCheckRequest) returns (BlockStatusResponse);
   rpc HasBlocked(BlockCheckRequest) returns (BlockStatusResponse);
   rpc IsFollowing(FollowCheckRequest) returns (BlockStatusResponse);
+  rpc ApplyForPremium(ApplyForPremiumRequest) returns (google.protobuf.Empty);
 }
 
 message HealthResponse {
@@ -51,6 +52,7 @@ message User {
   google.protobuf.Timestamp created_at = 11;
   bool subscribed_to_newsletter = 12;
   string bio = 13;
+  bool is_verified = 14;
 }
 
 message RegisterRequest {
@@ -193,4 +195,11 @@ message BlockStatusResponse {
 message FollowCheckRequest {
   uint32 follower_id = 1;
   uint32 followed_id = 2;
+}
+
+message ApplyForPremiumRequest {
+  uint32 user_id = 1;
+  string national_identity_card_no_hashed = 2;
+  string reason = 3;
+  string face_picture_url = 4;
 }

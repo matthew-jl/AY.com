@@ -76,6 +76,12 @@ type UpdateProfilePayload struct {
 	SubscribedToNewsletter *bool   `json:"subscribed_to_newsletter,omitempty"`
 }
 
+type ApplyForPremiumPayloadHTTP struct {
+	NationalIdentityCardNo string `json:"national_identity_card_no" binding:"required"`
+	Reason                 string `json:"reason" binding:"required,min=10,max=500"`
+	FacePictureURL         string `json:"face_picture_url" binding:"required,url"`
+}
+
 
 func (h *AuthHandler) HealthCheck(c *gin.Context) {
 	resp, err := h.userClient.HealthCheck(c.Request.Context())
@@ -430,6 +436,33 @@ func (h *AuthHandler) UpdateOwnUserProfile(c *gin.Context) {
     c.JSON(http.StatusOK, feUser)
 }
 
+func (h *ProfileHandler) ApplyForPremiumHTTP(c *gin.Context) {
+	requesterUserID, ok := getUserIDFromContext(c)
+	if !ok { return }
+
+	var payload ApplyForPremiumPayloadHTTP
+	if err := c.ShouldBindJSON(&payload); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid application payload: " + err.Error()}); return
+	}
+
+	idToSubmit := payload.NationalIdentityCardNo
+
+	grpcReq := &userpb.ApplyForPremiumRequest{
+		UserId:                       requesterUserID,
+		NationalIdentityCardNoHashed: idToSubmit,
+		Reason:                       payload.Reason,
+		FacePictureUrl:               payload.FacePictureURL,
+	}
+
+	_, err := h.userClient.ApplyForPremium(c.Request.Context(), grpcReq)
+	if err != nil {
+		handleGRPCError(c, "apply for premium", err)
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"message": "Premium application submitted successfully. It will be reviewed by an administrator."})
+}
+
 // Helper function to map gRPC status codes to HTTP status codes
 func grpcStatusCodeToHTTP(code codes.Code) int {
 	switch code {
@@ -469,6 +502,7 @@ func mapPbUserToFrontendUser(pbUser *userpb.User) interface{} {
         "account_privacy":          pbUser.GetAccountPrivacy(),
         "subscribed_to_newsletter": pbUser.GetSubscribedToNewsletter(),
         "bio":                      pbUser.GetBio(),
+		"is_verified":            	pbUser.GetIsVerified(),
         "created_at":               pbUser.GetCreatedAt().AsTime().Format(time.RFC3339),
     }
 }

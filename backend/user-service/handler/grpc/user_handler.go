@@ -5,6 +5,7 @@ import (
 	"errors"
 	"log"
 	"regexp"
+	"strings"
 	"time"
 	"unicode"
 
@@ -124,6 +125,12 @@ func (h *UserHandler) Register(ctx context.Context, req *userpb.RegisterRequest)
 		return nil, status.Errorf(codes.Internal, "Failed to prepare registration")
 	}
 
+	// Store verification code in Redis
+	errRedisStore := utils.StoreVerificationCode(ctx, req.Email, verificationCode)
+	if errRedisStore != nil {
+		log.Printf("Warning: Failed to store verification code in Redis for %s: %v. Proceeding with DB only.", req.Email, errRedisStore)
+	}
+
 	// Create User struct for repository
 	user := &postgres.User{
 		Name:             req.Name,
@@ -161,56 +168,86 @@ func (h *UserHandler) Register(ctx context.Context, req *userpb.RegisterRequest)
 }
 
 func (h *UserHandler) VerifyEmail(ctx context.Context, req *userpb.VerifyEmailRequest) (*emptypb.Empty, error) {
-	log.Printf("Received VerifyEmail request for email: %s", req.Email)
-
+	log.Printf("Received VerifyEmail request for email: %s, Code: %s", req.Email, req.Code)
 	if req.Email == "" || req.Code == "" {
 		return nil, status.Errorf(codes.InvalidArgument, "Email and verification code are required")
-	}
+ 	}
 
-	// 1. Find user by email
-	user, err := h.repo.GetUserByEmail(ctx, req.Email)
-	if err != nil {
-		log.Printf("VerifyEmail failed for %s: %v", req.Email, err)
-		if err.Error() == "user not found" {
-			return nil, status.Errorf(codes.NotFound, "User not found or code is invalid")
+	var verifiedByRedis = false
+	var skipDBCheck = false
+
+	// 1. Try to verify with Redis first
+	redisAvailable := utils.Rdb != nil
+	if redisAvailable {
+		isValidRedis, errRedis := utils.GetAndVerifyCodeFromRedis(ctx, req.Email, req.Code)
+		if errRedis != nil && !errors.Is(errRedis, errors.New("redis_unavailable")) { // Handle actual Redis errors
+			log.Printf("VerifyEmail: Error checking code in Redis for %s: %v", req.Email, errRedis)
 		}
-		return nil, status.Errorf(codes.Internal, "Failed to retrieve user")
+		if isValidRedis {
+			verifiedByRedis = true
+			skipDBCheck = true
+			log.Printf("Email %s verified successfully via Redis.", req.Email)
+		} else if !errors.Is(errRedis, errors.New("redis_unavailable")) {
+            log.Printf("VerifyEmail: Code for %s not valid in Redis. Will check DB.", req.Email)
+        }
 	}
 
-	// 2. Check status and code
-	if user.AccountStatus != "pending_verification" {
-		log.Printf("VerifyEmail attempt for non-pending account: User %d, Status %s", user.ID, user.AccountStatus)
-		// Could be already active or banned etc.
-		return nil, status.Errorf(codes.FailedPrecondition, "Account is not awaiting verification")
-	}
+	// 2. Fallback to DB check if not verified by Redis OR Redis was unavailable
+	var user *postgres.User
+	var errUser error
 
-	if user.EmailVerificationCode == "" {
-		log.Printf("VerifyEmail error: No verification code found for user %d", user.ID)
-		return nil, status.Errorf(codes.Internal, "Verification code missing")
-	}
+	if !skipDBCheck {
+		log.Printf("VerifyEmail: Proceeding with DB check for %s.", req.Email)
+		user, errUser = h.repo.GetUserByEmail(ctx, req.Email)
+		if errUser != nil {
+			if errUser.Error() == "user not found" {
+				return nil, status.Errorf(codes.NotFound, "User not found or code is invalid")
+			}
+			return nil, status.Errorf(codes.Internal, "Failed to retrieve user")
+		}
 
-	if user.EmailVerificationCode != req.Code {
-		log.Printf("VerifyEmail failed: Invalid code for user %d", user.ID)
-		return nil, status.Errorf(codes.InvalidArgument, "Invalid verification code")
-	}
+		if user.AccountStatus != "pending_verification" {
+            if !verifiedByRedis { // Only error if Redis didn't verify
+			    log.Printf("VerifyEmail: Account for user %d (%s) is not awaiting verification (Status: %s)", user.ID, user.Email, user.AccountStatus)
+			    return nil, status.Errorf(codes.FailedPrecondition, "Account is not awaiting verification")
+            }
+		}
+
+        // If not verified by Redis, check DB code
+        if !verifiedByRedis {
+            if user.EmailVerificationCode == "" {
+                log.Printf("VerifyEmail: No verification code found in DB for user %d", user.ID)
+                return nil, status.Errorf(codes.Internal, "Verification code missing from record")
+            }
+            if user.EmailVerificationCode != req.Code {
+                log.Printf("VerifyEmail: Invalid code from DB for user %d", user.ID)
+                return nil, status.Errorf(codes.InvalidArgument, "Invalid verification code")
+            }
+            log.Printf("Email %s verified successfully via DB.", req.Email)
+        }
+	} else {
+        user, errUser = h.repo.GetUserByEmail(ctx, req.Email)
+        if errUser != nil {
+            log.Printf("VerifyEmail: User %s verified by Redis, but failed to fetch user for activation: %v", req.Email, errUser)
+            return nil, status.Errorf(codes.Internal, "Verification successful but failed to finalize account activation")
+        }
+    }
+
+    if user == nil {
+         log.Printf("VerifyEmail: User object is nil after verification checks for %s", req.Email)
+         return nil, status.Errorf(codes.Internal, "Failed to retrieve user details post-verification")
+    }
+
 
 	// 3. Activate Account
-	err = h.repo.ActivateUserAccount(ctx, user.ID)
+	err := h.repo.ActivateUserAccount(ctx, user.ID)
 	if err != nil {
 		log.Printf("Failed to activate account for user %d: %v", user.ID, err)
 		return nil, status.Errorf(codes.Internal, "Failed to activate account")
 	}
 
 	log.Printf("Account successfully verified and activated for user: %d (%s)", user.ID, user.Email)
-
-	// 4. Send Welcome Email
-	go func(email, name string) {
-		errWelcome := utils.SendWelcomeEmail(email, name)
-		if errWelcome != nil {
-			log.Printf("Failed to send welcome email to %s (user ID: %d): %v", email, user.ID, errWelcome)
-		}
-	}(user.Email, user.Name)
-
+	go func(email, name string) { utils.SendWelcomeEmail(email, name) }(user.Email, user.Name)
 	return &emptypb.Empty{}, nil
 }
 
@@ -225,6 +262,11 @@ func (h *UserHandler) ResendVerificationCode(ctx context.Context, req *userpb.Re
         log.Printf("Error generating new verification code for resend: %v", err)
         return nil, status.Errorf(codes.Internal, "Failed to prepare for resend")
     }
+
+	errRedisStore := utils.StoreVerificationCode(ctx, req.Email, newVerificationCode)
+    if errRedisStore != nil {
+        log.Printf("Warning: Failed to store new verification code in Redis for resend (%s): %v.", req.Email, errRedisStore)
+	}
 
     user, err := h.repo.UpdateVerificationCode(ctx, req.Email, newVerificationCode)
     if err != nil {
@@ -524,6 +566,7 @@ func (h *UserHandler) GetUserProfile(ctx context.Context, req *userpb.GetUserPro
 		SubscribedToNewsletter: targetUser.SubscribedToNewsletter,
 		CreatedAt:      timestamppb.New(targetUser.CreatedAt),
 		Bio:            targetUser.Bio,
+		IsVerified:  targetUser.IsVerified,
 	}
 
 	return &userpb.UserProfileResponse{
@@ -562,6 +605,7 @@ func (h *UserHandler) GetUserProfilesByIds(ctx context.Context, req *userpb.GetU
 			Username:       dbUser.Username,
 			Email:          dbUser.Email,
 			ProfilePicture: dbUser.ProfilePicture,
+			IsVerified:  dbUser.IsVerified,
 		}
 	}
 	return &userpb.GetUserProfilesByIdsResponse{Users: userMap}, nil
@@ -591,6 +635,7 @@ func (h *UserHandler) GetUserByUsername(ctx context.Context, req *userpb.GetUser
         Banner:         user.Banner,
         Bio:            user.Bio,
         AccountPrivacy: user.AccountPrivacy,
+		IsVerified:  user.IsVerified,
         CreatedAt:      timestamppb.New(user.CreatedAt),
     }, nil
 }
@@ -779,6 +824,58 @@ func (h *UserHandler) IsFollowing(ctx context.Context, req *userpb.FollowCheckRe
 		return nil, status.Errorf(codes.Internal, "Failed to check follow status")
 	}
 	return &userpb.BlockStatusResponse{IsTrue: isFollowing}, nil
+}
+
+func (h *UserHandler) ApplyForPremium(ctx context.Context, req *userpb.ApplyForPremiumRequest) (*emptypb.Empty, error) {
+	log.Printf("Received ApplyForPremium request for UserID: %d", req.UserId)
+	if req.UserId == 0 {
+		return nil, status.Errorf(codes.InvalidArgument, "User ID is required")
+	}
+	if req.GetNationalIdentityCardNoHashed() == "" || req.GetReason() == "" || req.GetFacePictureUrl() == "" {
+		return nil, status.Errorf(codes.InvalidArgument, "National ID, reason, and face picture URL are required")
+	}
+
+    hashedNationalID, err := bcrypt.GenerateFromPassword([]byte(req.GetNationalIdentityCardNoHashed()), bcrypt.DefaultCost)
+    if err != nil {
+     log.Printf("Error hashing national ID for user %d: %v", req.UserId, err)
+     return nil, status.Errorf(codes.Internal, "Failed to secure identity information")
+    }
+    nationalIDToStore := string(hashedNationalID)
+
+	// Fetch user to check status (e.g., must be active and verified email)
+	user, err := h.repo.GetUserByID(ctx, uint(req.UserId))
+	if err != nil {
+		if err.Error() == "user not found by ID" { return nil, status.Errorf(codes.NotFound, "User not found") }
+		return nil, status.Errorf(codes.Internal, "Failed to retrieve user")
+	}
+	if user.AccountStatus != "active" {
+		return nil, status.Errorf(codes.FailedPrecondition, "Account must be active and email verified to apply for premium")
+	}
+    if user.IsVerified { // Check if already verified in DB
+        return nil, status.Errorf(codes.AlreadyExists, "User is already verified")
+    }
+
+
+	app := &postgres.PremiumApplication{
+		UserID:                 uint(req.UserId),
+		NationalIdentityCardNo: nationalIDToStore, // Store the secured version
+		Reason:                 req.Reason,
+		FacePictureURL:         req.FacePictureUrl,
+		Status:                 "pending", // Default
+	}
+
+	err = h.repo.CreatePremiumApplication(ctx, app)
+	if err != nil {
+		log.Printf("Error creating premium application for user %d: %v", req.UserId, err)
+		if strings.Contains(err.Error(), "already has a pending or approved") || strings.Contains(err.Error(), "already verified") {
+			return nil, status.Errorf(codes.AlreadyExists, err.Error())
+		}
+		return nil, status.Errorf(codes.Internal, "Failed to submit premium application")
+	}
+
+	// TODO: Publish event "premium_application_submitted" for Admin Service
+	log.Printf("Premium application submitted for UserID: %d, AppID: %d", req.UserId, app.ID)
+	return &emptypb.Empty{}, nil
 }
 
 // --- Helpers ---

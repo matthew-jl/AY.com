@@ -82,6 +82,7 @@ type User struct {
 	CreatedAt              *timestamppb.Timestamp `protobuf:"bytes,11,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`
 	SubscribedToNewsletter bool                   `protobuf:"varint,12,opt,name=subscribed_to_newsletter,json=subscribedToNewsletter,proto3" json:"subscribed_to_newsletter,omitempty"`
 	Bio                    string                 `protobuf:"bytes,13,opt,name=bio,proto3" json:"bio,omitempty"`
+	IsVerified             bool                   `protobuf:"varint,14,opt,name=is_verified,json=isVerified,proto3" json:"is_verified,omitempty"`
 	unknownFields          protoimpl.UnknownFields
 	sizeCache              protoimpl.SizeCache
 }
@@ -205,6 +206,13 @@ func (x *User) GetBio() string {
 		return x.Bio
 	}
 	return ""
+}
+
+func (x *User) GetIsVerified() bool {
+	if x != nil {
+		return x.IsVerified
+	}
+	return false
 }
 
 type RegisterRequest struct {
@@ -1610,13 +1618,81 @@ func (x *FollowCheckRequest) GetFollowedId() uint32 {
 	return 0
 }
 
+type ApplyForPremiumRequest struct {
+	state                        protoimpl.MessageState `protogen:"open.v1"`
+	UserId                       uint32                 `protobuf:"varint,1,opt,name=user_id,json=userId,proto3" json:"user_id,omitempty"`
+	NationalIdentityCardNoHashed string                 `protobuf:"bytes,2,opt,name=national_identity_card_no_hashed,json=nationalIdentityCardNoHashed,proto3" json:"national_identity_card_no_hashed,omitempty"`
+	Reason                       string                 `protobuf:"bytes,3,opt,name=reason,proto3" json:"reason,omitempty"`
+	FacePictureUrl               string                 `protobuf:"bytes,4,opt,name=face_picture_url,json=facePictureUrl,proto3" json:"face_picture_url,omitempty"`
+	unknownFields                protoimpl.UnknownFields
+	sizeCache                    protoimpl.SizeCache
+}
+
+func (x *ApplyForPremiumRequest) Reset() {
+	*x = ApplyForPremiumRequest{}
+	mi := &file_proto_user_proto_msgTypes[26]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ApplyForPremiumRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ApplyForPremiumRequest) ProtoMessage() {}
+
+func (x *ApplyForPremiumRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_user_proto_msgTypes[26]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ApplyForPremiumRequest.ProtoReflect.Descriptor instead.
+func (*ApplyForPremiumRequest) Descriptor() ([]byte, []int) {
+	return file_proto_user_proto_rawDescGZIP(), []int{26}
+}
+
+func (x *ApplyForPremiumRequest) GetUserId() uint32 {
+	if x != nil {
+		return x.UserId
+	}
+	return 0
+}
+
+func (x *ApplyForPremiumRequest) GetNationalIdentityCardNoHashed() string {
+	if x != nil {
+		return x.NationalIdentityCardNoHashed
+	}
+	return ""
+}
+
+func (x *ApplyForPremiumRequest) GetReason() string {
+	if x != nil {
+		return x.Reason
+	}
+	return ""
+}
+
+func (x *ApplyForPremiumRequest) GetFacePictureUrl() string {
+	if x != nil {
+		return x.FacePictureUrl
+	}
+	return ""
+}
+
 var File_proto_user_proto protoreflect.FileDescriptor
 
 const file_proto_user_proto_rawDesc = "" +
 	"\n" +
 	"\x10proto/user.proto\x12\x04user\x1a\x1bgoogle/protobuf/empty.proto\x1a\x1fgoogle/protobuf/timestamp.proto\"(\n" +
 	"\x0eHealthResponse\x12\x16\n" +
-	"\x06status\x18\x01 \x01(\tR\x06status\"\xb0\x03\n" +
+	"\x06status\x18\x01 \x01(\tR\x06status\"\xd1\x03\n" +
 	"\x04User\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\rR\x02id\x12\x12\n" +
 	"\x04name\x18\x02 \x01(\tR\x04name\x12\x1a\n" +
@@ -1632,7 +1708,9 @@ const file_proto_user_proto_rawDesc = "" +
 	"\n" +
 	"created_at\x18\v \x01(\v2\x1a.google.protobuf.TimestampR\tcreatedAt\x128\n" +
 	"\x18subscribed_to_newsletter\x18\f \x01(\bR\x16subscribedToNewsletter\x12\x10\n" +
-	"\x03bio\x18\r \x01(\tR\x03bio\"\xbf\x03\n" +
+	"\x03bio\x18\r \x01(\tR\x03bio\x12\x1f\n" +
+	"\vis_verified\x18\x0e \x01(\bR\n" +
+	"isVerified\"\xbf\x03\n" +
 	"\x0fRegisterRequest\x12\x12\n" +
 	"\x04name\x18\x01 \x01(\tR\x04name\x12\x1a\n" +
 	"\busername\x18\x02 \x01(\tR\busername\x12\x14\n" +
@@ -1756,7 +1834,12 @@ const file_proto_user_proto_rawDesc = "" +
 	"\vfollower_id\x18\x01 \x01(\rR\n" +
 	"followerId\x12\x1f\n" +
 	"\vfollowed_id\x18\x02 \x01(\rR\n" +
-	"followedId2\xb8\f\n" +
+	"followedId\"\xbb\x01\n" +
+	"\x16ApplyForPremiumRequest\x12\x17\n" +
+	"\auser_id\x18\x01 \x01(\rR\x06userId\x12F\n" +
+	" national_identity_card_no_hashed\x18\x02 \x01(\tR\x1cnationalIdentityCardNoHashed\x12\x16\n" +
+	"\x06reason\x18\x03 \x01(\tR\x06reason\x12(\n" +
+	"\x10face_picture_url\x18\x04 \x01(\tR\x0efacePictureUrl2\x81\r\n" +
 	"\vUserService\x12;\n" +
 	"\vHealthCheck\x12\x16.google.protobuf.Empty\x1a\x14.user.HealthResponse\x129\n" +
 	"\bRegister\x12\x15.user.RegisterRequest\x1a\x16.google.protobuf.Empty\x12/\n" +
@@ -1784,7 +1867,8 @@ const file_proto_user_proto_rawDesc = "" +
 	"\vIsBlockedBy\x12\x17.user.BlockCheckRequest\x1a\x19.user.BlockStatusResponse\x12@\n" +
 	"\n" +
 	"HasBlocked\x12\x17.user.BlockCheckRequest\x1a\x19.user.BlockStatusResponse\x12B\n" +
-	"\vIsFollowing\x12\x18.user.FollowCheckRequest\x1a\x19.user.BlockStatusResponseBAZ?github.com/Acad600-TPA/WEB-MJ-242/backend/user-service/genprotob\x06proto3"
+	"\vIsFollowing\x12\x18.user.FollowCheckRequest\x1a\x19.user.BlockStatusResponse\x12G\n" +
+	"\x0fApplyForPremium\x12\x1c.user.ApplyForPremiumRequest\x1a\x16.google.protobuf.EmptyBAZ?github.com/Acad600-TPA/WEB-MJ-242/backend/user-service/genprotob\x06proto3"
 
 var (
 	file_proto_user_proto_rawDescOnce sync.Once
@@ -1798,7 +1882,7 @@ func file_proto_user_proto_rawDescGZIP() []byte {
 	return file_proto_user_proto_rawDescData
 }
 
-var file_proto_user_proto_msgTypes = make([]protoimpl.MessageInfo, 27)
+var file_proto_user_proto_msgTypes = make([]protoimpl.MessageInfo, 28)
 var file_proto_user_proto_goTypes = []any{
 	(*HealthResponse)(nil),                // 0: user.HealthResponse
 	(*User)(nil),                          // 1: user.User
@@ -1826,18 +1910,19 @@ var file_proto_user_proto_goTypes = []any{
 	(*BlockCheckRequest)(nil),             // 23: user.BlockCheckRequest
 	(*BlockStatusResponse)(nil),           // 24: user.BlockStatusResponse
 	(*FollowCheckRequest)(nil),            // 25: user.FollowCheckRequest
-	nil,                                   // 26: user.GetUserProfilesByIdsResponse.UsersEntry
-	(*timestamppb.Timestamp)(nil),         // 27: google.protobuf.Timestamp
-	(*emptypb.Empty)(nil),                 // 28: google.protobuf.Empty
+	(*ApplyForPremiumRequest)(nil),        // 26: user.ApplyForPremiumRequest
+	nil,                                   // 27: user.GetUserProfilesByIdsResponse.UsersEntry
+	(*timestamppb.Timestamp)(nil),         // 28: google.protobuf.Timestamp
+	(*emptypb.Empty)(nil),                 // 29: google.protobuf.Empty
 }
 var file_proto_user_proto_depIdxs = []int32{
-	27, // 0: user.User.created_at:type_name -> google.protobuf.Timestamp
-	26, // 1: user.GetUserProfilesByIdsResponse.users:type_name -> user.GetUserProfilesByIdsResponse.UsersEntry
+	28, // 0: user.User.created_at:type_name -> google.protobuf.Timestamp
+	27, // 1: user.GetUserProfilesByIdsResponse.users:type_name -> user.GetUserProfilesByIdsResponse.UsersEntry
 	1,  // 2: user.UserProfileResponse.user:type_name -> user.User
 	1,  // 3: user.SocialUser.user_summary:type_name -> user.User
 	19, // 4: user.GetSocialListResponse.users:type_name -> user.SocialUser
 	1,  // 5: user.GetUserProfilesByIdsResponse.UsersEntry.value:type_name -> user.User
-	28, // 6: user.UserService.HealthCheck:input_type -> google.protobuf.Empty
+	29, // 6: user.UserService.HealthCheck:input_type -> google.protobuf.Empty
 	2,  // 7: user.UserService.Register:input_type -> user.RegisterRequest
 	3,  // 8: user.UserService.Login:input_type -> user.LoginRequest
 	5,  // 9: user.UserService.VerifyEmail:input_type -> user.VerifyEmailRequest
@@ -1860,31 +1945,33 @@ var file_proto_user_proto_depIdxs = []int32{
 	23, // 26: user.UserService.IsBlockedBy:input_type -> user.BlockCheckRequest
 	23, // 27: user.UserService.HasBlocked:input_type -> user.BlockCheckRequest
 	25, // 28: user.UserService.IsFollowing:input_type -> user.FollowCheckRequest
-	0,  // 29: user.UserService.HealthCheck:output_type -> user.HealthResponse
-	28, // 30: user.UserService.Register:output_type -> google.protobuf.Empty
-	4,  // 31: user.UserService.Login:output_type -> user.AuthResponse
-	28, // 32: user.UserService.VerifyEmail:output_type -> google.protobuf.Empty
-	7,  // 33: user.UserService.GetSecurityQuestion:output_type -> user.GetSecurityQuestionResponse
-	28, // 34: user.UserService.ResetPassword:output_type -> google.protobuf.Empty
-	13, // 35: user.UserService.GetUserProfile:output_type -> user.UserProfileResponse
-	11, // 36: user.UserService.GetUserProfilesByIds:output_type -> user.GetUserProfilesByIdsResponse
-	28, // 37: user.UserService.ResendVerificationCode:output_type -> google.protobuf.Empty
-	28, // 38: user.UserService.FollowUser:output_type -> google.protobuf.Empty
-	28, // 39: user.UserService.UnfollowUser:output_type -> google.protobuf.Empty
-	28, // 40: user.UserService.BlockUser:output_type -> google.protobuf.Empty
-	28, // 41: user.UserService.UnblockUser:output_type -> google.protobuf.Empty
-	20, // 42: user.UserService.GetFollowers:output_type -> user.GetSocialListResponse
-	20, // 43: user.UserService.GetFollowing:output_type -> user.GetSocialListResponse
-	1,  // 44: user.UserService.GetUserByUsername:output_type -> user.User
-	1,  // 45: user.UserService.UpdateUserProfile:output_type -> user.User
-	22, // 46: user.UserService.GetBlockedUserIDs:output_type -> user.UserIDListResponse
-	22, // 47: user.UserService.GetBlockingUserIDs:output_type -> user.UserIDListResponse
-	22, // 48: user.UserService.GetFollowingIDs:output_type -> user.UserIDListResponse
-	24, // 49: user.UserService.IsBlockedBy:output_type -> user.BlockStatusResponse
-	24, // 50: user.UserService.HasBlocked:output_type -> user.BlockStatusResponse
-	24, // 51: user.UserService.IsFollowing:output_type -> user.BlockStatusResponse
-	29, // [29:52] is the sub-list for method output_type
-	6,  // [6:29] is the sub-list for method input_type
+	26, // 29: user.UserService.ApplyForPremium:input_type -> user.ApplyForPremiumRequest
+	0,  // 30: user.UserService.HealthCheck:output_type -> user.HealthResponse
+	29, // 31: user.UserService.Register:output_type -> google.protobuf.Empty
+	4,  // 32: user.UserService.Login:output_type -> user.AuthResponse
+	29, // 33: user.UserService.VerifyEmail:output_type -> google.protobuf.Empty
+	7,  // 34: user.UserService.GetSecurityQuestion:output_type -> user.GetSecurityQuestionResponse
+	29, // 35: user.UserService.ResetPassword:output_type -> google.protobuf.Empty
+	13, // 36: user.UserService.GetUserProfile:output_type -> user.UserProfileResponse
+	11, // 37: user.UserService.GetUserProfilesByIds:output_type -> user.GetUserProfilesByIdsResponse
+	29, // 38: user.UserService.ResendVerificationCode:output_type -> google.protobuf.Empty
+	29, // 39: user.UserService.FollowUser:output_type -> google.protobuf.Empty
+	29, // 40: user.UserService.UnfollowUser:output_type -> google.protobuf.Empty
+	29, // 41: user.UserService.BlockUser:output_type -> google.protobuf.Empty
+	29, // 42: user.UserService.UnblockUser:output_type -> google.protobuf.Empty
+	20, // 43: user.UserService.GetFollowers:output_type -> user.GetSocialListResponse
+	20, // 44: user.UserService.GetFollowing:output_type -> user.GetSocialListResponse
+	1,  // 45: user.UserService.GetUserByUsername:output_type -> user.User
+	1,  // 46: user.UserService.UpdateUserProfile:output_type -> user.User
+	22, // 47: user.UserService.GetBlockedUserIDs:output_type -> user.UserIDListResponse
+	22, // 48: user.UserService.GetBlockingUserIDs:output_type -> user.UserIDListResponse
+	22, // 49: user.UserService.GetFollowingIDs:output_type -> user.UserIDListResponse
+	24, // 50: user.UserService.IsBlockedBy:output_type -> user.BlockStatusResponse
+	24, // 51: user.UserService.HasBlocked:output_type -> user.BlockStatusResponse
+	24, // 52: user.UserService.IsFollowing:output_type -> user.BlockStatusResponse
+	29, // 53: user.UserService.ApplyForPremium:output_type -> google.protobuf.Empty
+	30, // [30:54] is the sub-list for method output_type
+	6,  // [6:30] is the sub-list for method input_type
 	6,  // [6:6] is the sub-list for extension type_name
 	6,  // [6:6] is the sub-list for extension extendee
 	0,  // [0:6] is the sub-list for field type_name
@@ -1905,7 +1992,7 @@ func file_proto_user_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_proto_user_proto_rawDesc), len(file_proto_user_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   27,
+			NumMessages:   28,
 			NumExtensions: 0,
 			NumServices:   1,
 		},
